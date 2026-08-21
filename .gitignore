@@ -1,3 +1,6 @@
+# Cursor (règles locales, skills, hooks, caches)
+.cursor
+
 # dependencies
 node_modules
 .pnpm-store
@@ -6,20 +9,34 @@ node_modules
 dist
 build
 coverage
+.nyc_output
 
-# env
+# env / secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
 
-# misc
-.DS_Store
-*.log
+# caches
+.eslintcache
+.cache
+.turbo
+.vite
 *.tsbuildinfo
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea
+*.swp
+*.swo
+*~
+
+# logs
+*.log
+logs
 
 # generated
 backend/src/generated
 graphify-out
-
-# Continual learning runtime
-.cursor/hooks/state/
