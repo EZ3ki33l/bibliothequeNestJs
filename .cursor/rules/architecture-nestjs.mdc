@@ -1,0 +1,38 @@
+---
+description: Architecture NestJS professionnelle du projet bibliothèque
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Architecture NestJS de ce projet
+
+Stack : NestJS 11, Prisma 7 (`@prisma/adapter-pg`), PostgreSQL. Frontend Vite séparé (`frontend/`).
+
+## Vocabulaire
+
+- **Module** : frontière d'un domaine ; assemble controllers et providers
+- **Controller** : HTTP uniquement (routes, status, délégation)
+- **Service** : règles métier ; injectable via le constructeur
+- **DTO** : contrat de l'API (entrée/sortie), pas le modèle Prisma
+
+## Organisation (feature modules)
+
+Un domaine = un dossier, pas des dossiers `controllers/` / `services/` globaux :
+
+```
+src/books/
+  books.module.ts
+  books.controller.ts
+  books.service.ts
+  dto/create-book.dto.ts
+  dto/update-book.dto.ts
+```
+
+- Prisma : `PrismaModule` dédié, jamais appelé depuis un controller
+- Config, filtres, interceptors partagés : `src/common/` ou `src/prisma/`
+- `AppModule` n'importe que des modules, pas la logique métier
+- Un module n'importe pas le repository d'un autre : on exporte un **service**
+
+## Flux à montrer
+
+`POST /books` → `ValidationPipe` + DTO → `BooksController.create()` → `BooksService.create()` → Prisma → DTO de réponse

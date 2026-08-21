@@ -1,0 +1,46 @@
+---
+description: Conventions NestJS modernes utilisées en entreprise
+globs: backend/**/*.ts
+alwaysApply: false
+---
+
+# Conventions d'équipe (NestJS moderne)
+
+Suivre le style officiel NestJS et les pratiques d'API d'entreprise. TypeScript strict, jamais `any`.
+
+## Contrôleurs minces
+
+```typescript
+// ❌ BAD — logique + Prisma dans le controller
+@Post()
+create(@Body() body: any) {
+  return this.prisma.book.create({ data: body });
+}
+
+// ✅ GOOD
+@Post()
+@HttpCode(HttpStatus.CREATED)
+create(@Body() dto: CreateBookDto) {
+  return this.booksService.create(dto);
+}
+```
+
+## Validation globale (obligatoire)
+
+Dans `main.ts` : `ValidationPipe` avec `whitelist`, `forbidNonWhitelisted`, `transform`.
+Les DTO sont des **classes** + `class-validator` (une interface TypeScript disparaît à l'exécution).
+Ne jamais renvoyer un modèle Prisma tel quel : mapper vers un DTO de réponse.
+
+## Config, erreurs, logs
+
+- `@nestjs/config` + schéma validé au démarrage — pas `process.env` éparpillé
+- Exceptions Nest (`NotFoundException`, `ConflictException`) — pas `throw new Error()`
+- `Logger` Nest — pas `console.log`
+- Params typés : `ParseUUIDPipe` / `ParseIntPipe`
+- REST : ressources au pluriel, verbes HTTP corrects, codes 201/204/400/404
+
+## Tests et couplage
+
+- Tester le **service** (métier) en mockant Prisma ; ne pas retester le framework
+- Injection par constructeur uniquement — jamais `new BooksService()`
+- `@Global()` seulement pour Config / Prisma / Logger

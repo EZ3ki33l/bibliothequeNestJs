@@ -1,0 +1,25 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# builds / tests
+dist
+build
+coverage
+
+# env
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# generated
+backend/src/generated
+graphify-out
+
+# Continual learning runtime
+.cursor/hooks/state/

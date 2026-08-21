@@ -1,0 +1,40 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { SessionGuard } from '../auth/session.guard';
+import { AdminGuard } from '../auth/admin.guard';
+import { StackService } from './stacks.service';
+import { CreateStackDto } from './dto/create-stack.dto';
+import { UpdateStackDto } from './dto/update-stack.dto';
+
+@Controller('admin/stacks')
+@UseGuards(SessionGuard, AdminGuard)
+export class AdminStackController {
+  constructor(private readonly stacksService: StackService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(@Body() dto: CreateStackDto) {
+    return this.stacksService.create(dto);
+  }
+
+  @Patch(':id')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStackDto) {
+    return this.stacksService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  delete(@Param('id', ParseUUIDPipe) id: string) {
+    return this.stacksService.delete(id);
+  }
+}

@@ -1,0 +1,43 @@
+---
+description: Sécurité NestJS par défaut — fail closed, OWASP, jamais de raccourci vulnérable
+alwaysApply: true
+---
+
+# Sécurité d'abord (NestJS)
+
+Chaque feature inclut son contrôle de sécurité. En cas de doute : **refuser** (fail closed), puis expliquer le risque en une phrase (OWASP).
+
+## Socle `main.ts` (ordre : Helmet, puis le reste)
+
+- `helmet()` **en premier**
+- CORS : liste d'origines explicite — jamais `origin: '*'` avec `credentials: true`
+- `ValidationPipe` global : `whitelist`, `forbidNonWhitelisted`, `transform`
+- `@nestjs/throttler` (plus strict sur login / register)
+- Limiter la taille du body ; pagination sur les listes
+- En prod : ne pas renvoyer les stack traces au client
+
+## Entrées, données, secrets
+
+```typescript
+// ❌ BAD — mass assignment + SQL interpolé + secret logué
+create(@Body() body: any) {
+  this.logger.log(process.env.DATABASE_URL);
+  return this.prisma.$queryRawUnsafe(`SELECT * FROM books WHERE id = '${body.id}'`);
+}
+
+// ✅ GOOD — DTO validé + Prisma (requêtes paramétrées)
+create(@Body() dto: CreateBookDto) {
+  return this.booksService.create(dto);
+}
+```
+
+- Prisma : pas de `$queryRawUnsafe` avec interpolation. `$queryRaw` + `Prisma.sql` seulement si le SQL brut est indispensable.
+- Ne jamais renvoyer `password` / hash / tokens. `select` explicite ou DTO de réponse.
+- Mots de passe : **Argon2id**, jamais en clair, jamais MD5/SHA.
+- Secrets : ConfigModule, jamais commités, jamais dans les logs.
+
+## Authz
+
+- Authentification ≠ autorisation. Guard par défaut ; `@Public()` en exception.
+- Cookies de session : `httpOnly`, `secure`, `sameSite`.
+- IDOR : vérifier que la ressource appartient à l'utilisateur (ou au rôle), pas seulement « un UUID valide ».

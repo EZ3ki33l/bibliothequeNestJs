@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum EntryKind {
+  FUNCTION
+  COMPONENT
+  CONCEPT
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ReviewRating {
+  AGAIN
+  HARD
+  GOOD
+  EASY
+}
+
+model User {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  image         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  admin         Admin?
+  sessions      Session[]
+  accounts      Account[]
+  reviewCards   ReviewCard[]
+  quizAttempts  QuizAttempt[]
+
+  @@map("user")
+}
+
+model Admin {
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AdminRole @default(ADMIN)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Stack {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String     @default("")
+  position    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  categories  Category[]
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  stackId     String
+  stack       Stack    @relation(fields: [stackId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String   @default("")
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  entries     Entry[]
+
+  @@unique([stackId, slug])
+  @@index([stackId])
+}
+
+model Entry {
+  id           String        @id @default(uuid())
+  categoryId   String
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title        String
+  slug         String        @unique
+  summary      String        @default("")
+  bodyMdx      String        @default("")
+  kind         EntryKind
+  difficulty   Difficulty    @default(BEGINNER)
+  tags         String[]      @default([])
+  published    Boolean       @default(false)
+  position     Int           @default(0)
+  template     String        @default("react-ts")
+  files        Json
+  dependencies Json?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reviewCards  ReviewCard[]
+  quizAttempts QuizAttempt[]
+
+  @@index([categoryId])
+  @@index([published, kind])
+}
+
+model ReviewCard {
+  id             String      @id @default(uuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId        String
+  entry          Entry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  easeFactor     Float       @default(2.5)
+  intervalDays   Int         @default(0)
+  repetitions    Int         @default(0)
+  nextReviewAt   DateTime    @default(now())
+  lastReviewedAt DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  logs           ReviewLog[]
+
+  @@unique([userId, entryId])
+  @@index([userId, nextReviewAt])
+}
+
+model ReviewLog {
+  id        String       @id @default(uuid())
+  cardId    String
+  card      ReviewCard   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  rating    ReviewRating
+  createdAt DateTime     @default(now())
+
+  @@index([cardId])
+}
+
+model QuizAttempt {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId   String
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  questions Json
+  answers   Json?
+  score     Int?
+  createdAt DateTime @default(now())
+
+  @@index([userId, entryId])
+}

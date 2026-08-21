@@ -1,0 +1,15 @@
+allowBuilds:
+  "@nestjs/core": false
+  unrs-resolver: true
+  "@prisma/client": true
+  "@prisma/engines": true
+  es5-ext: false
+  esbuild: true
+  prisma: true
+
+verifyDepsBeforeRun: false
+
+# Jest 30 tire encore glob@10 et test-exclude@6 (glob@7 + inflight), tous dépréciés.
+overrides:
+  glob: "^13.0.6"
+  test-exclude: "^8.0.0" 
