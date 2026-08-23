@@ -9,12 +9,12 @@ Deux applications distinctes — pas un monorepo pnpm :
 | `backend/` | API NestJS 11 + Prisma 7 + PostgreSQL | `4000` |
 | `frontend/` | SPA Vite + React 19 | `5173` |
 
-Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les écritures passent par `/admin/...` (session + rôle admin).
+Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
 
 ## Prérequis
 
 - Node.js 22+
-- [pnpm](https://pnpm.io/) 10+
+- [pnpm](https://pnpm.io/) 11+
 - PostgreSQL (local ou Docker)
 
 ## Démarrage
@@ -65,6 +65,26 @@ pnpm dev
 
 Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le cookie (`credentials: 'include'`).
 
+## Pages (SPA)
+
+`App.tsx` est la table de routes. Une page = un fichier dans `frontend/src/pages/`.
+
+| Route navigateur | Page | Accès |
+| --- | --- | --- |
+| `/` | Accueil | public |
+| `/login`, `/register` | Auth | public |
+| `/stacks` | Liste des stacks | public |
+| `/stacks/:slug` | Détail d’un stack | public |
+| `/stacks/:stackSlug/:categorySlug` | Catégorie + fiches | public |
+| `/entries/:slug` | Fiche | public |
+| `/admin` | Dashboard admin | session + rôle admin |
+
+La route navigateur d’une catégorie **n’inclut pas** `categories` ; l’API, si : `GET /stacks/:stackSlug/categories/:categorySlug`.
+
+Le corps MDX d’une fiche (`bodyMdx`) s’affiche pour l’instant en texte (`<pre>`).
+
+L’admin SPA appelle `GET /admin/me` : **401** → `/login`, **403** → refus. Pas de `useSession()` pour cette garde.
+
 ## Scripts utiles
 
 Dans `backend/` :
@@ -91,9 +111,11 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET` | `/stacks`, `/stacks/:slug` | public |
 | `GET` | `/stacks/:stackSlug/categories/:categorySlug` | public |
 | `GET` | `/entries`, `/entries/:slug` | public |
+| `GET` | `/admin/stacks/:id` | admin |
+| `GET` | `/admin/categories`, `/admin/categories/:id` | admin |
 | `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin |
 
-Slug et `position` sont calculés **côté serveur**. Le slug d’une fiche est unique dans toute la base.
+Slug et `position` sont calculés **côté serveur** (`position` à la création seulement). Le slug d’une fiche est unique dans toute la base.
 
 ## Structure
 
@@ -105,10 +127,12 @@ backend/
     stacks/
     categories/
     entries/       un dossier = un domaine (module, controller, service, dto/)
+                   écritures admin = admin-*.controller.ts
 frontend/
   src/
     pages/         une page = une route (App.tsx = table de routes)
-    lib/           apiFetch, client better-auth
+    pages/admin/   layout imbriqué (<Outlet />) + dashboard
+    lib/           apiFetch, client better-auth, stacks, admin
 ```
 
 Flux HTTP : requête → `ValidationPipe` + DTO (`class-validator`) → controller → service → Prisma → JSON.

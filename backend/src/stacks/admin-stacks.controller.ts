@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,6 +21,11 @@ import { UpdateStackDto } from './dto/update-stack.dto';
 @UseGuards(SessionGuard, AdminGuard)
 export class AdminStackController {
   constructor(private readonly stacksService: StackService) {}
+
+  @Get(':id')
+  findById(@Param('id', ParseUUIDPipe) id: string) {
+    return this.stacksService.findById(id);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

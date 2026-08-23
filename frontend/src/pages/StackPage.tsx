@@ -59,7 +59,9 @@ export function StackPage() {
       ) : (
         stack.categories.map((category) => (
           <section key={category.id}>
-            <h2>{category.name}</h2>
+            <h2>
+              <Link to={`/stacks/${stack.slug}/${category.slug}`}>{category.name}</Link>
+            </h2>
             {category.description ? <p>{category.description}</p> : null}
 
             {category.entries.length === 0 ? (
@@ -68,7 +70,9 @@ export function StackPage() {
               <ul>
                 {category.entries.map((entry) => (
                   <li key={entry.id}>
-                    <p>{entry.title}</p>
+                    <p>
+                      <Link to={`/entries/${entry.slug}`}>{entry.title}</Link>
+                    </p>
                     {entry.summary ? <p>{entry.summary}</p> : null}
                     <p>
                       {KIND_LABEL[entry.kind]} · {DIFFICULTY_LABEL[entry.difficulty]}
