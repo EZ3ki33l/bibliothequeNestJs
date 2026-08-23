@@ -31,6 +31,29 @@ export class CategoriesService {
     return category;
   }
 
+  findAll() {
+    return this.prisma.category.findMany({
+      orderBy: [{ position: 'asc' }, { name: 'asc' }],
+      take: 50,
+      include: {
+        stack: { select: { id: true, name: true, slug: true } },
+        _count: { select: { entries: true } },
+      },
+    });
+  }
+
+  async findById(id: string) {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      include: { stack: { select: { id: true, name: true, slug: true } } },
+    });
+
+    if (!category) {
+      throw new NotFoundException();
+    }
+    return category;
+  }
+
   async create(dto: CreateCategoryDto) {
     const stack = await this.prisma.stack.findUnique({
       where: { id: dto.stackId },

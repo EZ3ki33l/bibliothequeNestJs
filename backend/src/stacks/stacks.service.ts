@@ -49,6 +49,15 @@ export class StackService {
     return stack;
   }
 
+  async findById(id: string) {
+    const stack = await this.prisma.stack.findUnique({ where: { id } });
+
+    if (!stack) {
+      throw new NotFoundException();
+    }
+    return stack;
+  }
+
   async create(dto: CreateStackDto) {
     const { _max } = await this.prisma.stack.aggregate({
       _max: { position: true },

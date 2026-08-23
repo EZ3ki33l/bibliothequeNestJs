@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
@@ -20,6 +21,16 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 @UseGuards(SessionGuard, AdminGuard)
 export class AdminCategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
+
+  @Get()
+  findAll() {
+    return this.categoriesService.findAll();
+  }
+
+  @Get(':id')
+  findById(@Param('id', ParseUUIDPipe) id: string) {
+    return this.categoriesService.findById(id);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

@@ -6,7 +6,7 @@
 - Réponses en français. Une idée principale par explication NestJS. Comparer à Next.js (Zod, server actions du projet `bibliotheque/`) quand ça éclaire.
 - En Ask / conseil : ne jamais proposer de passer en Agent mode.
 - Pédagogie : une étape du plan à la fois ; l'utilisateur code souvent lui-même puis demande de vérifier — ne pas générer tous les fichiers d'un coup.
-- Frontend Vite : rester sur `src/pages/` (HomePage, LoginPage, etc.) ; `App.tsx` = table de routes. Pas de React Router framework / SSR. Ne pas calquer l'App Router Next (`src/app/.../page.tsx`).
+- Frontend Vite : rester sur `src/pages/` (HomePage, LoginPage, `pages/admin/`, etc.) ; `App.tsx` = table de routes ; layouts imbriqués avec `<Outlet />` (équivalent Next `{children}`). Pas de React Router framework / SSR. Ne pas calquer l'App Router Next (`src/app/.../page.tsx`).
 - Vérifier les types/docs React 19 en vigueur (`SubmitEvent` importé de `'react'`, pas `FormEvent` déprécié).
 
 ## Learned Workspace Facts
@@ -16,11 +16,12 @@
 - pnpm 11 : les overrides vivent dans `backend/pnpm-workspace.yaml`, pas dans le champ `pnpm` de `package.json`.
 - ESLint 10 ; `glob` est forcé en `^13.0.6` et `test-exclude` en `^8.0.0` pour éviter les paquets dépréciés de Jest.
 - Prisma : `PrismaModule` dans `backend/prisma/` ; client généré dans `backend/src/generated` (gitignoré).
-- Auth : better-auth + `SessionGuard` / `AdminGuard` ; montée dans `main.ts` (`toNodeHandler` `/api/auth`) + guards, pas d'`AuthModule` ; CORS : `FRONTEND_ORIGIN` (défaut `http://localhost:5173`) + `credentials: true`.
+- Auth : better-auth + `SessionGuard` / `AdminGuard` ; montée dans `main.ts` (`toNodeHandler` `/api/auth`) + guards, pas d'`AuthModule` ; CORS : `FRONTEND_ORIGIN` (défaut `http://localhost:5173`) + `credentials: true`. Compte admin : `ADMIN_EMAIL` + inscription puis `pnpm db:seed` (pas un flag better-auth).
 - Migration depuis `/mnt/SSD medias/Codes/bibliotheque/` (Next.js) : domaines stacks, categories, entries.
-- Écritures admin : `admin-*.controller.ts` sous `/admin/...` (GET publics séparés) ; chaque feature module doit être importé dans `AppModule`.
+- Admin : `admin-*.controller.ts` sous `/admin/...` (GET publics séparés). Lectures : `GET /admin/stacks/:id`, `GET /admin/categories`, `GET /admin/categories/:id`. Garde front via `GET /admin/me` (401 → `/login`, 403 → refus), jamais `useSession()`. Chaque feature module importé dans `AppModule`.
 - Slug et `position` calculés côté serveur (`position` à la création seulement) ; slug d'entry unique globalement.
-- Frontend SPA Vite (`:5173`) : `VITE_API_URL` → Nest `:4000`, `apiFetch` + `credentials: 'include'`, client better-auth dans `frontend/src/lib/auth.ts` (même 1.7.x que le backend) ; jamais Prisma côté client.
+- Frontend SPA Vite (`:5173`) : `VITE_API_URL` → Nest `:4000`, `apiFetch` + `credentials: 'include'`, client better-auth dans `frontend/src/lib/auth.ts` (même 1.7.x que le backend) ; catalogue dans `lib/stacks.ts` (404 Nest → `null`) ; admin dans `lib/admin.ts` ; jamais Prisma côté client.
+- Catalogue public : `/stacks/:stackSlug/:categorySlug` (navigateur ; API = `/stacks/:stackSlug/categories/:categorySlug`) et `/entries/:slug`. `bodyMdx` affiché temporairement en texte (`<pre>`) : MDX/Sandpack prévu, pas encore branché.
 - DTOs Nest : `class-validator` (pas Zod).
 
 ## graphify

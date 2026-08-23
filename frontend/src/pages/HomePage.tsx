@@ -31,6 +31,8 @@ export function HomePage() {
       <p>Connecté : {session.user.name}</p>
       <p>
         <Link to="/stacks">Stacks</Link>
+        {' · '}
+        <Link to="/admin">Admin</Link>
       </p>
       <button type="button" onClick={signOut}>
         Se déconnecter
