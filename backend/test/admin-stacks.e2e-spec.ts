@@ -20,11 +20,11 @@ describe('Admin stacks (e2e)', () => {
     await app.close();
   });
 
-  it('GET /admin/stacks without cookie → 401', async () => {
-    await request(app.getHttpServer()).get('/admin/stacks').expect(401);
+  it('GET /admin/stacks without cookie → 401', () => {
+    return request(app.getHttpServer()).get('/admin/stacks').expect(401);
   });
 
-  it('POST /admin/stacks without cookie → 401', async () => {
-    await request(app.getHttpServer()).post('/admin/stacks').send({ name: 'Test' }).expect(401);
+  it('POST /admin/stacks without cookie → 401', () => {
+    return request(app.getHttpServer()).post('/admin/stacks').send({ name: 'Test' }).expect(401);
   });
 });

@@ -17,6 +17,27 @@ export class StackService {
     });
   }
 
+  async findAllAdmin(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.stack.findMany({
+        skip,
+        take: limit,
+        orderBy: [{ position: 'asc' }, { name: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          _count: { select: { categories: true } },
+        },
+      }),
+      this.prisma.stack.count(),
+    ]);
+    return { items, total, page, limit };
+  }
+
   async findBySlug(slug: string) {
     const stack = await this.prisma.stack.findUnique({
       where: { slug },

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getAdminDashboardCounts } from '../../lib/admin';
+import { Link } from 'react-router';
 
 export function AdminPage() {
   const [counts, setCounts] = useState<{ stacks: number; categories: number } | null>(null);
@@ -30,8 +31,10 @@ export function AdminPage() {
       <p>Gère les stacks et les catégories.</p>
       <ul>
         <li>
-          <p>Stacks</p>
-          <p>{counts.stacks}</p>
+          <Link to="/admin/stacks">
+            <p>Stacks</p>
+            <p>{counts.stacks}</p>
+          </Link>
         </li>
         <li>
           <p>Catégories</p>

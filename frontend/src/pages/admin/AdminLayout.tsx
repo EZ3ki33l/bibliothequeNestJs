@@ -42,6 +42,8 @@ export function AdminLayout() {
         <Link to="/">Accueil</Link>
         {' · '}
         <Link to="/admin">Dashboard</Link>
+        {' · '}
+        <Link to="/admin/stacks">Stacks</Link>
       </p>
       <Outlet />
     </div>
