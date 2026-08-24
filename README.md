@@ -78,12 +78,17 @@ Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le
 | `/stacks/:stackSlug/:categorySlug` | Catégorie + fiches | public |
 | `/entries/:slug` | Fiche | public |
 | `/admin` | Dashboard admin | session + rôle admin |
+| `/admin/stacks` | Liste des stacks | session + rôle admin |
+| `/admin/stacks/new` | Créer un stack | session + rôle admin |
+| `/admin/stacks/:id/edit` | Modifier un stack | session + rôle admin |
 
 La route navigateur d’une catégorie **n’inclut pas** `categories` ; l’API, si : `GET /stacks/:stackSlug/categories/:categorySlug`.
 
 Le corps MDX d’une fiche (`bodyMdx`) s’affiche pour l’instant en texte (`<pre>`).
 
 L’admin SPA appelle `GET /admin/me` : **401** → `/login`, **403** → refus. Pas de `useSession()` pour cette garde.
+
+Les écrans `/admin/stacks` listent, créent et modifient les stacks (nom + description seulement). Ils appellent `GET` / `POST` / `PATCH /admin/stacks` ; `GET /admin/stacks` renvoie `{ items, total, page, limit }`.
 
 ## Scripts utiles
 
@@ -111,6 +116,7 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET` | `/stacks`, `/stacks/:slug` | public |
 | `GET` | `/stacks/:stackSlug/categories/:categorySlug` | public |
 | `GET` | `/entries`, `/entries/:slug` | public |
+| `GET` | `/admin/stacks` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50) |
 | `GET` | `/admin/stacks/:id` | admin |
 | `GET` | `/admin/categories`, `/admin/categories/:id` | admin |
 | `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin |
@@ -131,7 +137,7 @@ backend/
 frontend/
   src/
     pages/         une page = une route (App.tsx = table de routes)
-    pages/admin/   layout imbriqué (<Outlet />) + dashboard
+    pages/admin/   layout imbriqué (<Outlet />), dashboard, liste / création / édition des stacks
     lib/           apiFetch, client better-auth, stacks, admin
 ```
 

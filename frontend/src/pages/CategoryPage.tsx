@@ -28,7 +28,7 @@ export function CategoryPage() {
         if (!cancelled) setCategory(data);
       })
       .catch(() => {
-        if (!cancelled) setError('Impossible de charge la catégorie');
+        if (!cancelled) setError('Impossible de charger la catégorie');
       });
 
     return () => {

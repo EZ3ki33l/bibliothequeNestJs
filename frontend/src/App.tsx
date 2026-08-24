@@ -8,6 +8,9 @@ import { CategoryPage } from './pages/CategoryPage';
 import { EntryPage } from './pages/EntryPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminPage } from './pages/admin/AdminPage';
+import { AdminStacksPage } from './pages/admin/AdminStacksPage';
+import { AdminStackNewPage } from './pages/admin/AdminStackNewPage';
+import { AdminStackEditPage } from './pages/admin/AdminStackEditPage';
 
 export default function App() {
   return (
@@ -21,6 +24,9 @@ export default function App() {
       <Route path="/entries/:slug" element={<EntryPage />} />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<AdminPage />} />
+        <Route path="stacks" element={<AdminStacksPage />} />
+        <Route path="stacks/new" element={<AdminStackNewPage />} />
+        <Route path="stacks/:id/edit" element={<AdminStackEditPage />} />
       </Route>
     </Routes>
   );
