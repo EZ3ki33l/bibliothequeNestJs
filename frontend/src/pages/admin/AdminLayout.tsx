@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router';
+import { Outlet, useNavigate } from 'react-router';
+import { Skeleton } from '@heroui/react';
 import { getAdminMe } from '../../lib/admin';
+import { EmptyMessage } from '../../components/ui/EmptyMessage';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 export function AdminLayout() {
   const navigate = useNavigate();
@@ -32,20 +35,16 @@ export function AdminLayout() {
     };
   }, [navigate]);
 
-  if (error) return <p>{error}</p>;
-  if (forbidden) return <p>Accès réservé aux administrateurs.</p>;
-  if (!ready) return <p>Chargement…</p>;
+  if (error) return <ErrorMessage>{error}</ErrorMessage>;
+  if (forbidden) return <EmptyMessage>Accès réservé aux administrateurs.</EmptyMessage>;
+  if (!ready) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-8 w-64 rounded-lg" />
+        <Skeleton className="h-28 rounded-xl" />
+      </div>
+    );
+  }
 
-  return (
-    <div>
-      <p>
-        <Link to="/">Accueil</Link>
-        {' · '}
-        <Link to="/admin">Dashboard</Link>
-        {' · '}
-        <Link to="/admin/stacks">Stacks</Link>
-      </p>
-      <Outlet />
-    </div>
-  );
+  return <Outlet />;
 }

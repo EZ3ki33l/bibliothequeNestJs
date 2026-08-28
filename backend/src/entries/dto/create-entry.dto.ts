@@ -38,15 +38,17 @@ export class CreateEntryDto {
   @IsString({ each: true })
   tags?: string[];
 
+  @IsOptional()
   @IsBoolean()
-  published!: boolean;
+  published?: boolean;
 
   @IsOptional()
   @IsString()
   template?: string;
 
+  @IsOptional()
   @IsObject()
-  files!: Record<string, string>;
+  files?: Record<string, string>;
 
   @IsOptional()
   @IsObject()

@@ -1,18 +1,12 @@
-import { Link, useParams } from 'react-router';
-import { getCategoryBySlugs, type CategoryDetail } from '../lib/stacks';
 import { useEffect, useState } from 'react';
-
-const KIND_LABEL: Record<CategoryDetail['entries'][number]['kind'], string> = {
-  FUNCTION: 'Fonction',
-  COMPONENT: 'Composant',
-  CONCEPT: 'Concept',
-};
-
-const DIFFICULTY_LABEL: Record<CategoryDetail['entries'][number]['difficulty'], string> = {
-  BEGINNER: 'Débutant',
-  INTERMEDIATE: 'Intermédiaire',
-  ADVANCED: 'Avancé',
-};
+import { useParams } from 'react-router';
+import { Skeleton } from '@heroui/react';
+import { getCategoryBySlugs, type CategoryDetail } from '../lib/stacks';
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { EmptyMessage } from '../components/ui/EmptyMessage';
+import { EntryCard } from '../components/ui/EntryCard';
+import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { PageHeader } from '../components/ui/PageHeader';
 
 export function CategoryPage() {
   const { stackSlug, categorySlug } = useParams();
@@ -21,6 +15,7 @@ export function CategoryPage() {
 
   useEffect(() => {
     if (!stackSlug || !categorySlug) return;
+
     let cancelled = false;
 
     getCategoryBySlugs(stackSlug, categorySlug)
@@ -36,38 +31,45 @@ export function CategoryPage() {
     };
   }, [stackSlug, categorySlug]);
 
-  if (error) return <p>{error}</p>;
-  if (category === undefined) return <p>Chargement…</p>;
-  if (category === null) return <p>Catégorie introuvable.</p>;
+  if (error) {
+    return <ErrorMessage>{error}</ErrorMessage>;
+  }
+
+  if (category === undefined) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-8 w-64 rounded-lg" />
+        <Skeleton className="h-32 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (category === null) {
+    return <EmptyMessage>Catégorie introuvable.</EmptyMessage>;
+  }
 
   return (
-    <main>
-      <p>
-        <Link to="/stacks">Stacks</Link>
-        {' / '}
-        <Link to={`/stacks/${category.stack.slug}`}>{category.stack.name}</Link>
-        {' / '}
-        {category.name}
-      </p>
-      <h1>{category.name}</h1>
-      {category.description ? <p>{category.description}</p> : null}
+    <>
+      <Breadcrumbs
+        items={[
+          { label: 'Stacks', to: '/stacks' },
+          { label: category.stack.name, to: `/stacks/${category.stack.slug}` },
+          { label: category.name },
+        ]}
+      />
+      <PageHeader title={category.name} description={category.description || undefined} />
+
       {category.entries.length === 0 ? (
-        <p>Aucune fiche publiée.</p>
+        <EmptyMessage>Aucune fiche publiée.</EmptyMessage>
       ) : (
-        <ul>
+        <ul className="grid gap-4 sm:grid-cols-2">
           {category.entries.map((entry) => (
             <li key={entry.id}>
-              <p>
-                <Link to={`/entries/${entry.slug}`}>{entry.title}</Link>
-              </p>
-              {entry.summary ? <p>{entry.summary}</p> : null}
-              <p>
-                {KIND_LABEL[entry.kind]} · {DIFFICULTY_LABEL[entry.difficulty]}
-              </p>
+              <EntryCard entry={entry} />
             </li>
           ))}
         </ul>
       )}
-    </main>
+    </>
   );
 }

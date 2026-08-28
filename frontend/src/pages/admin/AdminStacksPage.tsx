@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { type AdminStacksListPage, listAdminStacks } from '../../lib/admin';
 import { Link } from 'react-router';
+import { buttonVariants, toast } from '@heroui/react';
+import { StackIcon } from '@phosphor-icons/react';
+import { type AdminStacksListPage, deleteAdminStack, listAdminStacks } from '../../lib/admin';
+import { AdminListRow, AdminListSkeleton, AdminPagination } from '../../components/admin/AdminList';
+import { EmptyMessage } from '../../components/ui/EmptyMessage';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 export function AdminStacksPage() {
   const [page, setPage] = useState(1);
+  const [reloadToken, setReloadToken] = useState(0);
   const [data, setData] = useState<AdminStacksListPage | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,54 +30,78 @@ export function AdminStacksPage() {
     return () => {
       cancelled = true;
     };
-  }, [page]);
+  }, [page, reloadToken]);
 
-  if (error) return <p>{error}</p>;
-  if (data === null) return <p>Chargement ...</p>;
+  async function onDelete(stackId: string) {
+    const confirmed = window.confirm('Supprimer ce stack et toutes ses catégories / fiches ?');
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteAdminStack(stackId);
+      toast.success('Stack supprimé');
+      if (data !== null && data.items.length === 1 && page > 1) {
+        setPage(page - 1);
+      } else {
+        setReloadToken((token) => token + 1);
+      }
+    } catch {
+      toast.danger('Impossible de supprimer le stack');
+    }
+  }
 
   return (
-    <main>
-      <h1>Stacks</h1>
-      <p>Gère les stacks du catalogue.</p>
-      <Link to="/admin/stacks/new">Nouveau stack</Link>
-      {data.items.length === 0 ? (
-        <p>
-          Aucun stack pour le moment. <Link to="/admin/stacks/new">Créer le premier</Link>
-        </p>
-      ) : (
-        <ul>
-          {data.items.map((stack) => (
-            <li key={stack.id}>
-              <p>{stack.name}</p>
-              <p>{stack.slug}</p>
-              {stack.description ? <p>{stack.description}</p> : null}
-              <p>
-                {stack._count.categories} {stack._count.categories > 1 ? 'catégories' : 'catégorie'}
-              </p>
-              <p>
-                <Link to={`/admin/stacks/${stack.id}/edit`}>Modifier</Link>
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-      {data.total > data.limit ? (
-        <p>
-          <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-            Précédent
-          </button>{' '}
-          Page {data.page}
-          {' · '}
-          {data.total} au total{' '}
-          <button
-            type="button"
-            disabled={page * data.limit >= data.total}
-            onClick={() => setPage(page + 1)}
+    <>
+      <PageHeader
+        title="Stacks"
+        description="Techno / contexte (React, Prisma, HeroUI…)."
+        action={
+          <Link
+            to="/admin/stacks/new"
+            className={`${buttonVariants({ variant: 'primary' })} no-underline`}
           >
-            Suivant
-          </button>
-        </p>
-      ) : null}
-    </main>
+            Nouveau stack
+          </Link>
+        }
+      />
+
+      {error ? (
+        <ErrorMessage>{error}</ErrorMessage>
+      ) : data === null ? (
+        <AdminListSkeleton />
+      ) : data.items.length === 0 ? (
+        <EmptyMessage>
+          Aucun stack pour le moment.{' '}
+          <Link to="/admin/stacks/new" className="text-foreground underline">
+            Créer le premier
+          </Link>
+        </EmptyMessage>
+      ) : (
+        <>
+          <ul className="flex flex-col gap-2">
+            {data.items.map((stack) => (
+              <AdminListRow
+                key={stack.id}
+                icon={StackIcon}
+                title={stack.name}
+                subtitle={`${stack.slug} · ${stack._count.categories} ${
+                  stack._count.categories > 1 ? 'catégories' : 'catégorie'
+                }`}
+                editTo={`/admin/stacks/${stack.id}/edit`}
+                onDelete={() => void onDelete(stack.id)}
+              />
+            ))}
+          </ul>
+          <AdminPagination
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            onPageChange={setPage}
+          />
+        </>
+      )}
+    </>
   );
 }

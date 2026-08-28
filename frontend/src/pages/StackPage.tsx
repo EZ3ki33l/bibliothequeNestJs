@@ -1,21 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { Skeleton } from '@heroui/react';
 import { getStackBySlug, type StackDetail } from '../lib/stacks';
-
-const KIND_LABEL: Record<StackDetail['categories'][number]['entries'][number]['kind'], string> = {
-  FUNCTION: 'Fonction',
-  COMPONENT: 'Composant',
-  CONCEPT: 'Concept',
-};
-
-const DIFFICULTY_LABEL: Record<
-  StackDetail['categories'][number]['entries'][number]['difficulty'],
-  string
-> = {
-  BEGINNER: 'Débutant',
-  INTERMEDIATE: 'Intermédiaire',
-  ADVANCED: 'Avancé',
-};
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { EmptyMessage } from '../components/ui/EmptyMessage';
+import { EntryCard } from '../components/ui/EntryCard';
+import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { PageHeader } from '../components/ui/PageHeader';
 
 export function StackPage() {
   const { slug } = useParams();
@@ -40,50 +31,64 @@ export function StackPage() {
     };
   }, [slug]);
 
-  if (error) return <p>{error}</p>;
-  if (stack === undefined) return <p>Chargement…</p>;
-  if (stack === null) return <p>Stack introuvable.</p>;
+  if (error) {
+    return <ErrorMessage>{error}</ErrorMessage>;
+  }
+
+  if (stack === undefined) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-8 w-64 rounded-lg" />
+        <Skeleton className="h-32 rounded-xl" />
+        <Skeleton className="h-32 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (stack === null) {
+    return <EmptyMessage>Stack introuvable.</EmptyMessage>;
+  }
 
   return (
-    <main>
-      <p>
-        <Link to="/stacks">Stacks</Link>
-        {' / '}
-        {stack.name}
-      </p>
-      <h1>{stack.name}</h1>
-      {stack.description ? <p>{stack.description}</p> : null}
+    <>
+      <Breadcrumbs items={[{ label: 'Stacks', to: '/stacks' }, { label: stack.name }]} />
+      <PageHeader title={stack.name} description={stack.description || undefined} />
 
       {stack.categories.length === 0 ? (
-        <p>Aucune catégorie dans ce stack.</p>
+        <EmptyMessage>Aucune catégorie dans ce stack.</EmptyMessage>
       ) : (
-        stack.categories.map((category) => (
-          <section key={category.id}>
-            <h2>
-              <Link to={`/stacks/${stack.slug}/${category.slug}`}>{category.name}</Link>
-            </h2>
-            {category.description ? <p>{category.description}</p> : null}
+        <div className="flex flex-col gap-10">
+          {stack.categories.map((category) => (
+            <section key={category.id}>
+              <div className="border-border mb-4 border-b pb-2">
+                <h2 className="text-lg font-medium">
+                  <Link
+                    to={`/stacks/${stack.slug}/${category.slug}`}
+                    className="hover:text-muted no-underline transition-colors duration-150"
+                  >
+                    {category.name}
+                  </Link>
+                </h2>
+                {category.description ? (
+                  <p className="text-muted mt-1 text-sm">{category.description}</p>
+                ) : null}
+              </div>
 
-            {category.entries.length === 0 ? (
-              <p>Aucune fiche publiée.</p>
-            ) : (
-              <ul>
-                {category.entries.map((entry) => (
-                  <li key={entry.id}>
-                    <p>
-                      <Link to={`/entries/${entry.slug}`}>{entry.title}</Link>
-                    </p>
-                    {entry.summary ? <p>{entry.summary}</p> : null}
-                    <p>
-                      {KIND_LABEL[entry.kind]} · {DIFFICULTY_LABEL[entry.difficulty]}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))
+              {category.entries.length === 0 ? (
+                <p className="text-muted/70 text-sm">Aucune fiche publiée.</p>
+              ) : (
+                <ul className="grid gap-4 sm:grid-cols-2">
+                  {category.entries.map((entry) => (
+                    <li key={entry.id}>
+                      <EntryCard entry={entry} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </div>
       )}
-    </main>
+    </>
   );
 }

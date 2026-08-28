@@ -1,18 +1,13 @@
-import { Link, useParams } from 'react-router';
-import { getEntryBySlug, type EntryDetail } from '../lib/stacks';
 import { useEffect, useState } from 'react';
-
-const KIND_LABEL: Record<EntryDetail['kind'], string> = {
-  FUNCTION: 'Fonction',
-  COMPONENT: 'Composant',
-  CONCEPT: 'Concept',
-};
-
-const DIFFICULTY_LABEL: Record<EntryDetail['difficulty'], string> = {
-  BEGINNER: 'Débutant',
-  INTERMEDIATE: 'Intermédiaire',
-  ADVANCED: 'Avancé',
-};
+import { useParams } from 'react-router';
+import { Chip, Skeleton } from '@heroui/react';
+import { getEntryBySlug, jsonToStringRecord, type EntryDetail } from '../lib/stacks';
+import { DIFFICULTY_COLOR, DIFFICULTY_LABEL, KIND_LABEL } from '../lib/labels';
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { EmptyMessage } from '../components/ui/EmptyMessage';
+import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { EntryMdx } from '../components/entry/EntryMdx';
+import { Playground } from '../components/lab/Playground';
 
 export function EntryPage() {
   const { slug } = useParams();
@@ -37,34 +32,74 @@ export function EntryPage() {
     };
   }, [slug]);
 
-  if (error) return <p>{error}</p>;
-  if (entry === undefined) return <p>Chargement ...</p>;
-  if (entry === null) return <p>Fiche introuvable</p>;
+  if (error) {
+    return <ErrorMessage>{error}</ErrorMessage>;
+  }
 
-  const { stack, ...category } = {
-    stack: entry.category.stack,
-    name: entry.category.name,
-    slug: entry.category.slug,
-  };
+  if (entry === undefined) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+        <Skeleton className="h-10 w-3/4 rounded-lg" />
+        <Skeleton className="h-5 w-1/2 rounded-lg" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (entry === null) {
+    return <EmptyMessage>Fiche introuvable.</EmptyMessage>;
+  }
+
+  const { category } = entry;
+  const { stack } = category;
+  const files = jsonToStringRecord(entry.files);
+  const dependencies = jsonToStringRecord(entry.dependencies);
+  const showPlayground = entry.kind !== 'CONCEPT' && files;
 
   return (
-    <main>
-      <p>
-        <Link to="/stacks">Stacks</Link>
-        {' / '}
-        <Link to={`/stacks/${stack.slug}`}>{stack.name}</Link>
-        {' / '}
-        <Link to={`/stacks/${stack.slug}/${category.slug}`}>{category.name}</Link>
-        {' / '}
-        {entry.title}
-      </p>
-      <h1>{entry.title}</h1>
-      <p>
-        {KIND_LABEL[entry.kind]} · {DIFFICULTY_LABEL[entry.difficulty]}
-      </p>
-      {entry.summary ? <p>{entry.summary}</p> : null}
-      {entry.tags.length > 0 ? <p>{entry.tags.join(', ')}</p> : null}
-      {entry.bodyMdx ? <pre>{entry.bodyMdx}</pre> : null}
-    </main>
+    <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Stacks', to: '/stacks' },
+          { label: stack.name, to: `/stacks/${stack.slug}` },
+          { label: category.name, to: `/stacks/${stack.slug}/${category.slug}` },
+          { label: entry.title },
+        ]}
+      />
+
+      <header className="border-border mb-8 border-b pb-6">
+        <h1 className="text-3xl font-semibold tracking-tight">{entry.title}</h1>
+
+        {entry.summary ? <p className="text-muted mt-3 text-base">{entry.summary}</p> : null}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <Chip size="sm" variant="soft">
+            {KIND_LABEL[entry.kind]}
+          </Chip>
+          <Chip size="sm" variant="soft" color={DIFFICULTY_COLOR[entry.difficulty]}>
+            {DIFFICULTY_LABEL[entry.difficulty]}
+          </Chip>
+        </div>
+
+        {entry.tags.length > 0 ? (
+          <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+            {entry.tags.map((tag) => (
+              <li key={tag} className="text-muted text-xs">
+                #{tag}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </header>
+
+      {entry.bodyMdx ? (
+        <EntryMdx source={entry.bodyMdx} />
+      ) : (
+        <EmptyMessage>Cette fiche n’a pas encore de contenu.</EmptyMessage>
+      )}
+      {showPlayground ? (
+        <Playground files={files} template={entry.template} dependencies={dependencies} />
+      ) : null}
+    </article>
   );
 }

@@ -31,15 +31,27 @@ export class CategoriesService {
     return category;
   }
 
-  findAll() {
-    return this.prisma.category.findMany({
-      orderBy: [{ position: 'asc' }, { name: 'asc' }],
-      take: 50,
-      include: {
-        stack: { select: { id: true, name: true, slug: true } },
-        _count: { select: { entries: true } },
-      },
-    });
+  async findAllAdmin(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.category.findMany({
+        skip,
+        take: limit,
+        orderBy: [{ stack: { position: 'asc' } }, { position: 'asc' }, { name: 'asc' }],
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          stack: { select: { id: true, name: true, slug: true } },
+          _count: { select: { entries: true } },
+        },
+      }),
+      this.prisma.category.count(),
+    ]);
+
+    return { items, total, page, limit };
   }
 
   async findById(id: string) {
