@@ -58,10 +58,10 @@ export class EntriesService {
           kind: dto.kind,
           difficulty: dto.difficulty ?? 'BEGINNER',
           tags: dto.tags ?? [],
-          published: dto.published,
+          published: dto.published ?? false,
           position: (_max.position ?? -1) + 1,
           template: dto.template ?? 'react-ts',
-          files: dto.files,
+          files: dto.files ?? {},
           dependencies: dto.dependencies,
         },
       });
@@ -74,16 +74,7 @@ export class EntriesService {
   }
 
   async update(id: string, dto: UpdateEntryDto) {
-    if (dto.categoryId !== undefined) {
-      const category = await this.prisma.category.findUnique({
-        where: { id: dto.categoryId },
-      });
-      if (!category) {
-        throw new NotFoundException();
-      }
-    }
     const data: {
-      categoryId?: string;
       title?: string;
       slug?: string;
       summary?: string;
@@ -96,7 +87,6 @@ export class EntriesService {
       files?: Record<string, string>;
       dependencies?: Record<string, string>;
     } = {};
-    if (dto.categoryId !== undefined) data.categoryId = dto.categoryId;
     if (dto.title !== undefined) {
       data.title = dto.title;
       data.slug = slugify(dto.title);
@@ -131,5 +121,71 @@ export class EntriesService {
       }
       throw error;
     }
+  }
+
+  async findAllAdmin(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      this.prisma.entry.findMany({
+        skip,
+        take: limit,
+        orderBy: [
+          { category: { stack: { position: 'asc' } } },
+          { category: { position: 'asc' } },
+          { position: 'asc' },
+          { title: 'asc' },
+        ],
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          kind: true,
+          published: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              stack: { select: { id: true, name: true, slug: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.entry.count(),
+    ]);
+    return { items, total, page, limit };
+  }
+
+  async findById(id: string) {
+    const entry = await this.prisma.entry.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        summary: true,
+        bodyMdx: true,
+        kind: true,
+        difficulty: true,
+        tags: true,
+        published: true,
+        template: true,
+        files: true,
+        dependencies: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            stack: { select: { id: true, name: true, slug: true } },
+          },
+        },
+      },
+    });
+
+    if (!entry) {
+      throw new NotFoundException();
+    }
+    return entry;
   }
 }

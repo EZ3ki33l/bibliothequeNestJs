@@ -2,6 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
+jest.mock('./auth/session.guard', () => ({
+  SessionGuard: class SessionGuard {},
+}));
+jest.mock('./auth/admin.guard', () => ({
+  AdminGuard: class AdminGuard {},
+}));
+
 describe('AppController', () => {
   let appController: AppController;
 

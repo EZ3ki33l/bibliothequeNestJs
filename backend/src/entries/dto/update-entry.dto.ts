@@ -5,16 +5,11 @@ import {
   IsObject,
   IsOptional,
   IsString,
-  IsUUID,
   MinLength,
 } from 'class-validator';
 import { Difficulty, EntryKind } from '../../generated/prisma/enums';
 
 export class UpdateEntryDto {
-  @IsOptional()
-  @IsUUID()
-  categoryId?: string;
-
   @IsOptional()
   @IsString()
   @MinLength(2)

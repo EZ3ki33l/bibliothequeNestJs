@@ -50,6 +50,8 @@ export type CategoryDetail = {
   entries: StackEntry[];
 };
 
+export type SandpackFiles = Record<string, string>;
+
 export type EntryDetail = {
   id: string;
   title: string;
@@ -69,7 +71,21 @@ export type EntryDetail = {
       slug: string;
     };
   };
+  template: string;
+  files: SandpackFiles | null;
+  dependencies: SandpackFiles | null;
 };
+
+export function jsonToStringRecord(value: unknown): SandpackFiles | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const record: SandpackFiles = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (typeof val === 'string') record[key] = val;
+  }
+  return Object.keys(record).length > 0 ? record : undefined;
+}
 
 export async function listStacks(): Promise<StackListItem[]> {
   const response = await apiFetch('/stacks');

@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { getAdminStackById, type AdminStackDetail } from '../../lib/admin';
+import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
+import { EmptyMessage } from '../../components/ui/EmptyMessage';
+import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { AdminStackForm } from './AdminStackForm';
 
 export function AdminStackEditPage() {
@@ -26,13 +31,14 @@ export function AdminStackEditPage() {
     };
   }, [id]);
 
-  if (error) return <p>{error}</p>;
-  if (stack === undefined) return <p>Chargement…</p>;
-  if (stack === null) return <p>Ce stack n’existe pas.</p>;
+  if (error) return <ErrorMessage>{error}</ErrorMessage>;
+  if (stack === undefined) return <AdminFormSkeleton />;
+  if (stack === null) return <EmptyMessage>Ce stack n’existe pas.</EmptyMessage>;
 
   return (
-    <main>
-      <h1>Modifier {stack.name}</h1>
+    <>
+      <Breadcrumbs items={[{ label: 'Stacks', to: '/admin/stacks' }, { label: stack.name }]} />
+      <PageHeader title={`Modifier ${stack.name}`} />
       <AdminStackForm
         mode="edit"
         stackId={stack.id}
@@ -40,6 +46,6 @@ export function AdminStackEditPage() {
         initialDescription={stack.description}
         onSuccess={() => navigate('/admin/stacks')}
       />
-    </main>
+    </>
   );
 }
