@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { StacksModule } from './stacks/stacks.module';
 import { CategoriesModule } from './categories/categories.module';
 import { EntriesModule } from './entries/entries.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { EntriesModule } from './entries/entries.module';
     StacksModule,
     CategoriesModule,
     EntriesModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

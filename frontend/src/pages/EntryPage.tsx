@@ -8,11 +8,15 @@ import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EntryMdx } from '../components/entry/EntryMdx';
 import { Playground } from '../components/lab/Playground';
+import { authClient } from '../lib/auth';
+import { ensureReview } from '../lib/reviews';
 
 export function EntryPage() {
   const { slug } = useParams();
+  const { data: session } = authClient.useSession();
   const [entry, setEntry] = useState<EntryDetail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const userId = session?.user?.id;
 
   useEffect(() => {
     if (!slug) return;
@@ -32,6 +36,10 @@ export function EntryPage() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!entry?.id || !userId) return;
+    void ensureReview(entry.id).catch(() => undefined);
+  }, [entry?.id, userId]);
   if (error) {
     return <ErrorMessage>{error}</ErrorMessage>;
   }
@@ -66,12 +74,9 @@ export function EntryPage() {
           { label: entry.title },
         ]}
       />
-
       <header className="border-border mb-8 border-b pb-6">
         <h1 className="text-3xl font-semibold tracking-tight">{entry.title}</h1>
-
         {entry.summary ? <p className="text-muted mt-3 text-base">{entry.summary}</p> : null}
-
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Chip size="sm" variant="soft">
             {KIND_LABEL[entry.kind]}
@@ -80,7 +85,6 @@ export function EntryPage() {
             {DIFFICULTY_LABEL[entry.difficulty]}
           </Chip>
         </div>
-
         {entry.tags.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
             {entry.tags.map((tag) => (
@@ -91,7 +95,6 @@ export function EntryPage() {
           </ul>
         ) : null}
       </header>
-
       {entry.bodyMdx ? (
         <EntryMdx source={entry.bodyMdx} />
       ) : (

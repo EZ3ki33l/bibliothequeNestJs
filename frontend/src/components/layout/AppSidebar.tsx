@@ -4,6 +4,7 @@ import {
   ArticleIcon,
   ArrowCircleRightIcon,
   BooksIcon,
+  CardsIcon,
   FoldersIcon,
   SquaresFourIcon,
   StackIcon,
@@ -99,6 +100,10 @@ export function AppSidebar() {
 
   const currentUser = session?.user ?? null;
 
+  const libraryItems: NavItem[] = currentUser
+    ? [...LIBRARY_NAV, { to: '/review', label: 'Révisions', icon: CardsIcon }]
+    : LIBRARY_NAV;
+
   return (
     <aside className="border-border bg-background-secondary flex h-full w-64 shrink-0 flex-col border-r px-3 py-4">
       <Link to="/" className="mb-6 px-2 text-sm font-medium tracking-tight">
@@ -106,7 +111,7 @@ export function AppSidebar() {
       </Link>
 
       <nav className="flex flex-1 flex-col gap-5">
-        <NavSection title="Bibliothèque" items={LIBRARY_NAV} pathname={pathname} />
+        <NavSection title="Bibliothèque" items={libraryItems} pathname={pathname} />
         {isAdmin && currentUser ? (
           <NavSection title="Admin" items={ADMIN_NAV} pathname={pathname} />
         ) : null}

@@ -9,7 +9,7 @@ Deux applications distinctes — pas un monorepo pnpm :
 | `backend/` | API NestJS 11 + Prisma 7 + PostgreSQL | `4000` |
 | `frontend/` | SPA Vite + React 19 + HeroUI 3 + Tailwind 4 | `5173` |
 
-Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
+Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les **révisions** passent par `/reviews/...` (session, **pas** admin) ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
 
 ## Prérequis
 
@@ -77,6 +77,7 @@ Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le
 | `/stacks/:slug` | Détail d’un stack | public |
 | `/stacks/:stackSlug/:categorySlug` | Catégorie + fiches | public |
 | `/entries/:slug` | Fiche | public |
+| `/review` | File de révisions | session (pas admin) |
 | `/admin` | Dashboard admin | session + rôle admin |
 | `/admin/stacks` | Liste des stacks | session + rôle admin |
 | `/admin/stacks/new` | Créer un stack | session + rôle admin |
@@ -91,6 +92,8 @@ Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le
 La route navigateur d’une catégorie **n’inclut pas** `categories` ; l’API, si : `GET /stacks/:stackSlug/categories/:categorySlug`.
 
 Le corps d’une fiche (`bodyMdx`) est rendu par `EntryMdx` (`react-markdown` `MarkdownHooks` + `rehype-pretty-code` / Shiki). Si `kind` n’est pas `CONCEPT` et que `files` n’est pas vide, un playground Sandpack s’affiche sous le contenu.
+
+Les **révisions** sont un écran d’apprenant, pas d’admin : `/review` est sous `AppLayout` (hors `/admin/...`). Le lien « Révisions » n’apparaît dans la sidebar que s’il y a une session better-auth. La page vérifie `GET /me` (**401** → `/login`) — jamais `GET /admin/me` ni `useSession()` comme garde. Un visiteur voit le catalogue inchangé ; un compte connecté qui ouvre une fiche **publiée** déclenche silencieusement `POST /reviews/ensure`. `GET /entries/:slug` ne crée pas de carte.
 
 L’admin SPA appelle `GET /admin/me` : **401** → `/login`, **403** → refus. Pas de `useSession()` pour cette garde.
 
@@ -108,7 +111,7 @@ Dans `backend/` :
 | --- | --- |
 | `pnpm start:dev` | API en watch |
 | `pnpm build` / `pnpm start:prod` | build puis prod |
-| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches) |
+| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches) et reviews |
 | `pnpm db:generate` | client Prisma (`src/generated`, gitignoré) |
 | `pnpm db:migrate` | applique les migrations |
 | `pnpm db:seed` | données de démo + promotion admin |
@@ -126,6 +129,9 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET` | `/stacks`, `/stacks/:slug` | public |
 | `GET` | `/stacks/:stackSlug/categories/:categorySlug` | public |
 | `GET` | `/entries`, `/entries/:slug` | public |
+| `GET` | `/reviews/due` | session (`{ current, remaining }` ; file vide = `current: null`, `remaining: 0`) |
+| `POST` | `/reviews/ensure` | session (`204`, body `{ entryId }` ; fiche publiée seulement) |
+| `POST` | `/reviews/:id/rate` | session (body `{ rating }` ∈ `AGAIN` \| `HARD` \| `GOOD` \| `EASY` ; réponse = même enveloppe que due) |
 | `GET` | `/admin/stacks` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50) |
 | `GET` | `/admin/stacks/:id` | admin |
 | `DELETE` | `/admin/stacks/:id` | admin (`204`, cascade) |
@@ -136,6 +142,8 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET` | `/admin/entries/:id` | admin |
 | `DELETE` | `/admin/entries/:id` | admin (`204`, cascade révisions / quiz ; la catégorie reste) |
 | `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin |
+
+Sans cookie, les trois chemins `/reviews/*` répondent **401**. Une carte d’un autre compte, inconnue, non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe).
 
 Slug et `position` sont calculés **côté serveur** (`position` à la création seulement). Le slug d’une fiche est unique dans toute la base.
 
@@ -150,12 +158,14 @@ backend/
     categories/
     entries/       un dossier = un domaine (module, controller, service, dto/)
                    écritures admin = admin-*.controller.ts
+    reviews/       file due, ensure, notation (SessionGuard, pas AdminGuard)
+    common/        slugify, calendrier SM-2 (`scheduleReview`)
 frontend/
   src/
-    pages/         une page = une route (App.tsx = table de routes)
+    pages/         une page = une route (App.tsx = table de routes) ; ReviewPage = /review
     pages/admin/   layout imbriqué (<Outlet />), dashboard, CRUD stacks, catégories et fiches
     components/    UI, sidebar, admin (listes, formulaires), EntryMdx, Playground
-    lib/           apiFetch, client better-auth, stacks, admin, sandpack
+    lib/           apiFetch, client better-auth, stacks, admin, reviews, sandpack
 ```
 
 Flux HTTP : requête → `ValidationPipe` + DTO (`class-validator`) → controller → service → Prisma → JSON.
