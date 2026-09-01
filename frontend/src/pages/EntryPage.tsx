@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router';
+import { useParams, Link } from 'react-router';
 import { Chip, Skeleton } from '@heroui/react';
 import { getEntryBySlug, jsonToStringRecord, type EntryDetail } from '../lib/stacks';
 import { DIFFICULTY_COLOR, DIFFICULTY_LABEL, KIND_LABEL } from '../lib/labels';
@@ -93,6 +93,13 @@ export function EntryPage() {
               </li>
             ))}
           </ul>
+        ) : null}
+        {userId ? (
+          <p className="mt-4">
+            <Link to={`/entries/${entry.slug}/exam`} className="text-sm underline">
+              Examen
+            </Link>
+          </p>
         ) : null}
       </header>
       {entry.bodyMdx ? (

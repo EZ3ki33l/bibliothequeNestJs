@@ -48,7 +48,7 @@ async function main() {
 
   await prisma.entry.upsert({
     where: { slug: 'use-state-compteur' },
-    update: {},
+    update: { quizQuestions: counterQuizQuestions },
     create: {
       categoryId: category.id,
       title: 'useState - compteur',
@@ -61,7 +61,6 @@ async function main() {
 - \`setCount\` la met à jour
 - Passe une fonction \`setCount(c => c + 1)\` si la nouvelle valeur dépend de l’ancienne
 `,
-
       kind: EntryKind.FUNCTION,
       difficulty: Difficulty.BEGINNER,
       tags: ['react', 'hooks', 'state'],
@@ -69,6 +68,7 @@ async function main() {
       position: 0,
       template: 'react-ts',
       files: counterFiles,
+      quizQuestions: counterQuizQuestions,
     },
   });
 
@@ -92,6 +92,35 @@ async function main() {
   }
   console.log('SEED OK : stack React / Thème Hooks / fiche useState');
 }
+
+const counterQuizQuestions = [
+  {
+    id: 'q-usestate-1',
+    prompt: 'À quoi sert useState ?',
+    choices: [
+      'Garder une valeur entre les rendus',
+      'Remplacer tous les composants',
+      'Appeler l’API au montage',
+    ],
+    correctIndex: 0,
+  },
+  {
+    id: 'q-usestate-2',
+    prompt: 'Comment mets-tu à jour un compteur si la nouvelle valeur dépend de l’ancienne ?',
+    choices: ['setCount(count + 1) uniquement', 'setCount((c) => c + 1)', 'count = count + 1'],
+    correctIndex: 1,
+  },
+  {
+    id: 'q-usestate-3',
+    prompt: 'Que fait setCount ?',
+    choices: [
+      'Il change count sans re-render',
+      'Il déclenche un re-render avec la nouvelle valeur',
+      'Il supprime le composant',
+    ],
+    correctIndex: 1,
+  },
+];
 
 main()
   .catch((error) => {
