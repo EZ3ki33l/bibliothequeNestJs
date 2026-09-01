@@ -20,6 +20,7 @@ import { AdminEntryEditPage } from './pages/admin/AdminEntryEditPage';
 import { AppLayout } from './pages/AppLayout';
 import { AuthLayout } from './pages/AuthLayout';
 import { ReviewPage } from './pages/ReviewPage';
+import { ExamPage } from './pages/ExamPage';
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/stacks/:slug" element={<StackPage />} />
         <Route path="/stacks/:stackSlug/:categorySlug" element={<CategoryPage />} />
         <Route path="/entries/:slug" element={<EntryPage />} />
+        <Route path="/entries/:slug/exam" element={<ExamPage />} />
         <Route path="/review" element={<ReviewPage />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminPage />} />

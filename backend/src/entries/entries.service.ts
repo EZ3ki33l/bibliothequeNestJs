@@ -20,6 +20,7 @@ export class EntriesService {
       where: { published: true },
       orderBy: [{ position: 'asc' }, { title: 'asc' }],
       take: 50,
+      omit: { quizQuestions: true },
       include: withTaxonomy,
     });
   }
@@ -27,6 +28,7 @@ export class EntriesService {
   async findPublishedBySlug(slug: string) {
     const entry = await this.prisma.entry.findFirst({
       where: { slug, published: true },
+      omit: { quizQuestions: true },
       include: withTaxonomy,
     });
 

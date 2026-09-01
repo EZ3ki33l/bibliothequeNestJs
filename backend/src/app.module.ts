@@ -7,6 +7,7 @@ import { StacksModule } from './stacks/stacks.module';
 import { CategoriesModule } from './categories/categories.module';
 import { EntriesModule } from './entries/entries.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { QuizzesModule } from './quizzes/quizzes.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     CategoriesModule,
     EntriesModule,
     ReviewsModule,
+    QuizzesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

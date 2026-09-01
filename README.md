@@ -9,7 +9,7 @@ Deux applications distinctes — pas un monorepo pnpm :
 | `backend/` | API NestJS 11 + Prisma 7 + PostgreSQL | `4000` |
 | `frontend/` | SPA Vite + React 19 + HeroUI 3 + Tailwind 4 | `5173` |
 
-Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les **révisions** passent par `/reviews/...` (session, **pas** admin) ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
+Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les **révisions** passent par `/reviews/...` (session, **pas** admin) ; les **quiz** passent par `/quizzes/...` (session, **pas** admin) ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
 
 ## Prérequis
 
@@ -77,6 +77,7 @@ Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le
 | `/stacks/:slug` | Détail d’un stack | public |
 | `/stacks/:stackSlug/:categorySlug` | Catégorie + fiches | public |
 | `/entries/:slug` | Fiche | public |
+| `/entries/:slug/exam` | Épreuve d’une fiche | session (pas admin) |
 | `/review` | File de révisions | session (pas admin) |
 | `/admin` | Dashboard admin | session + rôle admin |
 | `/admin/stacks` | Liste des stacks | session + rôle admin |
@@ -95,6 +96,8 @@ Le corps d’une fiche (`bodyMdx`) est rendu par `EntryMdx` (`react-markdown` `M
 
 Les **révisions** sont un écran d’apprenant, pas d’admin : `/review` est sous `AppLayout` (hors `/admin/...`). Le lien « Révisions » n’apparaît dans la sidebar que s’il y a une session better-auth. La page vérifie `GET /me` (**401** → `/login`) — jamais `GET /admin/me` ni `useSession()` comme garde. Un visiteur voit le catalogue inchangé ; un compte connecté qui ouvre une fiche **publiée** déclenche silencieusement `POST /reviews/ensure`. `GET /entries/:slug` ne crée pas de carte.
 
+L’**examen** d’une fiche est aussi un écran d’apprenant : `/entries/:slug/exam` est sous `AppLayout` (hors `/admin/...`). Le lien « Examen » n’apparaît sur la fiche que s’il y a une session better-auth (un visiteur parcourt le catalogue comme avant). La page vérifie `GET /me` (**401** → `/login`) puis `POST /quizzes/start` — jamais `GET /admin/me`, jamais `useSession()` comme garde, jamais `GET /entries/:slug` (le corps fuirait dans l’onglet réseau). Réponses d’épreuve : titre, résumé, questions — **sans** `bodyMdx` ni `correctIndex`. Après **Valider**, l’écran résultat montre le score 0–100 (`correctCount` / `total`) et un lien « Voir la fiche » ; le corps n’est visible que sur `/entries/:slug`.
+
 L’admin SPA appelle `GET /admin/me` : **401** → `/login`, **403** → refus. Pas de `useSession()` pour cette garde.
 
 Les écrans `/admin/stacks` listent, créent, modifient et suppriment les stacks (nom + description seulement ; slug et `position` restent côté serveur). Ils appellent `GET` / `POST` / `PATCH` / `DELETE /admin/stacks`. `GET /admin/stacks` renvoie `{ items, total, page, limit }` (query `page` ≥ 1, `limit` 1–50, défauts 1 / 50). `DELETE /admin/stacks/:id` répond `204` et cascade catégories + fiches. La suppression se fait depuis la liste (`/admin/stacks`), pas sur une page dédiée.
@@ -111,7 +114,7 @@ Dans `backend/` :
 | --- | --- |
 | `pnpm start:dev` | API en watch |
 | `pnpm build` / `pnpm start:prod` | build puis prod |
-| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches) et reviews |
+| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview` + `scoreQuiz`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches), reviews et quizzes |
 | `pnpm db:generate` | client Prisma (`src/generated`, gitignoré) |
 | `pnpm db:migrate` | applique les migrations |
 | `pnpm db:seed` | données de démo + promotion admin |
@@ -132,6 +135,8 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET` | `/reviews/due` | session (`{ current, remaining }` ; file vide = `current: null`, `remaining: 0`) |
 | `POST` | `/reviews/ensure` | session (`204`, body `{ entryId }` ; fiche publiée seulement) |
 | `POST` | `/reviews/:id/rate` | session (body `{ rating }` ∈ `AGAIN` \| `HARD` \| `GOOD` \| `EASY` ; réponse = même enveloppe que due) |
+| `POST` | `/quizzes/start` | session (body `{ slug }` ; épreuve sans `correctIndex` / `bodyMdx`, ou `{ attempt: null }` si pas de jeu) |
+| `POST` | `/quizzes/:id/submit` | session (body `{ answers: [{ questionId, choiceIndex }] }` ; `{ id, score, correctCount, total, entry }`) |
 | `GET` | `/admin/stacks` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50) |
 | `GET` | `/admin/stacks/:id` | admin |
 | `DELETE` | `/admin/stacks/:id` | admin (`204`, cascade) |
@@ -143,7 +148,7 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `DELETE` | `/admin/entries/:id` | admin (`204`, cascade révisions / quiz ; la catégorie reste) |
 | `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin |
 
-Sans cookie, les trois chemins `/reviews/*` répondent **401**. Une carte d’un autre compte, inconnue, non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe).
+Sans cookie, les trois chemins `/reviews/*` et les deux chemins `/quizzes/*` répondent **401**. Une carte ou une tentative d’un autre compte, inconnue, déjà notée / non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe).
 
 Slug et `position` sont calculés **côté serveur** (`position` à la création seulement). Le slug d’une fiche est unique dans toute la base.
 
@@ -159,13 +164,14 @@ backend/
     entries/       un dossier = un domaine (module, controller, service, dto/)
                    écritures admin = admin-*.controller.ts
     reviews/       file due, ensure, notation (SessionGuard, pas AdminGuard)
-    common/        slugify, calendrier SM-2 (`scheduleReview`)
+    quizzes/       start, submit (SessionGuard, pas AdminGuard)
+    common/        slugify, calendrier SM-2 (`scheduleReview`), score QCM (`scoreQuiz`)
 frontend/
   src/
-    pages/         une page = une route (App.tsx = table de routes) ; ReviewPage = /review
+    pages/         une page = une route (App.tsx = table de routes) ; ReviewPage = /review ; ExamPage = /entries/:slug/exam
     pages/admin/   layout imbriqué (<Outlet />), dashboard, CRUD stacks, catégories et fiches
     components/    UI, sidebar, admin (listes, formulaires), EntryMdx, Playground
-    lib/           apiFetch, client better-auth, stacks, admin, reviews, sandpack
+    lib/           apiFetch, client better-auth, stacks, admin, reviews, quizzes, sandpack
 ```
 
 Flux HTTP : requête → `ValidationPipe` + DTO (`class-validator`) → controller → service → Prisma → JSON.
