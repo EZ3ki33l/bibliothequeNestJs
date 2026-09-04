@@ -7,7 +7,17 @@ type EntryMetaProps = {
   difficulty: Difficulty;
 };
 
-/* Rend les puces sans conteneur : c'est l'appelant qui fournit la rangée. */
+/**
+ * Puces « type » et « difficulté » d'une fiche, utilisées par `EntryCard` et
+ * par la page d'une fiche.
+ *
+ * Les libellés viennent de `lib/labels.ts` : les valeurs de la base sont en
+ * anglais (`FUNCTION`, `BEGINNER`) et leur traduction est décidée à un seul
+ * endroit, jamais recopiée dans un composant.
+ *
+ * Le composant ne rend volontairement aucun conteneur (fragment `<>`) : c'est
+ * l'appelant qui choisit la mise en page de la rangée.
+ */
 export function EntryMeta({ kind, difficulty }: EntryMetaProps) {
   return (
     <>

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Card, Skeleton } from '@heroui/react';
 import { ArticleIcon, FoldersIcon, StackIcon } from '@phosphor-icons/react';
 import { getAdminDashboardCounts } from '../../lib/admin';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { PageHeader } from '../../components/ui/PageHeader';
 
+/** Les trois raccourcis du tableau de bord. `key` pointe vers son compteur. */
 const CARDS = [
   { to: '/admin/stacks', label: 'Stacks', key: 'stacks' as const, icon: StackIcon },
   { to: '/admin/categories', label: 'Catégories', key: 'categories' as const, icon: FoldersIcon },
@@ -13,28 +14,11 @@ const CARDS = [
 ];
 
 export function AdminPage() {
-  const [counts, setCounts] = useState<{
-    stacks: number;
-    categories: number;
-    entries: number;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    getAdminDashboardCounts()
-      .then((data) => {
-        if (!cancelled) setCounts(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger le tableau de bord');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: counts, error } = useAsyncData(
+    getAdminDashboardCounts,
+    [],
+    'Impossible de charger le tableau de bord',
+  );
 
   return (
     <>
@@ -42,7 +26,7 @@ export function AdminPage() {
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
-      ) : counts === null ? (
+      ) : counts === undefined ? (
         <div className="grid gap-3 sm:grid-cols-3">
           {[0, 1, 2].map((index) => (
             <Skeleton key={index} className="h-28 rounded-xl" />

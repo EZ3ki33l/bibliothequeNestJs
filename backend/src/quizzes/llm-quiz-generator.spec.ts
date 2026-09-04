@@ -73,7 +73,7 @@ describe('LlmQuizGenerator', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => completion,
+      json: () => Promise.resolve(completion),
     });
 
     await expect(
@@ -122,9 +122,10 @@ describe('LlmQuizGenerator', () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({
-        choices: [{ message: { content: '{not-json' } }],
-      }),
+      json: () =>
+        Promise.resolve({
+          choices: [{ message: { content: '{not-json' } }],
+        }),
     });
 
     await expect(

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { getAdminCategoryById, type AdminCategoryDetail } from '../../lib/admin';
+import { getAdminCategoryById } from '../../lib/admin';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -11,25 +11,11 @@ import { AdminCategoryForm } from './AdminCategoryForm';
 export function AdminCategoryEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [category, setCategory] = useState<AdminCategoryDetail | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-
-    getAdminCategoryById(id)
-      .then((data) => {
-        if (!cancelled) setCategory(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger la catégorie');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const { data: category, error } = useAsyncData(
+    () => (id ? getAdminCategoryById(id) : Promise.resolve(null)),
+    [id],
+    'Impossible de charger la catégorie',
+  );
 
   if (error) return <ErrorMessage>{error}</ErrorMessage>;
   if (category === undefined) return <AdminFormSkeleton />;

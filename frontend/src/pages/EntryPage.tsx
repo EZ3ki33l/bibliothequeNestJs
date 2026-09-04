@@ -1,45 +1,42 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router';
-import { Chip, Skeleton } from '@heroui/react';
-import { getEntryBySlug, jsonToStringRecord, type EntryDetail } from '../lib/stacks';
-import { DIFFICULTY_COLOR, DIFFICULTY_LABEL, KIND_LABEL } from '../lib/labels';
+import { useEffect } from 'react';
+import { Link, useParams } from 'react-router';
+import { Skeleton } from '@heroui/react';
+import { getEntryBySlug, jsonToStringRecord } from '../lib/stacks';
+import { useAsyncData } from '../lib/useAsyncData';
+import { authClient } from '../lib/auth';
+import { ensureReview } from '../lib/reviews';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
+import { EntryMeta } from '../components/ui/EntryMeta';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EntryMdx } from '../components/entry/EntryMdx';
 import { Playground } from '../components/lab/Playground';
-import { authClient } from '../lib/auth';
-import { ensureReview } from '../lib/reviews';
 
 export function EntryPage() {
   const { slug } = useParams();
   const { data: session } = authClient.useSession();
-  const [entry, setEntry] = useState<EntryDetail | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
   const userId = session?.user?.id;
 
-  useEffect(() => {
-    if (!slug) return;
+  const { data: entry, error } = useAsyncData(
+    () => (slug ? getEntryBySlug(slug) : Promise.resolve(null)),
+    [slug],
+    'Impossible de charger la fiche',
+  );
 
-    let cancelled = false;
-
-    getEntryBySlug(slug)
-      .then((data) => {
-        if (!cancelled) setEntry(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger la fiche');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
+  /**
+   * Ouvrir une fiche l'inscrit au programme de révision.
+   *
+   * Uniquement si l'utilisateur est connecté (une carte appartient à un
+   * compte). L'appel est volontairement « silencieux » : lire une fiche doit
+   * fonctionner même si l'enregistrement échoue, donc l'erreur est ignorée
+   * plutôt qu'affichée.
+   */
   useEffect(() => {
     if (!entry?.id || !userId) return;
+
     void ensureReview(entry.id).catch(() => undefined);
   }, [entry?.id, userId]);
+
   if (error) {
     return <ErrorMessage>{error}</ErrorMessage>;
   }
@@ -60,9 +57,14 @@ export function EntryPage() {
 
   const { category } = entry;
   const { stack } = category;
+
+  // Colonnes JSON de Prisma : validées avant d'être passées à Sandpack.
   const files = jsonToStringRecord(entry.files);
   const dependencies = jsonToStringRecord(entry.dependencies);
-  const showPlayground = entry.kind !== 'CONCEPT' && files;
+
+  // Un concept s'explique, il ne s'exécute pas : pas de playground pour lui,
+  // ni pour une fiche sans fichier.
+  const showPlayground = entry.kind !== 'CONCEPT' && files !== undefined;
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
@@ -78,12 +80,7 @@ export function EntryPage() {
         <h1 className="text-3xl font-semibold tracking-tight">{entry.title}</h1>
         {entry.summary ? <p className="text-muted mt-3 text-base">{entry.summary}</p> : null}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Chip size="sm" variant="soft">
-            {KIND_LABEL[entry.kind]}
-          </Chip>
-          <Chip size="sm" variant="soft" color={DIFFICULTY_COLOR[entry.difficulty]}>
-            {DIFFICULTY_LABEL[entry.difficulty]}
-          </Chip>
+          <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
         </div>
         {entry.tags.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
@@ -94,6 +91,7 @@ export function EntryPage() {
             ))}
           </ul>
         ) : null}
+        {/* L'examen demande une session : le lien n'apparaît que si connecté. */}
         {userId ? (
           <p className="mt-4">
             <Link to={`/entries/${entry.slug}/exam`} className="text-sm underline">
@@ -102,11 +100,13 @@ export function EntryPage() {
           </p>
         ) : null}
       </header>
+
       {entry.bodyMdx ? (
         <EntryMdx source={entry.bodyMdx} />
       ) : (
         <EmptyMessage>Cette fiche n’a pas encore de contenu.</EmptyMessage>
       )}
+
       {showPlayground ? (
         <Playground files={files} template={entry.template} dependencies={dependencies} />
       ) : null}

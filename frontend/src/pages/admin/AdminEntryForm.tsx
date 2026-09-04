@@ -8,17 +8,17 @@ import {
   Label,
   TextArea,
   TextField,
-  toast,
 } from '@heroui/react';
 import {
   createAdminEntry,
   updateAdminEntry,
   type AdminCategoryListItem,
-  type CreateAdminEntryInput,
-  type UpdateAdminEntryInput,
+  type AdminEntryDifficulty,
+  type AdminEntryKind,
 } from '../../lib/admin';
 import { DIFFICULTY_LABEL, KIND_LABEL } from '../../lib/labels';
 import { SANDPACK_TEMPLATES } from '../../lib/sandpack';
+import { useAdminSubmit } from '../../components/admin/useAdminSubmit';
 import { AdminSelect } from '../../components/admin/AdminSelect';
 import { AdminKeyValueList } from '../../components/admin/AdminKeyValueList';
 import {
@@ -39,10 +39,10 @@ type AdminEntryFormProps =
       entryId: string;
       categoryLabel: string;
       initialTitle: string;
-      initialKind: CreateAdminEntryInput['kind'];
+      initialKind: AdminEntryKind;
       initialSummary: string;
       initialBodyMdx: string;
-      initialDifficulty: NonNullable<CreateAdminEntryInput['difficulty']>;
+      initialDifficulty: AdminEntryDifficulty;
       initialTags: string;
       initialPublished: boolean;
       initialTemplate: string;
@@ -53,104 +53,77 @@ type AdminEntryFormProps =
 
 export function AdminEntryForm(props: AdminEntryFormProps) {
   const { mode, onSuccess } = props;
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const isEdit = mode === 'edit';
+  const { error, pending, setError, submit } = useAdminSubmit({
+    success: isEdit ? 'Fiche enregistrée' : 'Fiche créée',
+    failure: isEdit ? 'Impossible de modifier la fiche' : 'Impossible de créer la fiche',
+    onSuccess,
+  });
+
+  /**
+   * Fichiers du playground et dépendances npm sont des listes modifiables :
+   * elles ne peuvent pas venir de `FormData`, d'où un `useState` pour ces deux
+   * champs seulement (le reste du formulaire est non contrôlé).
+   */
   const [files, setFiles] = useState<KeyValuePair[]>(() =>
-    recordToPairs(mode === 'edit' ? props.initialFiles : undefined),
+    recordToPairs(props.mode === 'edit' ? props.initialFiles : undefined),
   );
   const [dependencies, setDependencies] = useState<KeyValuePair[]>(() =>
-    recordToPairs(mode === 'edit' ? props.initialDependencies : undefined),
+    recordToPairs(props.mode === 'edit' ? props.initialDependencies : undefined),
   );
 
-  async function handleSubmit(form: HTMLFormElement) {
-    setError(null);
-    setPending(true);
-
+  function handleSubmit(form: HTMLFormElement) {
+    // Validation locale avant tout appel réseau : une paire sans clé est une
+    // erreur de saisie, inutile de la faire voyager jusqu'au serveur.
     const filesResult = pairsToRecord(files, 'Chaque fichier doit avoir un chemin.');
+    if (!filesResult.ok) {
+      setError(filesResult.message);
+      return;
+    }
+
     const dependenciesResult = pairsToRecord(
       dependencies,
       'Chaque dépendance doit avoir un nom de paquet.',
     );
-
-    if (!filesResult.ok) {
-      setError(filesResult.message);
-      setPending(false);
-      return;
-    }
     if (!dependenciesResult.ok) {
       setError(dependenciesResult.message);
-      setPending(false);
       return;
     }
 
     const data = new FormData(form);
-    const tags = String(data.get('tags') ?? '')
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
 
-    const title = String(data.get('title') ?? '').trim();
-    const kind = String(data.get('kind') ?? '').trim() as CreateAdminEntryInput['kind'];
-    const summary = String(data.get('summary') ?? '').trim();
-    const bodyMdx = String(data.get('bodyMdx') ?? '').trim();
-    const difficulty = String(data.get('difficulty') ?? '').trim() as NonNullable<
-      CreateAdminEntryInput['difficulty']
-    >;
-    const published = data.get('published') === 'on';
-    const template = String(data.get('template') ?? '').trim();
+    /**
+     * Payload complet, sans tri des champs vides : c'est `lib/admin.ts` qui
+     * décide quoi envoyer selon le verbe HTTP (à la création les champs vides
+     * sont retirés pour laisser jouer les défauts du serveur ; à la
+     * modification ils sont conservés pour pouvoir effacer une valeur).
+     */
+    const fields = {
+      title: String(data.get('title') ?? '').trim(),
+      kind: String(data.get('kind') ?? '').trim() as AdminEntryKind,
+      summary: String(data.get('summary') ?? '').trim(),
+      bodyMdx: String(data.get('bodyMdx') ?? '').trim(),
+      difficulty: String(data.get('difficulty') ?? '').trim() as AdminEntryDifficulty,
+      // Une case cochée envoie `on` ; décochée, elle n'envoie rien.
+      published: data.get('published') === 'on',
+      template: String(data.get('template') ?? '').trim(),
+      // « react, hooks , » → ['react', 'hooks']
+      tags: String(data.get('tags') ?? '')
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0),
+      files: filesResult.value,
+      dependencies: dependenciesResult.value,
+    };
 
-    try {
-      if (mode === 'create') {
-        const payload: CreateAdminEntryInput = {
-          categoryId: String(data.get('categoryId') ?? '').trim(),
-          title,
-          kind,
-        };
-        if (summary.length > 0) payload.summary = summary;
-        if (bodyMdx.length > 0) payload.bodyMdx = bodyMdx;
-        if (difficulty.length > 0) payload.difficulty = difficulty;
-        if (tags.length > 0) payload.tags = tags;
-        if (published) payload.published = true;
-        if (template.length > 0) payload.template = template;
-        if (Object.keys(filesResult.value).length > 0) payload.files = filesResult.value;
-        if (Object.keys(dependenciesResult.value).length > 0) {
-          payload.dependencies = dependenciesResult.value;
-        }
-
-        const result = await createAdminEntry(payload);
-        if (!result.ok) {
-          setError(result.message);
-          return;
-        }
-      } else {
-        const payload: UpdateAdminEntryInput = {
-          title,
-          kind,
-          summary,
-          bodyMdx,
-          difficulty,
-          tags,
-          published,
-          template,
-          files: filesResult.value,
-          dependencies: dependenciesResult.value,
-        };
-
-        const result = await updateAdminEntry(props.entryId, payload);
-        if (!result.ok) {
-          setError(result.message);
-          return;
-        }
-      }
-      toast.success(mode === 'edit' ? 'Fiche enregistrée' : 'Fiche créée');
-      onSuccess();
-    } catch {
-      setError(
-        mode === 'edit' ? 'Impossible de modifier la fiche' : 'Impossible de créer la fiche',
-      );
-    } finally {
-      setPending(false);
-    }
+    void submit(() =>
+      props.mode === 'edit'
+        ? updateAdminEntry(props.entryId, fields)
+        : createAdminEntry({
+            categoryId: String(data.get('categoryId') ?? '').trim(),
+            ...fields,
+          }),
+    );
   }
 
   return (
@@ -159,10 +132,10 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
       validationBehavior="aria"
       onSubmit={(event) => {
         event.preventDefault();
-        void handleSubmit(event.currentTarget);
+        handleSubmit(event.currentTarget);
       }}
     >
-      {mode === 'create' ? (
+      {props.mode === 'create' ? (
         <AdminSelect
           name="categoryId"
           label="Catégorie parente"
@@ -179,7 +152,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
       <TextField
         isRequired
         name="title"
-        defaultValue={mode === 'edit' ? props.initialTitle : ''}
+        defaultValue={props.mode === 'edit' ? props.initialTitle : ''}
         minLength={2}
         autoComplete="off"
       >
@@ -191,16 +164,16 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
         name="kind"
         label="Type"
         isRequired
-        defaultValue={mode === 'edit' ? props.initialKind : undefined}
+        defaultValue={props.mode === 'edit' ? props.initialKind : undefined}
         placeholder="Choisir un type"
         items={Object.entries(KIND_LABEL).map(([id, label]) => ({ id, label }))}
       />
-      <TextField name="summary" defaultValue={mode === 'edit' ? props.initialSummary : ''}>
+      <TextField name="summary" defaultValue={props.mode === 'edit' ? props.initialSummary : ''}>
         <Label>Résumé (optionnel)</Label>
         <TextArea />
         <FieldError />
       </TextField>
-      <TextField name="bodyMdx" defaultValue={mode === 'edit' ? props.initialBodyMdx : ''}>
+      <TextField name="bodyMdx" defaultValue={props.mode === 'edit' ? props.initialBodyMdx : ''}>
         <Label>Corps (optionnel)</Label>
         <TextArea rows={8} />
         <FieldError />
@@ -208,12 +181,12 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
       <AdminSelect
         name="difficulty"
         label="Difficulté"
-        defaultValue={mode === 'edit' ? props.initialDifficulty : 'BEGINNER'}
+        defaultValue={props.mode === 'edit' ? props.initialDifficulty : 'BEGINNER'}
         items={Object.entries(DIFFICULTY_LABEL).map(([id, label]) => ({ id, label }))}
       />
       <TextField
         name="tags"
-        defaultValue={mode === 'edit' ? props.initialTags : ''}
+        defaultValue={props.mode === 'edit' ? props.initialTags : ''}
         autoComplete="off"
       >
         <Label>Étiquettes (optionnel, séparées par des virgules)</Label>
@@ -223,7 +196,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
       <Checkbox
         name="published"
         value="on"
-        defaultSelected={mode === 'edit' ? props.initialPublished : false}
+        defaultSelected={props.mode === 'edit' ? props.initialPublished : false}
       >
         <Checkbox.Content>
           <Checkbox.Control>
@@ -235,7 +208,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
       <AdminSelect
         name="template"
         label="Modèle Sandpack"
-        defaultValue={mode === 'edit' ? props.initialTemplate || 'react-ts' : 'react-ts'}
+        defaultValue={props.mode === 'edit' ? props.initialTemplate || 'react-ts' : 'react-ts'}
         items={SANDPACK_TEMPLATES.map((id) => ({ id, label: id }))}
       />
       <AdminKeyValueList
@@ -264,13 +237,15 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
         pairs={dependencies}
         onChange={setDependencies}
       />
+
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+
       <Button type="submit" variant="primary" isDisabled={pending}>
         {pending
-          ? mode === 'edit'
+          ? isEdit
             ? 'Enregistrement…'
             : 'Création…'
-          : mode === 'edit'
+          : isEdit
             ? 'Enregistrer'
             : 'Créer la fiche'}
       </Button>

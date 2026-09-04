@@ -1,15 +1,31 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
-import { slugify } from '../common/slug';
-import { PrismaClientKnownRequestError } from '../generated/prisma/internal/prismaNamespace';
-import { Prisma } from '../generated/prisma/client';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { slugify } from '../common/slug';
+import { toWriteException } from '../common/prisma-errors';
+import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
 
+const NAME_TAKEN = 'Une catégorie avec un nom trop proche existe déjà dans ce stack';
+
+/** Stack parent tel qu'affiché dans un fil d'Ariane : jamais la ligne entière. */
+const PARENT_STACK_SELECT = { select: { id: true, name: true, slug: true } };
+
+/**
+ * Règles métier des catégories (Hooks, Formulaires…), le niveau intermédiaire
+ * du catalogue : une catégorie appartient à un stack et contient des fiches.
+ */
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Page publique d'une catégorie, atteinte par le couple de slugs
+   * `/stacks/react/categories/hooks`.
+   *
+   * `findFirst` et non `findUnique` : le slug d'une catégorie n'est unique que
+   * *dans son stack*, donc le critère porte sur les deux à la fois.
+   */
   async findBySlugs(stackSlug: string, categorySlug: string) {
     const category = await this.prisma.category.findFirst({
       where: {
@@ -17,10 +33,12 @@ export class CategoriesService {
         stack: { slug: stackSlug },
       },
       include: {
-        stack: true,
+        stack: PARENT_STACK_SELECT,
         entries: {
+          // Sans ce filtre, les brouillons apparaîtraient dans le catalogue.
           where: { published: true },
           orderBy: { position: 'asc' },
+          select: ENTRY_CARD_SELECT,
         },
       },
     });
@@ -28,9 +46,14 @@ export class CategoriesService {
     if (!category) {
       throw new NotFoundException();
     }
+
     return category;
   }
 
+  /**
+   * Liste admin paginée, triée dans l'ordre d'affichage du catalogue : stack,
+   * puis position dans le stack, puis nom.
+   */
   async findAllAdmin(page: number, limit: number) {
     const skip = (page - 1) * limit;
 
@@ -44,7 +67,7 @@ export class CategoriesService {
           name: true,
           slug: true,
           description: true,
-          stack: { select: { id: true, name: true, slug: true } },
+          stack: PARENT_STACK_SELECT,
           _count: { select: { entries: true } },
         },
       }),
@@ -54,25 +77,32 @@ export class CategoriesService {
     return { items, total, page, limit };
   }
 
+  /** Lecture admin par id, pour pré-remplir le formulaire d'édition. */
   async findById(id: string) {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: { stack: { select: { id: true, name: true, slug: true } } },
+      include: { stack: PARENT_STACK_SELECT },
     });
 
     if (!category) {
       throw new NotFoundException();
     }
+
     return category;
   }
 
+  /**
+   * Le stack parent est vérifié **avant** l'écriture : on préfère un 404 clair
+   * à une erreur de clé étrangère traduite en 500.
+   */
   async create(dto: CreateCategoryDto) {
-    const stack = await this.prisma.stack.findUnique({
-      where: { id: dto.stackId },
-    });
+    const stack = await this.prisma.stack.findUnique({ where: { id: dto.stackId } });
+
     if (!stack) {
       throw new NotFoundException();
     }
+
+    // Position calculée dans le stack parent : chaque stack a son propre ordre.
     const { _max } = await this.prisma.category.aggregate({
       where: { stackId: dto.stackId },
       _max: { position: true },
@@ -89,17 +119,18 @@ export class CategoriesService {
         },
       });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(
-          'Une catégorie avec un nom trop proche existe déjà dans ce stack',
-        );
-      }
-      throw error;
+      throw toWriteException(error, NAME_TAKEN);
     }
   }
 
+  /**
+   * PATCH partiel. `stackId` n'est volontairement pas dans `UpdateCategoryDto` :
+   * déplacer une catégorie d'un stack à l'autre demanderait de recalculer les
+   * positions des deux stacks, ce n'est pas la même opération qu'un renommage.
+   */
   async update(id: string, dto: UpdateCategoryDto) {
     const data: { name?: string; slug?: string; description?: string } = {};
+
     if (dto.name !== undefined) {
       data.name = dto.name;
       data.slug = slugify(dto.name);
@@ -107,28 +138,20 @@ export class CategoriesService {
     if (dto.description !== undefined) {
       data.description = dto.description;
     }
+
     try {
       return await this.prisma.category.update({ where: { id }, data });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException();
-      }
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException(
-          'Une catégorie avec un nom trop proche existe déjà dans ce stack',
-        );
-      }
-      throw error;
+      throw toWriteException(error, NAME_TAKEN);
     }
   }
+
+  /** Supprime la catégorie (la cascade Prisma emporte ses fiches). */
   async delete(id: string) {
     try {
       await this.prisma.category.delete({ where: { id } });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw new NotFoundException();
-      }
-      throw error;
+      throw toWriteException(error, NAME_TAKEN);
     }
   }
 }

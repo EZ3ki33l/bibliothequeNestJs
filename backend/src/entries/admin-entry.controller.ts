@@ -17,15 +17,19 @@ import { AdminGuard } from '../auth/admin.guard';
 import { EntriesService } from './entries.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryDto } from './dto/update-entry.dto';
-import { ListEntriesQueryDto } from './dto/list-entries-query.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
+/**
+ * CRUD admin des fiches. Contrairement aux routes publiques d'`EntriesController`,
+ * les lectures ici renvoient aussi les brouillons.
+ */
 @Controller('admin/entries')
 @UseGuards(SessionGuard, AdminGuard)
 export class AdminEntriesController {
   constructor(private readonly entriesService: EntriesService) {}
 
   @Get()
-  findAll(@Query() query: ListEntriesQueryDto) {
+  findAll(@Query() query: PaginationQueryDto) {
     return this.entriesService.findAllAdmin(query.page, query.limit);
   }
 

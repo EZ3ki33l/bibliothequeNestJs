@@ -1,31 +1,14 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Card, Skeleton } from '@heroui/react';
 import { StackIcon } from '@phosphor-icons/react';
-import { listStacks, type StackListItem } from '../lib/stacks';
+import { listStacks } from '../lib/stacks';
+import { useAsyncData } from '../lib/useAsyncData';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
 
 export function StacksPage() {
-  const [stacks, setStacks] = useState<StackListItem[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    listStacks()
-      .then((data) => {
-        if (!cancelled) setStacks(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger les stacks');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: stacks, error } = useAsyncData(listStacks, [], 'Impossible de charger les stacks');
 
   return (
     <>
@@ -33,7 +16,7 @@ export function StacksPage() {
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
-      ) : stacks === null ? (
+      ) : stacks === undefined ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((index) => (
             <Skeleton key={index} className="h-32 rounded-xl" />

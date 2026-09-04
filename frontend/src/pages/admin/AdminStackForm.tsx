@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Button, FieldError, Form, Input, Label, TextArea, TextField, toast } from '@heroui/react';
+import { Button, FieldError, Form, Input, Label, TextArea, TextField } from '@heroui/react';
 import { createAdminStack, updateAdminStack } from '../../lib/admin';
+import { useAdminSubmit } from '../../components/admin/useAdminSubmit';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 type AdminStackFormProps = {
@@ -11,6 +11,7 @@ type AdminStackFormProps = {
   onSuccess: () => void;
 };
 
+/** Formulaire de création et de modification d'un stack. */
 export function AdminStackForm({
   mode,
   stackId,
@@ -18,40 +19,27 @@ export function AdminStackForm({
   initialDescription = '',
   onSuccess,
 }: AdminStackFormProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const isEdit = mode === 'edit';
+  const { error, pending, submit } = useAdminSubmit({
+    success: isEdit ? 'Stack enregistré' : 'Stack créé',
+    failure: isEdit ? 'Impossible de modifier le stack' : 'Impossible de créer le stack',
+    onSuccess,
+  });
 
-  async function handleSubmit(form: HTMLFormElement) {
-    setError(null);
-    setPending(true);
-
+  function handleSubmit(form: HTMLFormElement) {
+    // `FormData` lit les champs par leur attribut `name` : le formulaire n'a
+    // donc pas besoin d'un `useState` par champ (formulaire « non contrôlé »).
     const data = new FormData(form);
-    const name = String(data.get('name') ?? '').trim();
-    const description = String(data.get('description') ?? '').trim();
     const payload = {
-      name,
-      ...(description.length > 0 ? { description } : mode === 'edit' ? { description: '' } : {}),
+      name: String(data.get('name') ?? '').trim(),
+      description: String(data.get('description') ?? '').trim(),
     };
 
-    try {
-      const result =
-        mode === 'edit' && stackId
-          ? await updateAdminStack(stackId, payload)
-          : await createAdminStack(payload);
-
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      toast.success(mode === 'edit' ? 'Stack enregistré' : 'Stack créé');
-      onSuccess();
-    } catch {
-      setError(
-        mode === 'edit' ? 'Impossible de modifier le stack' : 'Impossible de créer le stack',
-      );
-    } finally {
-      setPending(false);
-    }
+    // En création, `createAdminStack` retire les champs vides ; en modification,
+    // une description vide est envoyée telle quelle, ce qui l'efface.
+    void submit(() =>
+      isEdit && stackId ? updateAdminStack(stackId, payload) : createAdminStack(payload),
+    );
   }
 
   return (
@@ -59,8 +47,9 @@ export function AdminStackForm({
       className="flex max-w-md flex-col gap-4"
       validationBehavior="aria"
       onSubmit={(event) => {
+        // Sans ça, le navigateur rechargerait la page : on veut envoyer en fetch.
         event.preventDefault();
-        void handleSubmit(event.currentTarget);
+        handleSubmit(event.currentTarget);
       }}
     >
       <TextField isRequired name="name" defaultValue={initialName} minLength={2} autoComplete="off">
@@ -73,13 +62,15 @@ export function AdminStackForm({
         <TextArea />
         <FieldError />
       </TextField>
+
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+
       <Button type="submit" variant="primary" isDisabled={pending}>
         {pending
-          ? mode === 'edit'
+          ? isEdit
             ? 'Enregistrement…'
             : 'Création…'
-          : mode === 'edit'
+          : isEdit
             ? 'Enregistrer'
             : 'Créer le stack'}
       </Button>

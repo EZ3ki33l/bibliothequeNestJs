@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { getAdminStackById, type AdminStackDetail } from '../../lib/admin';
+import { getAdminStackById } from '../../lib/admin';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -11,25 +11,14 @@ import { AdminStackForm } from './AdminStackForm';
 export function AdminStackEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [stack, setStack] = useState<AdminStackDetail | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-
-    getAdminStackById(id)
-      .then((data) => {
-        if (!cancelled) setStack(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger le stack');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  // `id` vient de l'URL, donc typé `string | undefined` : sans id, il n'y a
+  // rien à charger et l'écran affiche « n'existe pas ».
+  const { data: stack, error } = useAsyncData(
+    () => (id ? getAdminStackById(id) : Promise.resolve(null)),
+    [id],
+    'Impossible de charger le stack',
+  );
 
   if (error) return <ErrorMessage>{error}</ErrorMessage>;
   if (stack === undefined) return <AdminFormSkeleton />;

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { listAdminCategories, type AdminCategoriesListPage } from '../../lib/admin';
+import { listAdminCategories } from '../../lib/admin';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -10,27 +10,13 @@ import { AdminEntryForm } from './AdminEntryForm';
 
 export function AdminEntryNewPage() {
   const navigate = useNavigate();
-  const [data, setData] = useState<AdminCategoriesListPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    listAdminCategories(1, 50)
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setError(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger les catégories');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Une fiche doit choisir sa catégorie parente.
+  const { data, error } = useAsyncData(
+    () => listAdminCategories(1, 50),
+    [],
+    'Impossible de charger les catégories',
+  );
 
   return (
     <>
@@ -39,7 +25,7 @@ export function AdminEntryNewPage() {
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
-      ) : data === null ? (
+      ) : data === undefined ? (
         <AdminFormSkeleton />
       ) : data.total === 0 ? (
         <EmptyMessage>

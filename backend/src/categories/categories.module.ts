@@ -5,6 +5,7 @@ import { AdminCategoriesController } from './admin-categories.controller';
 import { SessionGuard } from '../auth/session.guard';
 import { AdminGuard } from '../auth/admin.guard';
 
+/** Frontière du domaine « catégories ». */
 @Module({
   controllers: [CategoriesController, AdminCategoriesController],
   providers: [CategoriesService, SessionGuard, AdminGuard],
