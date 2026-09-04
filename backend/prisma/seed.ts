@@ -48,7 +48,7 @@ async function main() {
 
   await prisma.entry.upsert({
     where: { slug: 'use-state-compteur' },
-    update: { quizQuestions: counterQuizQuestions },
+    update: {},
     create: {
       categoryId: category.id,
       title: 'useState - compteur',
@@ -68,7 +68,6 @@ async function main() {
       position: 0,
       template: 'react-ts',
       files: counterFiles,
-      quizQuestions: counterQuizQuestions,
     },
   });
 

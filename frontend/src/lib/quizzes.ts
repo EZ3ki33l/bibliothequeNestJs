@@ -23,7 +23,7 @@ export type StartQuizResponse = {
   entry: QuizEntrySummary;
 };
 
-export type StartQuizResult = StartQuizResponse | 'unauthorized' | 'not_found';
+export type StartQuizResult = StartQuizResponse | 'unauthorized' | 'not_found' | 'unavailable';
 
 export async function startQuiz(slug: string): Promise<StartQuizResult> {
   const response = await apiFetch('/quizzes/start', {
@@ -39,6 +39,10 @@ export async function startQuiz(slug: string): Promise<StartQuizResult> {
     return 'not_found';
   }
 
+  if (response.status === 503) {
+    return 'unavailable';
+  }
+
   if (!response.ok) {
     throw new Error('Impossible de charger l’épreuve');
   }
@@ -51,14 +55,24 @@ export type QuizAnswer = {
   choiceIndex: number;
 };
 
+export type QuizQuestionRecap = {
+  id: string;
+  prompt: string;
+  choices: string[];
+  selectedIndex: number;
+  correctIndex: number;
+  selectedChoice: string;
+  correctChoice: string;
+};
+
 export type SubmitQuizResponse = {
   id: string;
   score: number;
   correctCount: number;
   total: number;
+  questions: QuizQuestionRecap[];
   entry: QuizEntrySummary;
 };
-
 export type SubmitQuizResult = SubmitQuizResponse | 'unauthorized' | 'not_found' | 'bad_request';
 
 export async function submitQuiz(

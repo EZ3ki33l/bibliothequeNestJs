@@ -11,18 +11,23 @@ import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { Button, Skeleton } from '@heroui/react';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 
+type ExamState = StartQuizResponse | 'not_found' | 'unavailable' | undefined;
+
 export function ExamPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const [exam, setExam] = useState<StartQuizResponse | 'not_found' | undefined>(undefined);
+  const [exam, setExam] = useState<ExamState>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<SubmitQuizResponse | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (!slug) return;
     let cancelled = false;
+    setExam(undefined);
+    setError(null);
     getMe()
       .then((me) => {
         if (cancelled) return;
@@ -40,6 +45,10 @@ export function ExamPage() {
             setExam('not_found');
             return;
           }
+          if (data === 'unavailable') {
+            setExam('unavailable');
+            return;
+          }
           setExam(data);
         });
       })
@@ -51,11 +60,18 @@ export function ExamPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, navigate]);
+  }, [slug, navigate, retryNonce]);
 
   async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!exam || exam === 'not_found' || exam.attempt === null || pending || result) {
+    if (
+      !exam ||
+      exam === 'not_found' ||
+      exam === 'unavailable' ||
+      exam.attempt === null ||
+      pending ||
+      result
+    ) {
       return;
     }
 
@@ -114,6 +130,24 @@ export function ExamPage() {
     return <EmptyMessage>Fiche introuvable.</EmptyMessage>;
   }
 
+  if (exam === 'unavailable') {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+        <ErrorMessage>
+          L’épreuve est temporairement indisponible. Réessaie dans un instant.
+        </ErrorMessage>
+        <Button
+          type="button"
+          onPress={() => {
+            setRetryNonce((nonce) => nonce + 1);
+          }}
+        >
+          Réessayer
+        </Button>
+      </div>
+    );
+  }
+
   if (exam.attempt === null) {
     return <EmptyMessage>Pas d'épreuve pour cette fiche.</EmptyMessage>;
   }
@@ -133,6 +167,20 @@ export function ExamPage() {
         <p className="text-muted">
           {result.correctCount} / {result.total} bonnes réponses
         </p>
+        <ol className="flex flex-col gap-6">
+          {result.questions.map((question, index) => (
+            <li
+              key={question.id}
+              className="border-border flex flex-col gap-2 rounded-lg border px-4 py-3"
+            >
+              <p className="font-medium">
+                {index + 1}. {question.prompt}
+              </p>
+              <p>Ton choix : {question.selectedChoice}</p>
+              <p>Bonne proposition : {question.correctChoice}</p>
+            </li>
+          ))}
+        </ol>
         <p>
           <Link to={`/entries/${result.entry.slug}`} className="text-sm underline">
             Voir la fiche
