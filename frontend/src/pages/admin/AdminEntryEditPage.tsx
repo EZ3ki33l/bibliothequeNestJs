@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { getAdminEntryById, type AdminEntryDetail } from '../../lib/admin';
+import { getAdminEntryById } from '../../lib/admin';
 import { jsonToStringRecord } from '../../lib/stacks';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -12,25 +12,11 @@ import { AdminEntryForm } from './AdminEntryForm';
 export function AdminEntryEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [entry, setEntry] = useState<AdminEntryDetail | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-
-    getAdminEntryById(id)
-      .then((data) => {
-        if (!cancelled) setEntry(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger la fiche');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const { data: entry, error } = useAsyncData(
+    () => (id ? getAdminEntryById(id) : Promise.resolve(null)),
+    [id],
+    'Impossible de charger la fiche',
+  );
 
   if (error) return <ErrorMessage>{error}</ErrorMessage>;
   if (entry === undefined) return <AdminFormSkeleton />;
@@ -52,6 +38,7 @@ export function AdminEntryEditPage() {
         initialTags={entry.tags.join(', ')}
         initialPublished={entry.published}
         initialTemplate={entry.template}
+        // Colonnes JSON : on les valide avant de les donner au formulaire.
         initialFiles={jsonToStringRecord(entry.files) ?? {}}
         initialDependencies={jsonToStringRecord(entry.dependencies) ?? {}}
         onSuccess={() => navigate('/admin/entries')}

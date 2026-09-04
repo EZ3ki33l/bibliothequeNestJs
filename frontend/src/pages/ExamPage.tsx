@@ -1,73 +1,59 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { Button, Skeleton } from '@heroui/react';
 import {
   startQuiz,
   submitQuiz,
-  type StartQuizResponse,
+  type StartQuizResult,
   type SubmitQuizResponse,
 } from '../lib/quizzes';
-import { getMe } from '../lib/reviews';
-import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { Button, Skeleton } from '@heroui/react';
+import { getMe } from '../lib/auth';
+import { useAsyncData } from '../lib/useAsyncData';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
-
-type ExamState = StartQuizResponse | 'not_found' | 'unavailable' | undefined;
+import { ErrorMessage } from '../components/ui/ErrorMessage';
 
 export function ExamPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const [exam, setExam] = useState<ExamState>(undefined);
-  const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<SubmitQuizResponse | null>(null);
-  const [retryNonce, setRetryNonce] = useState(0);
+
+  /**
+   * Démarre (ou reprend) l'épreuve.
+   *
+   * `startQuiz` renvoie soit le questionnaire, soit un cas d'échec nommé :
+   * `'not_found'` (fiche inconnue), `'unavailable'` (le modèle de langage n'a
+   * pas produit de QCM valide — le serveur refuse plutôt que d'inventer un
+   * examen), `'unauthorized'` (session perdue).
+   */
+  const {
+    data: exam,
+    error,
+    reload,
+  } = useAsyncData<StartQuizResult>(
+    async () => {
+      if (!slug) return 'not_found';
+
+      const me = await getMe();
+      return me === 'unauthorized' ? 'unauthorized' : startQuiz(slug);
+    },
+    [slug],
+    'Impossible de charger l’épreuve',
+  );
 
   useEffect(() => {
-    if (!slug) return;
-    let cancelled = false;
-    setExam(undefined);
-    setError(null);
-    getMe()
-      .then((me) => {
-        if (cancelled) return;
-        if (me === 'unauthorized') {
-          navigate('/login', { replace: true });
-          return;
-        }
-        return startQuiz(slug).then((data) => {
-          if (cancelled) return;
-          if (data === 'unauthorized') {
-            navigate('/login', { replace: true });
-            return;
-          }
-          if (data === 'not_found') {
-            setExam('not_found');
-            return;
-          }
-          if (data === 'unavailable') {
-            setExam('unavailable');
-            return;
-          }
-          setExam(data);
-        });
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : 'Impossible de charger l’épreuve');
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug, navigate, retryNonce]);
+    if (exam === 'unauthorized') {
+      navigate('/login', { replace: true });
+    }
+  }, [exam, navigate]);
 
   async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+
     if (
-      !exam ||
-      exam === 'not_found' ||
-      exam === 'unavailable' ||
+      exam === undefined ||
+      typeof exam === 'string' ||
       exam.attempt === null ||
       pending ||
       result
@@ -75,12 +61,16 @@ export function ExamPage() {
       return;
     }
 
+    // Un groupe de boutons radio par question : `name` = id de la question,
+    // `value` = index du choix.
     const form = new FormData(event.currentTarget);
-    const answers = exam.attempt.questions.map((question) => {
-      const raw = form.get(question.id);
-      return { questionId: question.id, choiceIndex: Number(raw) };
-    });
+    const answers = exam.attempt.questions.map((question) => ({
+      questionId: question.id,
+      choiceIndex: Number(form.get(question.id)),
+    }));
 
+    // `Number(null)` vaut 0, ce qui passerait pour une réponse valide : on
+    // vérifie donc que chaque question a bien reçu un entier.
     if (answers.some((answer) => !Number.isInteger(answer.choiceIndex))) {
       setSubmitError('Réponds à toutes les questions.');
       return;
@@ -88,8 +78,10 @@ export function ExamPage() {
 
     setPending(true);
     setSubmitError(null);
+
     try {
       const submitted = await submitQuiz(exam.attempt.id, answers);
+
       if (submitted === 'unauthorized') {
         navigate('/login', { replace: true });
         return;
@@ -102,6 +94,7 @@ export function ExamPage() {
         setSubmitError('Cette épreuve n’est plus disponible.');
         return;
       }
+
       setResult(submitted);
     } catch (caught: unknown) {
       setSubmitError(
@@ -116,7 +109,8 @@ export function ExamPage() {
     return <ErrorMessage>{error}</ErrorMessage>;
   }
 
-  if (!slug || exam === undefined) {
+  // Chargement, ou redirection vers la connexion déjà lancée.
+  if (exam === undefined || exam === 'unauthorized') {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <Skeleton className="h-10 w-3/4 rounded-lg" />
@@ -130,30 +124,29 @@ export function ExamPage() {
     return <EmptyMessage>Fiche introuvable.</EmptyMessage>;
   }
 
+  // 503 côté serveur : la génération a échoué, mais rien n'est cassé côté
+  // fiche — on propose simplement de réessayer.
   if (exam === 'unavailable') {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <ErrorMessage>
           L’épreuve est temporairement indisponible. Réessaie dans un instant.
         </ErrorMessage>
-        <Button
-          type="button"
-          onPress={() => {
-            setRetryNonce((nonce) => nonce + 1);
-          }}
-        >
+        <Button type="button" onPress={reload}>
           Réessayer
         </Button>
       </div>
     );
   }
 
+  // Fiche trop courte pour générer un QCM honnête.
   if (exam.attempt === null) {
     return <EmptyMessage>Pas d'épreuve pour cette fiche.</EmptyMessage>;
   }
 
   const { entry, attempt } = exam;
 
+  // Après correction : score et récapitulatif question par question.
   if (result) {
     return (
       <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">

@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { listAdminStacks, type AdminStacksListPage } from '../../lib/admin';
+import { listAdminStacks } from '../../lib/admin';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -10,27 +10,14 @@ import { AdminCategoryForm } from './AdminCategoryForm';
 
 export function AdminCategoryNewPage() {
   const navigate = useNavigate();
-  const [data, setData] = useState<AdminStacksListPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    listAdminStacks(1, 50)
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setError(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger les stacks');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Une catégorie doit choisir son stack parent : on charge la liste pour
+  // alimenter le select du formulaire.
+  const { data, error } = useAsyncData(
+    () => listAdminStacks(1, 50),
+    [],
+    'Impossible de charger les stacks',
+  );
 
   return (
     <>
@@ -41,7 +28,7 @@ export function AdminCategoryNewPage() {
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
-      ) : data === null ? (
+      ) : data === undefined ? (
         <AdminFormSkeleton />
       ) : data.total === 0 ? (
         <EmptyMessage>

@@ -1,8 +1,9 @@
 import { Link } from 'react-router';
-import { Card, Chip } from '@heroui/react';
+import { Card } from '@heroui/react';
 import type { StackEntry } from '../../lib/stacks';
-import { DIFFICULTY_COLOR, DIFFICULTY_LABEL, KIND_LABEL } from '../../lib/labels';
+import { EntryMeta } from './EntryMeta';
 
+/** Vignette d'une fiche dans une grille (page d'un stack, page d'une catégorie). */
 export function EntryCard({ entry }: { entry: StackEntry }) {
   return (
     <Link to={`/entries/${entry.slug}`} className="block h-full no-underline">
@@ -14,12 +15,7 @@ export function EntryCard({ entry }: { entry: StackEntry }) {
           ) : null}
         </Card.Header>
         <Card.Footer className="flex flex-wrap gap-2">
-          <Chip size="sm" variant="soft">
-            {KIND_LABEL[entry.kind]}
-          </Chip>
-          <Chip size="sm" variant="soft" color={DIFFICULTY_COLOR[entry.difficulty]}>
-            {DIFFICULTY_LABEL[entry.difficulty]}
-          </Chip>
+          <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
         </Card.Footer>
       </Card>
     </Link>

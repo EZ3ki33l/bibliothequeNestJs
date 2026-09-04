@@ -1,57 +1,23 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { buttonVariants, toast } from '@heroui/react';
+import { buttonVariants } from '@heroui/react';
 import { ArticleIcon } from '@phosphor-icons/react';
-import { type AdminEntriesListPage, deleteAdminEntry, listAdminEntries } from '../../lib/admin';
+import { deleteAdminEntry, listAdminEntries } from '../../lib/admin';
 import { KIND_LABEL } from '../../lib/labels';
+import { useAdminResourceList } from '../../components/admin/useAdminResourceList';
 import { AdminListRow, AdminListSkeleton, AdminPagination } from '../../components/admin/AdminList';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 export function AdminEntriesPage() {
-  const [page, setPage] = useState(1);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [data, setData] = useState<AdminEntriesListPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    listAdminEntries(page)
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setError(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger les fiches');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, reloadToken]);
-
-  async function onDelete(entryId: string) {
-    const confirmed = window.confirm('Supprimer cette fiche et les révisions / quiz liés ?');
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await deleteAdminEntry(entryId);
-      toast.success('Fiche supprimée');
-      if (data !== null && data.items.length === 1 && page > 1) {
-        setPage(page - 1);
-      } else {
-        setReloadToken((token) => token + 1);
-      }
-    } catch {
-      toast.danger('Impossible de supprimer la fiche');
-    }
-  }
+  const { page, setPage, data, error, requestDelete } = useAdminResourceList({
+    load: listAdminEntries,
+    remove: deleteAdminEntry,
+    loadError: 'Impossible de charger les fiches',
+    confirmMessage: 'Supprimer cette fiche et les révisions / quiz liés ?',
+    deletedMessage: 'Fiche supprimée',
+    deleteError: 'Impossible de supprimer la fiche',
+  });
 
   return (
     <>
@@ -70,7 +36,7 @@ export function AdminEntriesPage() {
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
-      ) : data === null ? (
+      ) : data === undefined ? (
         <AdminListSkeleton />
       ) : data.items.length === 0 ? (
         <EmptyMessage>
@@ -91,12 +57,12 @@ export function AdminEntriesPage() {
                   entry.published ? 'publié' : 'brouillon'
                 }`}
                 editTo={`/admin/entries/${entry.id}/edit`}
-                onDelete={() => void onDelete(entry.id)}
+                onDelete={() => void requestDelete(entry.id)}
               />
             ))}
           </ul>
           <AdminPagination
-            page={data.page}
+            page={page}
             limit={data.limit}
             total={data.total}
             onPageChange={setPage}

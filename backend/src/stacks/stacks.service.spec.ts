@@ -2,7 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
-import { StackService } from './stacks.service';
+import { StacksService } from './stacks.service';
 
 function knownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {
@@ -11,8 +11,8 @@ function knownRequestError(code: string) {
   });
 }
 
-describe('StackService', () => {
-  let service: StackService;
+describe('StacksService', () => {
+  let service: StacksService;
   const prisma = {
     stack: {
       findMany: jest.fn(),
@@ -28,9 +28,9 @@ describe('StackService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StackService, { provide: PrismaService, useValue: prisma }],
+      providers: [StacksService, { provide: PrismaService, useValue: prisma }],
     }).compile();
-    service = module.get(StackService);
+    service = module.get(StacksService);
   });
 
   describe('findAll', () => {

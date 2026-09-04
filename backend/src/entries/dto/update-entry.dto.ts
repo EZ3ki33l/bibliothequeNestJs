@@ -9,6 +9,12 @@ import {
 } from 'class-validator';
 import { Difficulty, EntryKind } from '../../generated/prisma/enums';
 
+/**
+ * Contrat de `PATCH /admin/entries/:id`.
+ *
+ * Identique à la création, moins `categoryId` : une fiche ne change pas de
+ * catégorie (il faudrait recalculer les positions des deux catégories).
+ */
 export class UpdateEntryDto {
   @IsOptional()
   @IsString()

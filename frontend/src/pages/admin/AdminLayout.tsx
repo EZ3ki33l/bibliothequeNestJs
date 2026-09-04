@@ -1,43 +1,45 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router';
 import { Skeleton } from '@heroui/react';
 import { getAdminMe } from '../../lib/admin';
+import { useAsyncData } from '../../lib/useAsyncData';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
+/**
+ * Garde d'accès de toute la section `/admin`.
+ *
+ * La vérification passe par le serveur (`GET /admin/me`) et non par la session
+ * du navigateur : c'est le backend qui décide, la SPA ne fait qu'afficher sa
+ * réponse. Tant qu'elle n'est pas arrivée, on montre un squelette — rien du
+ * contenu admin n'est rendu (`<Outlet />` seulement en cas de succès).
+ */
 export function AdminLayout() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
-  const [forbidden, setForbidden] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: access, error } = useAsyncData(
+    getAdminMe,
+    [],
+    'Impossible de vérifier les droits admin',
+  );
 
+  // Une redirection est un effet de bord : elle ne peut pas se faire pendant le
+  // rendu, d'où le `useEffect`. `replace` évite d'empiler la page admin dans
+  // l'historique, sinon le bouton « retour » y ramènerait en boucle.
   useEffect(() => {
-    let cancelled = false;
-
-    getAdminMe()
-      .then((result) => {
-        if (cancelled) return;
-        if (result === 'unauthorized') {
-          navigate('/login', { replace: true });
-          return;
-        }
-        if (result === 'forbidden') {
-          setForbidden(true);
-          return;
-        }
-        setReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de vérifier les droits admin');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate]);
+    if (access === 'unauthorized') {
+      navigate('/login', { replace: true });
+    }
+  }, [access, navigate]);
 
   if (error) return <ErrorMessage>{error}</ErrorMessage>;
-  if (forbidden) return <EmptyMessage>Accès réservé aux administrateurs.</EmptyMessage>;
-  if (!ready) {
+
+  // Connecté, mais pas administrateur : refus explicite, pas de redirection.
+  if (access === 'forbidden') {
+    return <EmptyMessage>Accès réservé aux administrateurs.</EmptyMessage>;
+  }
+
+  // Chargement, ou redirection vers la connexion déjà lancée.
+  if (access !== 'ok') {
     return (
       <div className="flex flex-col gap-4">
         <Skeleton className="h-8 w-64 rounded-lg" />

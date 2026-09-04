@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Skeleton } from '@heroui/react';
-import { getStackBySlug, type StackDetail } from '../lib/stacks';
+import { getStackBySlug } from '../lib/stacks';
+import { useAsyncData } from '../lib/useAsyncData';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryCard } from '../components/ui/EntryCard';
@@ -10,26 +10,11 @@ import { PageHeader } from '../components/ui/PageHeader';
 
 export function StackPage() {
   const { slug } = useParams();
-  const [stack, setStack] = useState<StackDetail | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!slug) return;
-
-    let cancelled = false;
-
-    getStackBySlug(slug)
-      .then((data) => {
-        if (!cancelled) setStack(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger le stack');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
+  const { data: stack, error } = useAsyncData(
+    () => (slug ? getStackBySlug(slug) : Promise.resolve(null)),
+    [slug],
+    'Impossible de charger le stack',
+  );
 
   if (error) {
     return <ErrorMessage>{error}</ErrorMessage>;

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { Skeleton } from '@heroui/react';
-import { getCategoryBySlugs, type CategoryDetail } from '../lib/stacks';
+import { getCategoryBySlugs } from '../lib/stacks';
+import { useAsyncData } from '../lib/useAsyncData';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryCard } from '../components/ui/EntryCard';
@@ -9,27 +9,16 @@ import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
 
 export function CategoryPage() {
+  // L'URL du navigateur porte les deux slugs : `/stacks/react/hooks`.
   const { stackSlug, categorySlug } = useParams();
-  const [category, setCategory] = useState<CategoryDetail | null | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!stackSlug || !categorySlug) return;
-
-    let cancelled = false;
-
-    getCategoryBySlugs(stackSlug, categorySlug)
-      .then((data) => {
-        if (!cancelled) setCategory(data);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger la catégorie');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [stackSlug, categorySlug]);
+  const { data: category, error } = useAsyncData(
+    () =>
+      stackSlug && categorySlug
+        ? getCategoryBySlugs(stackSlug, categorySlug)
+        : Promise.resolve(null),
+    [stackSlug, categorySlug],
+    'Impossible de charger la catégorie',
+  );
 
   if (error) {
     return <ErrorMessage>{error}</ErrorMessage>;

@@ -17,15 +17,16 @@ import { AdminGuard } from '../auth/admin.guard';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { ListCategoriesQueryDto } from './dto/list-categories-query.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
+/** CRUD admin des catégories. Toutes les routes exigent une session admin. */
 @Controller('admin/categories')
 @UseGuards(SessionGuard, AdminGuard)
 export class AdminCategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  findAll(@Query() query: ListCategoriesQueryDto) {
+  findAll(@Query() query: PaginationQueryDto) {
     return this.categoriesService.findAllAdmin(query.page, query.limit);
   }
 

@@ -10,6 +10,13 @@ import {
 } from 'class-validator';
 import { Difficulty, EntryKind } from '../../generated/prisma/enums';
 
+/**
+ * Contrat de `POST /admin/entries`.
+ *
+ * Tout est optionnel sauf la catégorie, le titre et le type : une fiche peut
+ * naître à l'état d'ébauche et se compléter ensuite. Les défauts (`published:
+ * false` notamment) sont appliqués par le service, pas ici.
+ */
 export class CreateEntryDto {
   @IsUUID()
   categoryId!: string;

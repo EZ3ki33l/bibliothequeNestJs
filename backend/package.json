@@ -84,7 +84,7 @@
       "**/*.service.ts",
       "common/**/*.ts",
       "!**/*.spec.ts",
-      "!app.service.ts"
+      "!**/dto/**"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",

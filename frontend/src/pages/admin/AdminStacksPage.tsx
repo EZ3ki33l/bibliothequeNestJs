@@ -1,56 +1,22 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { buttonVariants, toast } from '@heroui/react';
+import { buttonVariants } from '@heroui/react';
 import { StackIcon } from '@phosphor-icons/react';
-import { type AdminStacksListPage, deleteAdminStack, listAdminStacks } from '../../lib/admin';
+import { deleteAdminStack, listAdminStacks } from '../../lib/admin';
+import { useAdminResourceList } from '../../components/admin/useAdminResourceList';
 import { AdminListRow, AdminListSkeleton, AdminPagination } from '../../components/admin/AdminList';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 export function AdminStacksPage() {
-  const [page, setPage] = useState(1);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [data, setData] = useState<AdminStacksListPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    listAdminStacks(page)
-      .then((result) => {
-        if (!cancelled) {
-          setData(result);
-          setError(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Impossible de charger les stacks');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [page, reloadToken]);
-
-  async function onDelete(stackId: string) {
-    const confirmed = window.confirm('Supprimer ce stack et toutes ses catégories / fiches ?');
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await deleteAdminStack(stackId);
-      toast.success('Stack supprimé');
-      if (data !== null && data.items.length === 1 && page > 1) {
-        setPage(page - 1);
-      } else {
-        setReloadToken((token) => token + 1);
-      }
-    } catch {
-      toast.danger('Impossible de supprimer le stack');
-    }
-  }
+  const { page, setPage, data, error, requestDelete } = useAdminResourceList({
+    load: listAdminStacks,
+    remove: deleteAdminStack,
+    loadError: 'Impossible de charger les stacks',
+    confirmMessage: 'Supprimer ce stack et toutes ses catégories / fiches ?',
+    deletedMessage: 'Stack supprimé',
+    deleteError: 'Impossible de supprimer le stack',
+  });
 
   return (
     <>
@@ -67,9 +33,10 @@ export function AdminStacksPage() {
         }
       />
 
+      {/* Ordre des cas : erreur, chargement (`undefined`), liste vide, liste. */}
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
-      ) : data === null ? (
+      ) : data === undefined ? (
         <AdminListSkeleton />
       ) : data.items.length === 0 ? (
         <EmptyMessage>
@@ -90,12 +57,12 @@ export function AdminStacksPage() {
                   stack._count.categories > 1 ? 'catégories' : 'catégorie'
                 }`}
                 editTo={`/admin/stacks/${stack.id}/edit`}
-                onDelete={() => void onDelete(stack.id)}
+                onDelete={() => void requestDelete(stack.id)}
               />
             ))}
           </ul>
           <AdminPagination
-            page={data.page}
+            page={page}
             limit={data.limit}
             total={data.total}
             onPageChange={setPage}
