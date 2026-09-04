@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { scoreQuiz } from '../common/score-quiz';
@@ -50,6 +56,27 @@ function answersMatchSnapshot(questions: QuizQuestion[], answers: QuizAnswer[]):
   return true;
 }
 
+function toRecapQuestions(questions: QuizQuestion[], answers: QuizAnswer[]) {
+  const selectedById = new Map(answers.map((answer) => [answer.questionId, answer.choiceIndex]));
+
+  return questions.map((question) => {
+    const selectedIndex = selectedById.get(question.id);
+    if (selectedIndex === undefined) {
+      throw new BadRequestException();
+    }
+
+    return {
+      id: question.id,
+      prompt: question.prompt,
+      choices: question.choices,
+      selectedIndex,
+      correctIndex: question.correctIndex,
+      selectedChoice: question.choices[selectedIndex],
+      correctChoice: question.choices[question.correctIndex],
+    };
+  });
+}
+
 @Injectable()
 export class QuizzesService {
   constructor(
@@ -65,7 +92,7 @@ export class QuizzesService {
         title: true,
         slug: true,
         summary: true,
-        quizQuestions: true,
+        bodyMdx: true,
       },
     });
 
@@ -79,11 +106,6 @@ export class QuizzesService {
       summary: entry.summary,
     };
 
-    const questions = parseQuizQuestions(entry.quizQuestions);
-    if (!questions) {
-      return { attempt: null, entry: entryPublic };
-    }
-
     const inProgress = await this.prisma.quizAttempt.findFirst({
       where: {
         userId,
@@ -95,7 +117,10 @@ export class QuizzesService {
     });
 
     if (inProgress) {
-      const snapshot = parseQuizQuestions(inProgress.questions) ?? questions;
+      const snapshot = parseQuizQuestions(inProgress.questions);
+      if (!snapshot) {
+        throw new ServiceUnavailableException();
+      }
       return {
         attempt: {
           id: inProgress.id,
@@ -105,6 +130,27 @@ export class QuizzesService {
         entry: entryPublic,
       };
     }
+
+    if (entry.bodyMdx.trim().length < 80) {
+      return { attempt: null, entry: entryPublic };
+    }
+
+    let generated: QuizQuestion[] | null;
+    try {
+      generated = await this.generator.generate({
+        title: entry.title,
+        summary: entry.summary,
+        bodyMdx: entry.bodyMdx,
+      });
+    } catch {
+      throw new ServiceUnavailableException();
+    }
+
+    const questions = parseQuizQuestions(generated);
+    if (!questions) {
+      throw new ServiceUnavailableException();
+    }
+
     const created = await this.prisma.quizAttempt.create({
       data: {
         userId,
@@ -112,6 +158,7 @@ export class QuizzesService {
         questions,
       },
     });
+
     return {
       attempt: {
         id: created.id,
@@ -158,7 +205,6 @@ export class QuizzesService {
     }
 
     const scored = scoreQuiz(questions, answers);
-
     await this.prisma.quizAttempt.update({
       where: { id: attempt.id },
       data: {
@@ -166,12 +212,12 @@ export class QuizzesService {
         score: scored.score,
       },
     });
-
     return {
       id: attempt.id,
       score: scored.score,
       correctCount: scored.correctCount,
       total: scored.total,
+      questions: toRecapQuestions(questions, answers),
       entry: {
         title: attempt.entry.title,
         slug: attempt.entry.slug,

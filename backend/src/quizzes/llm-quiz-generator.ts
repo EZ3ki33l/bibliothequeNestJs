@@ -89,9 +89,13 @@ export class LlmQuizGenerator implements QuizGenerator {
         this.logger.warn('Quiz LLM JSON: invalid content');
         return null;
       }
-      const questions = parseQuizQuestions(assignServerIds(readQuestions(parsed)));
+      const questions = parseQuizQuestions(
+        assignServerIds(normalizeLlmQuestions(readQuestions(parsed))),
+      );
       if (!questions) {
-        this.logger.warn('Quiz LLM JSON: questions failed validation');
+        this.logger.warn(
+          `Quiz LLM JSON: questions failed validation (${describeQuestions(readQuestions(parsed))})`,
+        );
         return null;
       }
       return questions;
@@ -138,4 +142,72 @@ function assignServerIds(value: unknown): unknown {
     }
     return { ...(item as Record<string, unknown>), id: crypto.randomUUID() };
   });
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function normalizeLlmQuestions(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((item) => {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      return item;
+    }
+
+    const record = item as Record<string, unknown>;
+    const prompt = firstString(record.prompt, record.question, record.enonce) ?? record.prompt;
+    const rawChoices = record.choices ?? record.options ?? record.propositions;
+    const choices = Array.isArray(rawChoices)
+      ? rawChoices.map((choice) => {
+          if (typeof choice === 'string') {
+            return choice;
+          }
+          if (choice !== null && typeof choice === 'object' && !Array.isArray(choice)) {
+            return firstString(
+              (choice as Record<string, unknown>).text,
+              (choice as Record<string, unknown>).label,
+              (choice as Record<string, unknown>).content,
+            );
+          }
+          return choice;
+        })
+      : rawChoices;
+
+    const rawCorrect =
+      record.correctIndex ?? record.correct_index ?? record.answerIndex ?? record.answer;
+    let correctIndex: unknown = rawCorrect;
+    if (typeof rawCorrect === 'string' && /^\d+$/.test(rawCorrect.trim())) {
+      correctIndex = Number(rawCorrect);
+    } else if (typeof rawCorrect === 'string' && Array.isArray(choices)) {
+      const index = choices.indexOf(rawCorrect);
+      if (index >= 0) {
+        correctIndex = index;
+      }
+    }
+
+    return { ...record, prompt, choices, correctIndex };
+  });
+}
+
+function describeQuestions(value: unknown): string {
+  if (!Array.isArray(value)) {
+    return `not-array:${typeof value}`;
+  }
+  if (value.length === 0) {
+    return 'empty-array';
+  }
+  const first = value[0];
+  if (first === null || typeof first !== 'object' || Array.isArray(first)) {
+    return `n=${value.length} item:${first === null ? 'null' : typeof first}`;
+  }
+  return `n=${value.length} keys=${Object.keys(first).join(',')}`;
 }

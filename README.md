@@ -38,6 +38,9 @@ DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/bibliotheque?schema=publi
 BETTER_AUTH_URL=http://localhost:4000
 BETTER_AUTH_SECRET=          # openssl rand -base64 32
 ADMIN_EMAIL=ton@email.fr     # promu admin au seed, après inscription
+QUIZ_LLM_API_KEY=            # secret ; jamais commité. Absence → 503 à la génération, pas au boot
+QUIZ_LLM_BASE_URL=           # optionnel, défaut https://api.openai.com/v1
+QUIZ_LLM_MODEL=              # optionnel, défaut gpt-4o-mini
 ```
 
 Ne commite jamais `.env`. Pour un secret Better Auth :
@@ -96,7 +99,9 @@ Le corps d’une fiche (`bodyMdx`) est rendu par `EntryMdx` (`react-markdown` `M
 
 Les **révisions** sont un écran d’apprenant, pas d’admin : `/review` est sous `AppLayout` (hors `/admin/...`). Le lien « Révisions » n’apparaît dans la sidebar que s’il y a une session better-auth. La page vérifie `GET /me` (**401** → `/login`) — jamais `GET /admin/me` ni `useSession()` comme garde. Un visiteur voit le catalogue inchangé ; un compte connecté qui ouvre une fiche **publiée** déclenche silencieusement `POST /reviews/ensure`. `GET /entries/:slug` ne crée pas de carte.
 
-L’**examen** d’une fiche est aussi un écran d’apprenant : `/entries/:slug/exam` est sous `AppLayout` (hors `/admin/...`). Le lien « Examen » n’apparaît sur la fiche que s’il y a une session better-auth (un visiteur parcourt le catalogue comme avant). La page vérifie `GET /me` (**401** → `/login`) puis `POST /quizzes/start` — jamais `GET /admin/me`, jamais `useSession()` comme garde, jamais `GET /entries/:slug` (le corps fuirait dans l’onglet réseau). Réponses d’épreuve : titre, résumé, questions — **sans** `bodyMdx` ni `correctIndex`. Après **Valider**, l’écran résultat montre le score 0–100 (`correctCount` / `total`) et un lien « Voir la fiche » ; le corps n’est visible que sur `/entries/:slug`.
+L’**examen** d’une fiche est aussi un écran d’apprenant : `/entries/:slug/exam` est sous `AppLayout` (hors `/admin/...`). Le lien « Examen » n’apparaît sur la fiche que s’il y a une session better-auth (un visiteur parcourt le catalogue comme avant). La page vérifie `GET /me` (**401** → `/login`) puis `POST /quizzes/start` — jamais `GET /admin/me`, jamais `useSession()` comme garde, jamais `GET /entries/:slug` (le corps fuirait dans l’onglet réseau).
+
+`POST /quizzes/start` **génère** un QCM à partir du `bodyMdx` de la fiche publiée s’il n’y a pas de tentative en cours, puis le fige. Une tentative **en cours** se reprend **sans** nouvel appel au générateur. Un corps trop court (< 80 caractères après trim) → `{ attempt: null }` : état vide « Pas d'épreuve pour cette fiche. », aucune ligne créée. Une panne du générateur (clé absente, timeout, fournisseur, JSON invalide) → **503** : message « réessayer », **pas** l’état vide. Après **Valider** (`POST /quizzes/:id/submit`), l’écran résultat montre le score 0–100 (`correctCount` / `total`) et, pour chaque question, le choix de l’utilisateur et la bonne proposition, plus un lien **Voir la fiche** — toujours **sans** `bodyMdx`. Une nouvelle ouverture après notation produit un **nouveau** jeu (pas le snapshot noté). Le corps n’est visible que sur `/entries/:slug`.
 
 L’admin SPA appelle `GET /admin/me` : **401** → `/login`, **403** → refus. Pas de `useSession()` pour cette garde.
 
@@ -114,7 +119,7 @@ Dans `backend/` :
 | --- | --- |
 | `pnpm start:dev` | API en watch |
 | `pnpm build` / `pnpm start:prod` | build puis prod |
-| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview` + `scoreQuiz`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches), reviews et quizzes |
+| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview` + `scoreQuiz` + `LlmQuizGenerator`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches), reviews et quizzes |
 | `pnpm db:generate` | client Prisma (`src/generated`, gitignoré) |
 | `pnpm db:migrate` | applique les migrations |
 | `pnpm db:seed` | données de démo + promotion admin |
@@ -135,8 +140,8 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET` | `/reviews/due` | session (`{ current, remaining }` ; file vide = `current: null`, `remaining: 0`) |
 | `POST` | `/reviews/ensure` | session (`204`, body `{ entryId }` ; fiche publiée seulement) |
 | `POST` | `/reviews/:id/rate` | session (body `{ rating }` ∈ `AGAIN` \| `HARD` \| `GOOD` \| `EASY` ; réponse = même enveloppe que due) |
-| `POST` | `/quizzes/start` | session (body `{ slug }` ; épreuve sans `correctIndex` / `bodyMdx`, ou `{ attempt: null }` si pas de jeu) |
-| `POST` | `/quizzes/:id/submit` | session (body `{ answers: [{ questionId, choiceIndex }] }` ; `{ id, score, correctCount, total, entry }`) |
+| `POST` | `/quizzes/start` | session (body `{ slug }` ; génère ou reprend sans `correctIndex` / `bodyMdx` ; `{ attempt: null }` si corps trop court ; **503** si génération en échec) |
+| `POST` | `/quizzes/:id/submit` | session (body `{ answers: [{ questionId, choiceIndex }] }` ; `{ id, score, correctCount, total, questions[], entry }` avec récap `selectedChoice` / `correctChoice` / `correctIndex`) |
 | `GET` | `/admin/stacks` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50) |
 | `GET` | `/admin/stacks/:id` | admin |
 | `DELETE` | `/admin/stacks/:id` | admin (`204`, cascade) |
@@ -148,7 +153,7 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `DELETE` | `/admin/entries/:id` | admin (`204`, cascade révisions / quiz ; la catégorie reste) |
 | `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin |
 
-Sans cookie, les trois chemins `/reviews/*` et les deux chemins `/quizzes/*` répondent **401**. Une carte ou une tentative d’un autre compte, inconnue, déjà notée / non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe).
+Sans cookie, les trois chemins `/reviews/*` et les deux chemins `/quizzes/*` répondent **401**. Une carte ou une tentative d’un autre compte, inconnue, déjà notée / non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe). Une génération d’épreuve en échec → **503** (aucune tentative créée, pas de `bodyMdx`).
 
 Slug et `position` sont calculés **côté serveur** (`position` à la création seulement). Le slug d’une fiche est unique dans toute la base.
 
@@ -164,7 +169,7 @@ backend/
     entries/       un dossier = un domaine (module, controller, service, dto/)
                    écritures admin = admin-*.controller.ts
     reviews/       file due, ensure, notation (SessionGuard, pas AdminGuard)
-    quizzes/       start, submit (SessionGuard, pas AdminGuard)
+    quizzes/       génération LLM au start, submit + récap (SessionGuard, pas AdminGuard)
     common/        slugify, calendrier SM-2 (`scheduleReview`), score QCM (`scoreQuiz`)
 frontend/
   src/
