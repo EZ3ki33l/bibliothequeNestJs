@@ -4,9 +4,9 @@ Application d’apprentissage : des **stacks** (ex. React) contiennent des **cat
 
 Deux applications distinctes — pas un monorepo pnpm :
 
-| Dossier | Rôle | Port |
-| --- | --- | --- |
-| `backend/` | API NestJS 11 + Prisma 7 + PostgreSQL | `4000` |
+| Dossier     | Rôle                                        | Port   |
+| ----------- | ------------------------------------------- | ------ |
+| `backend/`  | API NestJS 11 + Prisma 7 + PostgreSQL       | `4000` |
 | `frontend/` | SPA Vite + React 19 + HeroUI 3 + Tailwind 4 | `5173` |
 
 Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les **révisions** passent par `/reviews/...` (session, **pas** admin) ; les **quiz** passent par `/quizzes/...` (session, **pas** admin) ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
@@ -49,7 +49,7 @@ Ne commite jamais `.env`. Pour un secret Better Auth :
 openssl rand -base64 32
 ```
 
-Données de démo (stack React, catégorie Hooks, fiche `useState`) :
+Données de démo (stack React, catégorie Hooks, les 7 hooks de base de [react.dev](https://react.dev/reference/react/hooks)) :
 
 ```bash
 pnpm db:seed
@@ -70,30 +70,41 @@ Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le
 
 ## Pages (SPA)
 
-`App.tsx` est la table de routes. Une page = un fichier dans `frontend/src/pages/`. `AppLayout` (sidebar) enveloppe le catalogue ; `AuthLayout` et `AdminLayout` s’imbriquent dessus via `<Outlet />`. Le thème sombre HeroUI 3 exige `class="dark"` sur `<html>` (`frontend/index.html`).
+`App.tsx` est la table de routes. Une page = un fichier dans `frontend/src/pages/`. `AppLayout` (sidebar + pied de page) enveloppe le catalogue ; `AuthLayout` et `AdminLayout` s’imbriquent dessus via `<Outlet />`. Le thème sombre HeroUI 3 exige `class="dark"` sur `<html>` (`frontend/index.html`).
 
-| Route navigateur | Page | Accès |
-| --- | --- | --- |
-| `/` | Accueil | public |
-| `/login`, `/register` | Auth | public |
-| `/stacks` | Liste des stacks | public |
-| `/stacks/:slug` | Détail d’un stack | public |
-| `/stacks/:stackSlug/:categorySlug` | Catégorie + fiches | public |
-| `/entries/:slug` | Fiche | public |
-| `/entries/:slug/exam` | Épreuve d’une fiche | session (pas admin) |
-| `/review` | File de révisions | session (pas admin) |
-| `/admin` | Dashboard admin | session + rôle admin |
-| `/admin/stacks` | Liste des stacks | session + rôle admin |
-| `/admin/stacks/new` | Créer un stack | session + rôle admin |
-| `/admin/stacks/:id/edit` | Modifier un stack | session + rôle admin |
-| `/admin/categories` | Liste des catégories | session + rôle admin |
-| `/admin/categories/new` | Créer une catégorie | session + rôle admin |
-| `/admin/categories/:id/edit` | Modifier une catégorie | session + rôle admin |
-| `/admin/entries` | Liste des fiches | session + rôle admin |
-| `/admin/entries/new` | Créer une fiche | session + rôle admin |
-| `/admin/entries/:id/edit` | Modifier une fiche | session + rôle admin |
+L’accueil (`/`) oriente (parcours, fiches, recherche, examens, révisions) : portes vers `/stacks`, `/recherche` et `/a-propos`, sans grille catalogue. La page `/a-propos` décrit uniquement ce qui existe déjà — pas de favoris, certificats ou notifications. Le **pied de page** (`SiteFooter`, sous l’Outlet) lie l’orientation, les mentions légales, les CGU, la confidentialité et le contact ; il est visible aussi sur `/login`. L’identité d’éditeur / hébergeur / courriel vit dans `frontend/src/lib/site-legal.ts` (placeholders « à renseigner avant mise en ligne », jamais une fausse identité). `/contact` affiche le courriel et un `mailto` seulement s’il est réel — **pas** de formulaire POST. Une adresse inconnue (`/page-inventee`) affiche « Page introuvable » (catch-all `path="*"`, en dernier) ; un slug catalogue absent (`/stacks/…`) reste un 404 métier dans la page. Un plantage de rendu est capté par `AppErrorBoundary` → écran humain, **sans** stack.
+
+| Route navigateur                   | Page                                                                          | Accès                |
+| ---------------------------------- | ----------------------------------------------------------------------------- | -------------------- |
+| `/`                                | Accueil (orientation, sans grille catalogue)                                  | public               |
+| `/a-propos`                        | À propos                                                                      | public               |
+| `/mentions-legales`                | Mentions légales                                                              | public               |
+| `/cgu`                             | Conditions d’utilisation                                                      | public               |
+| `/confidentialite`                 | Politique de confidentialité                                                  | public               |
+| `/contact`                         | Contact (`mailto`, pas de POST)                                               | public               |
+| `/login`, `/register`              | Auth                                                                          | public               |
+| `/stacks`                          | Liste des stacks                                                              | public               |
+| `/stacks/:slug`                    | Détail d’un stack                                                             | public               |
+| `/stacks/:stackSlug/:categorySlug` | Catégorie + fiches                                                            | public               |
+| `/recherche`                       | Recherche de fiches (query `q`, `kind`, `difficulty`, `stack`, `tag`, `page`) | public               |
+| `/entries/:slug`                   | Fiche                                                                         | public               |
+| `/entries/:slug/exam`              | Épreuve d’une fiche                                                           | session (pas admin)  |
+| `/review`                          | File de révisions                                                             | session (pas admin)  |
+| `/admin`                           | Dashboard admin                                                               | session + rôle admin |
+| `/admin/stacks`                    | Liste des stacks                                                              | session + rôle admin |
+| `/admin/stacks/new`                | Créer un stack                                                                | session + rôle admin |
+| `/admin/stacks/:id/edit`           | Modifier un stack                                                             | session + rôle admin |
+| `/admin/categories`                | Liste des catégories                                                          | session + rôle admin |
+| `/admin/categories/new`            | Créer une catégorie                                                           | session + rôle admin |
+| `/admin/categories/:id/edit`       | Modifier une catégorie                                                        | session + rôle admin |
+| `/admin/entries`                   | Liste des fiches                                                              | session + rôle admin |
+| `/admin/entries/new`               | Créer une fiche                                                               | session + rôle admin |
+| `/admin/entries/:id/edit`          | Modifier une fiche                                                            | session + rôle admin |
+| `*` (catch-all)                    | Page introuvable                                                              | public               |
 
 La route navigateur d’une catégorie **n’inclut pas** `categories` ; l’API, si : `GET /stacks/:stackSlug/categories/:categorySlug`.
+
+La **recherche** (`/recherche`) liste des fiches **publiées** via `GET /entries` (titre, résumé, tags — jamais `bodyMdx`). Les query `q`, `kind`, `difficulty`, `stack`, `tag` et `page` sont dans l’URL ; un tag cliqué sur une fiche ouvre `/recherche?tag=`. Sans critère, l’écran invite à chercher et n’appelle pas l’API. Sans compte.
 
 Le corps d’une fiche (`bodyMdx`) est rendu par `EntryMdx` (`react-markdown` `MarkdownHooks` + `rehype-pretty-code` / Shiki). Si `kind` n’est pas `CONCEPT` et que `files` n’est pas vide, un playground Sandpack s’affiche sous le contenu.
 
@@ -115,43 +126,44 @@ Les écrans `/admin/entries` font de même pour les fiches (brouillons inclus). 
 
 Dans `backend/` :
 
-| Commande | Effet |
-| --- | --- |
-| `pnpm start:dev` | API en watch |
-| `pnpm build` / `pnpm start:prod` | build puis prod |
+| Commande                                        | Effet                                                                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm start:dev`                                | API en watch                                                                                                                                                                         |
+| `pnpm build` / `pnpm start:prod`                | build puis prod                                                                                                                                                                      |
 | `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview` + `scoreQuiz` + `LlmQuizGenerator`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches), reviews et quizzes |
-| `pnpm db:generate` | client Prisma (`src/generated`, gitignoré) |
-| `pnpm db:migrate` | applique les migrations |
-| `pnpm db:seed` | données de démo + promotion admin |
-| `pnpm format` | Prettier |
+| `pnpm db:generate`                              | client Prisma (`src/generated`, gitignoré)                                                                                                                                           |
+| `pnpm db:migrate`                               | applique les migrations                                                                                                                                                              |
+| `pnpm db:seed`                                  | données de démo + promotion admin                                                                                                                                                    |
+| `pnpm format`                                   | Prettier                                                                                                                                                                             |
 
 Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`.
 
 ## API (repères)
 
-| Méthode | Chemin | Accès |
-| --- | --- | --- |
-| `*` | `/api/auth/*` | better-auth (login, register, session) |
-| `GET` | `/me` | utilisateur connecté |
-| `GET` | `/admin/me` | admin |
-| `GET` | `/stacks`, `/stacks/:slug` | public |
-| `GET` | `/stacks/:stackSlug/categories/:categorySlug` | public |
-| `GET` | `/entries`, `/entries/:slug` | public |
-| `GET` | `/reviews/due` | session (`{ current, remaining }` ; file vide = `current: null`, `remaining: 0`) |
-| `POST` | `/reviews/ensure` | session (`204`, body `{ entryId }` ; fiche publiée seulement) |
-| `POST` | `/reviews/:id/rate` | session (body `{ rating }` ∈ `AGAIN` \| `HARD` \| `GOOD` \| `EASY` ; réponse = même enveloppe que due) |
-| `POST` | `/quizzes/start` | session (body `{ slug }` ; génère ou reprend sans `correctIndex` / `bodyMdx` ; `{ attempt: null }` si corps trop court ; **503** si génération en échec) |
-| `POST` | `/quizzes/:id/submit` | session (body `{ answers: [{ questionId, choiceIndex }] }` ; `{ id, score, correctCount, total, questions[], entry }` avec récap `selectedChoice` / `correctChoice` / `correctIndex`) |
-| `GET` | `/admin/stacks` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50) |
-| `GET` | `/admin/stacks/:id` | admin |
-| `DELETE` | `/admin/stacks/:id` | admin (`204`, cascade) |
-| `GET` | `/admin/categories` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50) |
-| `GET` | `/admin/categories/:id` | admin |
-| `DELETE` | `/admin/categories/:id` | admin (`204`, cascade fiches ; le stack reste) |
-| `GET` | `/admin/entries` | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50 ; brouillons inclus) |
-| `GET` | `/admin/entries/:id` | admin |
-| `DELETE` | `/admin/entries/:id` | admin (`204`, cascade révisions / quiz ; la catégorie reste) |
-| `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin |
+| Méthode                 | Chemin                                                 | Accès                                                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*`                     | `/api/auth/*`                                          | better-auth (login, register, session)                                                                                                                                                |
+| `GET`                   | `/me`                                                  | utilisateur connecté                                                                                                                                                                  |
+| `GET`                   | `/admin/me`                                            | admin                                                                                                                                                                                 |
+| `GET`                   | `/stacks`, `/stacks/:slug`                             | public                                                                                                                                                                                |
+| `GET`                   | `/stacks/:stackSlug/categories/:categorySlug`          | public                                                                                                                                                                                |
+| `GET`                   | `/entries`                                             | public (paginé : `page` / `limit` 1–50 ; query optionnelle `q`, `kind`, `difficulty`, `stack`, `tag` ; publiées seulement, sans `bodyMdx`)                                            |
+| `GET`                   | `/entries/:slug`                                       | public                                                                                                                                                                                |
+| `GET`                   | `/reviews/due`                                         | session (`{ current, remaining }` ; file vide = `current: null`, `remaining: 0`)                                                                                                      |
+| `POST`                  | `/reviews/ensure`                                      | session (`204`, body `{ entryId }` ; fiche publiée seulement)                                                                                                                         |
+| `POST`                  | `/reviews/:id/rate`                                    | session (body `{ rating }` ∈ `AGAIN` \| `HARD` \| `GOOD` \| `EASY` ; réponse = même enveloppe que due)                                                                                |
+| `POST`                  | `/quizzes/start`                                       | session (body `{ slug }` ; génère ou reprend sans `correctIndex` / `bodyMdx` ; `{ attempt: null }` si corps trop court ; **503** si génération en échec)                              |
+| `POST`                  | `/quizzes/:id/submit`                                  | session (body `{ answers: [{ questionId, choiceIndex }] }` ; `{ id, score, correctCount, total, questions[], entry }` avec récap `selectedChoice` / `correctChoice` / `correctIndex`) |
+| `GET`                   | `/admin/stacks`                                        | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50)                                                                                                                             |
+| `GET`                   | `/admin/stacks/:id`                                    | admin                                                                                                                                                                                 |
+| `DELETE`                | `/admin/stacks/:id`                                    | admin (`204`, cascade)                                                                                                                                                                |
+| `GET`                   | `/admin/categories`                                    | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50)                                                                                                                             |
+| `GET`                   | `/admin/categories/:id`                                | admin                                                                                                                                                                                 |
+| `DELETE`                | `/admin/categories/:id`                                | admin (`204`, cascade fiches ; le stack reste)                                                                                                                                        |
+| `GET`                   | `/admin/entries`                                       | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50 ; brouillons inclus)                                                                                                         |
+| `GET`                   | `/admin/entries/:id`                                   | admin                                                                                                                                                                                 |
+| `DELETE`                | `/admin/entries/:id`                                   | admin (`204`, cascade révisions / quiz ; la catégorie reste)                                                                                                                          |
+| `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin                                                                                                                                                                                 |
 
 Sans cookie, les trois chemins `/reviews/*` et les deux chemins `/quizzes/*` répondent **401**. Une carte ou une tentative d’un autre compte, inconnue, déjà notée / non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe). Une génération d’épreuve en échec → **503** (aucune tentative créée, pas de `bodyMdx`).
 
@@ -173,10 +185,10 @@ backend/
     common/        slugify, calendrier SM-2 (`scheduleReview`), score QCM (`scoreQuiz`)
 frontend/
   src/
-    pages/         une page = une route (App.tsx = table de routes) ; ReviewPage = /review ; ExamPage = /entries/:slug/exam
+    pages/         une page = une route (App.tsx = table de routes) ; SearchPage = /recherche ; ReviewPage = /review ; ExamPage = /entries/:slug/exam ; pages publiques d’orientation / légal / 404
     pages/admin/   layout imbriqué (<Outlet />), dashboard, CRUD stacks, catégories et fiches
-    components/    UI, sidebar, admin (listes, formulaires), EntryMdx, Playground
-    lib/           apiFetch, client better-auth, stacks, admin, reviews, quizzes, sandpack
+    components/    UI, sidebar, pied de page, Error Boundary, admin (listes, formulaires), EntryMdx, Playground
+    lib/           apiFetch, client better-auth, stacks, admin, reviews, quizzes, sandpack, site-legal
 ```
 
 Flux HTTP : requête → `ValidationPipe` + DTO (`class-validator`) → controller → service → Prisma → JSON.

@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { EntriesService } from './entries.service';
+import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
+import { SearchEntriesQueryDto } from './dto/search-entries-query.dto';
 
 function knownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {
@@ -38,14 +40,175 @@ describe('EntriesService', () => {
   });
 
   describe('findPublished', () => {
-    it('lists only published entries', async () => {
-      const rows = [{ id: 'e1', published: true }];
-      prisma.entry.findMany.mockResolvedValue(rows);
-
-      await expect(service.findPublished()).resolves.toBe(rows);
+    it('returns a paginated envelope of published entries only', async () => {
+      const items = [{ id: 'e1', title: 'useState' }];
+      prisma.entry.findMany.mockResolvedValue(items);
+      prisma.entry.count.mockResolvedValue(1);
+      await expect(service.findPublished({ page: 1, limit: 50 })).resolves.toEqual({
+        items,
+        total: 1,
+        page: 1,
+        limit: 50,
+      });
       expect(prisma.entry.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { published: true }, take: 50 }),
+        expect.objectContaining({
+          where: { published: true },
+          skip: 0,
+          take: 50,
+          select: ENTRY_CARD_SELECT,
+        }),
       );
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where: { published: true } });
+      expect(ENTRY_CARD_SELECT).not.toHaveProperty('bodyMdx');
+      expect(ENTRY_CARD_SELECT).not.toHaveProperty('quizQuestions');
+      expect(ENTRY_CARD_SELECT).not.toHaveProperty('files');
+    });
+    it('uses skip from page and take from limit', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({ page: 2, limit: 10 });
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+    it('filters published entries by title, summary, or exact tag when q is set', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findPublished({ page: 1, limit: 50, q: 'useState' });
+
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            published: true,
+            OR: [
+              { title: { contains: 'useState', mode: 'insensitive' } },
+              { summary: { contains: 'useState', mode: 'insensitive' } },
+              { tags: { has: 'useState' } },
+            ],
+          },
+          select: ENTRY_CARD_SELECT,
+        }),
+      );
+      expect(prisma.entry.count).toHaveBeenCalledWith({
+        where: {
+          published: true,
+          OR: [
+            { title: { contains: 'useState', mode: 'insensitive' } },
+            { summary: { contains: 'useState', mode: 'insensitive' } },
+            { tags: { has: 'useState' } },
+          ],
+        },
+      });
+      expect(ENTRY_CARD_SELECT).not.toHaveProperty('bodyMdx');
+      expect(ENTRY_CARD_SELECT).not.toHaveProperty('quizQuestions');
+    });
+
+    it('trims q and treats whitespace-only q as absent', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findPublished({ page: 1, limit: 50, q: '  hooks  ' });
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: expect.arrayContaining([{ tags: { has: 'hooks' } }]),
+          }),
+        }),
+      );
+
+      prisma.entry.findMany.mockClear();
+      await service.findPublished({ page: 1, limit: 50, q: '   ' });
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { published: true } }),
+      );
+    });
+    it('adds kind and difficulty to the where (AND with q)', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({
+        page: 1,
+        limit: 50,
+        q: 'hooks',
+        kind: 'FUNCTION',
+        difficulty: 'BEGINNER',
+      } as SearchEntriesQueryDto);
+      const expectedWhere = {
+        published: true,
+        OR: [
+          { title: { contains: 'hooks', mode: 'insensitive' } },
+          { summary: { contains: 'hooks', mode: 'insensitive' } },
+          { tags: { has: 'hooks' } },
+        ],
+        kind: 'FUNCTION',
+        difficulty: 'BEGINNER',
+      };
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      // Le count doit filtrer sur le MÊME where, sinon le total serait faux.
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where: expectedWhere });
+    });
+    it('filters by stack slug via the category relation', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({
+        page: 1,
+        limit: 50,
+        stack: 'react',
+      } as SearchEntriesQueryDto);
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { published: true, category: { stack: { slug: 'react' } } },
+        }),
+      );
+    });
+    it('applies a single filter without q (no OR)', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({
+        page: 1,
+        limit: 50,
+        difficulty: 'ADVANCED',
+      } as SearchEntriesQueryDto);
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { published: true, difficulty: 'ADVANCED' },
+        }),
+      );
+    });
+    it('filters by an exact tag with has', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({
+        page: 1,
+        limit: 50,
+        tag: 'hooks',
+      } as SearchEntriesQueryDto);
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { published: true, tags: { has: 'hooks' } },
+        }),
+      );
+    });
+    it('combines tag with difficulty (intersection)', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({
+        page: 1,
+        limit: 50,
+        tag: 'hooks',
+        difficulty: 'BEGINNER',
+      } as SearchEntriesQueryDto);
+      const expectedWhere = {
+        published: true,
+        difficulty: 'BEGINNER',
+        tags: { has: 'hooks' },
+      };
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where: expectedWhere });
     });
   });
 
