@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import * as express from 'express';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { toNodeHandler } from 'better-auth/node';
@@ -9,14 +11,19 @@ import { getAuth } from './auth/auth';
 
 /**
  * Point d'entrée du serveur : tout ce qui vaut pour **toute** l'application se
- * branche ici (CORS, validation, montage de better-auth), plutôt que d'être
- * répété dans chaque module.
+ * branche ici (Helmet, CORS, validation, montage de better-auth), plutôt que
+ * d'être répété dans chaque module.
  */
 async function bootstrap() {
   // `bodyParser: false` : better-auth doit recevoir le corps brut de la requête
   // pour ses propres routes. On rebranche le parseur JSON juste après, pour le
   // reste de l'API (voir plus bas — l'ordre des middlewares compte).
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  // En-têtes de sécurité (CSP, frameguard, nosniff…). Premier middleware :
+  // une réponse part déjà avec une politique trop ouverte si Helmet arrive
+  // après CORS ou le parseur.
+  app.use(helmet());
 
   // Une seule origine explicite, jamais `*` : avec `credentials: true`, le
   // navigateur envoie le cookie de session, donc autoriser n'importe quelle
@@ -52,11 +59,25 @@ async function bootstrap() {
   const auth = getAuth(prisma);
   const expressApp = app.getHttpAdapter().getInstance() as express.Express;
 
+  // Login / register ne passent pas par Nest : plafond plus strict, hors GET
+  // de session. 10 POST / 15 min / IP : assez pour un humain, trop bas pour
+  // un script de force brute (OWASP brute force).
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { statusCode: 429, message: 'Trop de tentatives. Réessayer plus tard.' },
+  });
+  expressApp.use('/api/auth/sign-in', authLimiter);
+  expressApp.use('/api/auth/sign-up', authLimiter);
+
   // better-auth gère lui-même `/api/auth/*` (inscription, connexion, session) :
   // on lui délègue ces routes avant tout parsing du corps.
   // Express 5 (Nest 11) : le joker s'écrit `*splat`, plus `*`.
   expressApp.all(`/api/auth/*splat`, toNodeHandler(auth));
-  expressApp.use(express.json());
+  // Limite explicite (défaut Express = 100kb) : un body énorme est un DoS.
+  expressApp.use(express.json({ limit: '100kb' }));
 
   await app.listen(process.env.PORT ?? 4000);
 }
