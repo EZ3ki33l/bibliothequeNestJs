@@ -59,6 +59,13 @@ async function bootstrap() {
   const auth = getAuth(prisma);
   const expressApp = app.getHttpAdapter().getInstance() as express.Express;
 
+  // Derrière nginx / Caddy, toutes les requêtes arrivent avec l'IP du proxy.
+  // Sans `trust proxy`, le rate-limit (et le throttler) voient une seule
+  // machine : un attaquant bloque tout le monde, ou tout le monde partage
+  // le même quota (OWASP brute force / rate limiting). `1` = un saut de
+  // proxy, pas `true` (un client pourrait sinon forger X-Forwarded-For).
+  expressApp.set('trust proxy', 1);
+
   // Login / register ne passent pas par Nest : plafond plus strict, hors GET
   // de session. 10 POST / 15 min / IP : assez pour un humain, trop bas pour
   // un script de force brute (OWASP brute force).
