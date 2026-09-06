@@ -175,3 +175,57 @@ export function getCategoryBySlugs(
 export function getEntryBySlug(slug: string): Promise<EntryDetail | null> {
   return readOrNull<EntryDetail>(`/entries/${slug}`, 'Impossible de charger la fiche');
 }
+
+/** Query de `GET /entries` (liste publique paginée + filtres US2/US3). */
+export type SearchEntriesParams = {
+  q?: string;
+  /** Slug/valeur brute : le serveur valide (`@IsEnum` → 400 si hors liste). */
+  kind?: string;
+  difficulty?: string;
+  stack?: string;
+  tag?: string;
+  page?: number;
+  limit?: number;
+};
+
+/** Même enveloppe que les listes admin : `{ items, total, page, limit }`. */
+export type SearchEntriesPage = {
+  items: StackEntry[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+/**
+ * Recherche / liste publique des fiches publiées.
+ *
+ * Chaque paramètre n'est ajouté à la query que s'il est non vide : un filtre
+ * « Tous » (valeur '') n'apparaît pas dans l'URL et ne contraint donc rien.
+ *
+ * 400 = query refusée par le DTO (`kind` hors enum, champ inconnu, `q` trop
+ * long). On le traduit en phrase française plutôt que de dump le JSON Nest.
+ */
+export async function searchEntries(params: SearchEntriesParams = {}): Promise<SearchEntriesPage> {
+  const query = new URLSearchParams();
+
+  if (params.q) query.set('q', params.q);
+  if (params.kind) query.set('kind', params.kind);
+  if (params.difficulty) query.set('difficulty', params.difficulty);
+  if (params.stack) query.set('stack', params.stack);
+  if (params.tag) query.set('tag', params.tag);
+  if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.limit !== undefined) query.set('limit', String(params.limit));
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const response = await apiFetch(`/entries${suffix}`);
+
+  if (response.status === 400) {
+    throw new Error('Cette recherche n’est pas valide.');
+  }
+
+  if (!response.ok) {
+    throw new Error('Impossible de charger les fiches');
+  }
+
+  return response.json() as Promise<SearchEntriesPage>;
+}

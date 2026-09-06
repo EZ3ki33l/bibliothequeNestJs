@@ -8,6 +8,7 @@ import {
   FoldersIcon,
   SquaresFourIcon,
   StackIcon,
+  MagnifyingGlassIcon,
 } from '@phosphor-icons/react';
 import { Button, Skeleton } from '@heroui/react';
 import { authClient } from '../../lib/auth';
@@ -25,6 +26,7 @@ type NavItem = {
 const LIBRARY_NAV: NavItem[] = [
   { to: '/', label: 'Accueil', icon: BooksIcon, exact: true },
   { to: '/stacks', label: 'Stacks', icon: StackIcon },
+  { to: '/recherche', label: 'Recherche', icon: MagnifyingGlassIcon },
 ];
 
 const ADMIN_NAV: NavItem[] = [

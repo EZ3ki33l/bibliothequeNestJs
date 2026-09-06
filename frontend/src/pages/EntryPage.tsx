@@ -85,8 +85,16 @@ export function EntryPage() {
         {entry.tags.length > 0 ? (
           <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
             {entry.tags.map((tag) => (
-              <li key={tag} className="text-muted text-xs">
-                #{tag}
+              <li key={tag}>
+                {/* Suivre un tag ouvre la recherche déjà filtrée (US3 / FR-006).
+                    `encodeURIComponent` protège un tag qui contiendrait un
+                    espace ou un caractère spécial dans l'URL. */}
+                <Link
+                  to={`/recherche?tag=${encodeURIComponent(tag)}`}
+                  className="text-muted hover:text-foreground text-xs underline"
+                >
+                  #{tag}
+                </Link>
               </li>
             ))}
           </ul>

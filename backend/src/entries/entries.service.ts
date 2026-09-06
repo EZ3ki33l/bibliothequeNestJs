@@ -5,6 +5,8 @@ import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryDto } from './dto/update-entry.dto';
 import { slugify } from '../common/slug';
 import { toWriteException } from '../common/prisma-errors';
+import { SearchEntriesQueryDto } from './dto/search-entries-query.dto';
+import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
 
 const SLUG_TAKEN = 'Ce slug est déjà utilisé';
 
@@ -29,18 +31,70 @@ export class EntriesService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * `omit: { quizQuestions: true }` : cette colonne contient d'anciennes
-   * questions de quiz avec leur bonne réponse. La laisser sortir donnerait le
-   * corrigé au client avant l'examen.
+   * Liste publique paginée. Toujours `published: true` : un admin qui appelle
+   * cet endpoint ne voit pas plus de fiches qu'un visiteur (les brouillons
+   * restent sur `/admin/entries`).
+   *
+   * `q` (après trim) : si la chaîne est vide, elle est traitée comme absente.
+   * Sinon, un `OR` interne cherche dans le titre, le résumé (`contains`, casse
+   * ignorée) et les tags (`has` = tag exact). On ne cherche **pas** dans `bodyMdx`.
+   *
+   * `kind` / `difficulty` / `stack` / `tag` s'ajoutent au `where` comme autant
+   * de clés : Prisma les combine en ET (intersection). Un filtre absent = pas
+   * de clé = pas de contrainte. `stack` n'est pas une colonne d'`Entry` : c'est
+   * le slug du parcours, atteint via la relation `category → stack`. `tag`
+   * filtre sur un tag **exact** (`has`) : suivre un tag depuis une fiche doit
+   * donner un ensemble net, pas une recherche floue comme `q`.
    */
-  findPublished() {
-    return this.prisma.entry.findMany({
-      where: { published: true },
-      orderBy: [{ position: 'asc' }, { title: 'asc' }],
-      take: 50,
-      omit: { quizQuestions: true },
-      include: withTaxonomy,
-    });
+  async findPublished(dto: SearchEntriesQueryDto) {
+    const { page, limit } = dto;
+    const skip = (page - 1) * limit;
+    const q = dto.q?.trim();
+
+    const where: Prisma.EntryWhereInput = { published: true };
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { summary: { contains: q, mode: 'insensitive' } },
+        { tags: { has: q } },
+      ];
+    }
+
+    if (dto.kind) {
+      where.kind = dto.kind;
+    }
+
+    if (dto.difficulty) {
+      where.difficulty = dto.difficulty;
+    }
+
+    if (dto.stack) {
+      // Slug inconnu → aucune fiche ne matche, la liste est simplement vide
+      // (pas d'erreur : ce n'est pas une panne, juste zéro résultat).
+      where.category = { stack: { slug: dto.stack } };
+    }
+
+    if (dto.tag) {
+      const tag = dto.tag.trim();
+      // Un tag réduit à des espaces = pas de filtre (comme `q`).
+      if (tag) {
+        where.tags = { has: tag };
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.entry.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ position: 'asc' }, { title: 'asc' }],
+        select: ENTRY_CARD_SELECT,
+      }),
+      this.prisma.entry.count({ where }),
+    ]);
+
+    return { items, total, page, limit };
   }
 
   /**
