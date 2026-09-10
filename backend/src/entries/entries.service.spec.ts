@@ -4,7 +4,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { EntriesService } from './entries.service';
 import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
-import { SearchEntriesQueryDto } from './dto/search-entries-query.dto';
 
 function knownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {
@@ -132,7 +131,7 @@ describe('EntriesService', () => {
         q: 'hooks',
         kind: 'FUNCTION',
         difficulty: 'BEGINNER',
-      } as SearchEntriesQueryDto);
+      });
       const expectedWhere = {
         published: true,
         OR: [
@@ -156,7 +155,7 @@ describe('EntriesService', () => {
         page: 1,
         limit: 50,
         stack: 'react',
-      } as SearchEntriesQueryDto);
+      });
       expect(prisma.entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { published: true, category: { stack: { slug: 'react' } } },
@@ -170,7 +169,7 @@ describe('EntriesService', () => {
         page: 1,
         limit: 50,
         difficulty: 'ADVANCED',
-      } as SearchEntriesQueryDto);
+      });
       expect(prisma.entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { published: true, difficulty: 'ADVANCED' },
@@ -184,7 +183,7 @@ describe('EntriesService', () => {
         page: 1,
         limit: 50,
         tag: 'hooks',
-      } as SearchEntriesQueryDto);
+      });
       expect(prisma.entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { published: true, tags: { has: 'hooks' } },
@@ -199,7 +198,7 @@ describe('EntriesService', () => {
         limit: 50,
         tag: 'hooks',
         difficulty: 'BEGINNER',
-      } as SearchEntriesQueryDto);
+      });
       const expectedWhere = {
         published: true,
         difficulty: 'BEGINNER',
