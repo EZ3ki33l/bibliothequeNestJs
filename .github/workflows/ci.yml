@@ -1,0 +1,118 @@
+name: CI
+
+# Déclencheurs : à chaque push sur main et à chaque pull request.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Annule un run en cours si un nouveau commit arrive sur la même branche
+# (évite de gaspiller des minutes sur du code déjà remplacé).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- Backend NestJS : format, lint, tests (couverture 90 %), build ---
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm doit être installé AVANT setup-node pour que le cache fonctionne.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      # Le build Nest et les tests importent le client Prisma généré (src/generated).
+      # DATABASE_URL factice : aucune vraie base n'est nécessaire (Prisma est mocké).
+      - name: Générer le client Prisma
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+      - name: Vérifier le formatage (Prettier)
+        run: pnpm format:check
+
+      # eslint sans --fix : en CI on VÉRIFIE, on ne corrige pas silencieusement.
+      - name: Lint (ESLint)
+        run: pnpm exec eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Tests + couverture (seuil 90 %)
+        run: pnpm test:cov
+
+      - name: Build Nest
+        run: pnpm build
+
+  # --- Frontend Vite/React : format, lint, build (tsc + vite) ---
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Installer les dépendances
+        run: pnpm install --frozen-lockfile
+
+      - name: Vérifier le formatage (Prettier)
+        run: pnpm format:check
+
+      - name: Lint (oxlint)
+        run: pnpm lint
+
+      # tsc -b vérifie les types, puis vite build produit le bundle.
+      - name: Build Vite
+        run: pnpm build
+
+  # --- Déploiement sur le VPS (uniquement sur push vers main, après CI verte) ---
+  deploy:
+    runs-on: ubuntu-latest
+    # Ne se lance QUE si backend ET frontend ont réussi...
+    needs: [backend, frontend]
+    # ...et uniquement sur un push vers main (jamais depuis une pull request).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      # Connexion SSH au VPS. Les identifiants viennent des "Secrets" du dépôt
+      # (Settings → Secrets and variables → Actions) : rien de sensible dans le YAML.
+      - name: Déployer via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -euo pipefail
+            cd ${{ secrets.VPS_PATH }}
+            # Récupère le dernier code de main (échoue si divergence : pas de merge hasardeux).
+            git pull --ff-only origin main
+            # Reconstruit les images à partir du Dockerfile, puis relance les services.
+            # Le service "migrate" applique les migrations Prisma avant que l'api démarre.
+            docker compose build
+            docker compose up -d
+            # Nettoie les images intermédiaires devenues inutiles.
+            docker image prune -f
