@@ -10,6 +10,7 @@ import { CategoryPage } from './pages/CategoryPage';
 import { EntryPage } from './pages/EntryPage';
 import { ExamPage } from './pages/ExamPage';
 import { ReviewPage } from './pages/ReviewPage';
+import { FavoritesPage } from './pages/FavoritesPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminPage } from './pages/admin/AdminPage';
@@ -73,6 +74,7 @@ export default function App() {
         {/* Apprentissage (session requise, vérifiée par les pages) */}
         <Route path="/entries/:slug/exam" element={<ExamPage />} />
         <Route path="/review" element={<ReviewPage />} />
+        <Route path="/favoris" element={<FavoritesPage />} />
 
         {/* Administration. `index` = l'URL du parent exactement, ici `/admin`. */}
         <Route path="/admin" element={<AdminLayout />}>
