@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { Link, useParams } from 'react-router';
-import { Skeleton } from '@heroui/react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { Button, Skeleton } from '@heroui/react';
 import { getEntryBySlug, jsonToStringRecord } from '../lib/stacks';
 import { useAsyncData } from '../lib/useAsyncData';
 import { authClient } from '../lib/auth';
@@ -11,10 +11,22 @@ import { EntryMeta } from '../components/ui/EntryMeta';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EntryMdx } from '../components/entry/EntryMdx';
 import { Playground } from '../components/lab/Playground';
+import { HeartIcon } from '../components/ui/HeartIcon';
+import { addFavorite, listFavorites, removeFavorite } from '../lib/favorites';
+
+/** À quelle fiche correspond le dernier état de favori chargé depuis le serveur. */
+type FavoriteState = { entryId: string; favorited: boolean };
 
 export function EntryPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { data: session } = authClient.useSession();
+  const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
+  // Écriture en cours (POST ou DELETE /favorites) : désactive le bouton pour éviter un double-clic.
+  const [favPending, setFavPending] = useState(false);
+  // Message d'échec du dernier marquage/retrait, distinct de `error` (qui concerne toute la fiche).
+  const [favError, setFavError] = useState<string | null>(null);
+
   const userId = session?.user?.id;
 
   const { data: entry, error } = useAsyncData(
@@ -22,6 +34,22 @@ export function EntryPage() {
     [slug],
     'Impossible de charger la fiche',
   );
+
+  /**
+   * `undefined` tant que le résultat affiché ne correspond pas à la fiche
+   * actuellement ouverte (pas de session, ou requête pas encore revenue).
+   *
+   * Le calcul est fait ici, à l'affichage, plutôt que remis à zéro dans
+   * l'effet ci-dessous : `favoriteState` peut légitimement contenir l'état
+   * d'une fiche précédente pendant qu'on charge la nouvelle (l'utilisateur a
+   * changé de page avant la réponse), et comparer `entryId` à chaque rendu
+   * évite d'afficher ce résultat périmé. Même principe que `useAsyncData`
+   * (voir son commentaire sur `state.key === key`).
+   */
+  const favorited =
+    userId && entry?.id && favoriteState?.entryId === entry.id
+      ? favoriteState.favorited
+      : undefined;
 
   /**
    * Ouvrir une fiche l'inscrit au programme de révision.
@@ -36,6 +64,78 @@ export function EntryPage() {
 
     void ensureReview(entry.id).catch(() => undefined);
   }, [entry?.id, userId]);
+
+  useEffect(() => {
+    if (!entry?.id || !userId) return;
+
+    const currentEntryId = entry.id;
+    let cancelled = false;
+
+    listFavorites({ entryId: currentEntryId, limit: 1 })
+      .then((result) => {
+        if (cancelled) return;
+        setFavoriteState({
+          entryId: currentEntryId,
+          favorited: result !== 'unauthorized' && result.items.length > 0,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setFavoriteState({ entryId: currentEntryId, favorited: false });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entry?.id, userId]);
+
+  /**
+   * Bascule le favori de la fiche : ajoute si absent, retire si déjà présent.
+   *
+   * Deux gardes avant de partir en requête : pas de fiche chargée, ou une
+   * requête déjà en cours (`favPending`) — un double clic pendant l'aller-
+   * retour réseau ne doit pas déclencher deux écritures, même si le serveur
+   * gère de toute façon l'idempotence des deux côtés (POST 200 si déjà
+   * présent, DELETE 204 si déjà absent).
+   *
+   * Les deux appels renvoient `'unauthorized'` plutôt que de lever une
+   * exception dans ce cas précis : la session a pu expirer entre le
+   * chargement de la page et le clic. On l'affiche comme un message, sans
+   * rediriger — le bouton lui-même n'est visible que si `userId` était
+   * présent au rendu.
+   */
+  async function onToggleFavorite() {
+    if (!entry?.id || favPending) return;
+
+    const currentEntryId = entry.id;
+    const wasFavorited = favorited === true;
+    setFavPending(true);
+    setFavError(null);
+
+    try {
+      const result = wasFavorited
+        ? await removeFavorite(currentEntryId)
+        : await addFavorite(currentEntryId);
+
+      if (result === 'unauthorized') {
+        if (wasFavorited) {
+          navigate('/login', { replace: true });
+        } else {
+          setFavError('Connectez-vous pour marquer cette fiche.');
+        }
+        return;
+      }
+
+      setFavoriteState({ entryId: currentEntryId, favorited: !wasFavorited });
+    } catch (caught) {
+      setFavError(
+        caught instanceof Error
+          ? caught.message
+          : `Impossible de ${wasFavorited ? 'retirer' : 'marquer'} cette fiche`,
+      );
+    } finally {
+      setFavPending(false);
+    }
+  }
 
   if (error) {
     return <ErrorMessage>{error}</ErrorMessage>;
@@ -106,6 +206,41 @@ export function EntryPage() {
               Examen
             </Link>
           </p>
+        ) : null}
+        {/*
+          Le bouton n'apparaît que si `userId` est présent (visiteur : jamais
+          de bouton) ET que `favorited` a fini de charger (`!== undefined`) :
+          sans cette seconde condition, un connecté verrait une fraction de
+          seconde le cœur à contour même si la fiche est déjà favorite, avant
+          que `GET /favorites?entryId=` ne réponde.
+
+          Cœur à contour = pas encore favori (clic → ajoute) ; cœur plein
+          rouge = déjà favori (clic → retire, Phase 5). Toujours cliquable,
+          seul `favPending` désactive le temps de l'aller-retour réseau.
+        */}
+        {userId && favorited !== undefined ? (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              isIconOnly
+              isDisabled={favPending}
+              aria-label={favorited ? 'Retirer des favoris' : 'Mettre de côté'}
+              onPress={() => {
+                void onToggleFavorite();
+              }}
+            >
+              <HeartIcon
+                filled={favorited}
+                className={
+                  favorited
+                    ? 'text-danger size-5 transition-transform duration-150 hover:scale-125'
+                    : 'text-muted hover:text-danger size-5 transition-transform duration-150 hover:scale-125'
+                }
+              />
+            </Button>
+            {favError ? <span className="text-danger text-xs">{favError}</span> : null}
+          </div>
         ) : null}
       </header>
 

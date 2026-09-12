@@ -9,6 +9,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { EntriesModule } from './entries/entries.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
+import { FavoritesModule } from './favorites/favorites.module';
 
 /**
  * Module racine : il assemble les modules de domaine, il ne contient pas de
@@ -35,6 +36,7 @@ import { QuizzesModule } from './quizzes/quizzes.module';
     EntriesModule,
     ReviewsModule,
     QuizzesModule,
+    FavoritesModule,
   ],
   controllers: [MeController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

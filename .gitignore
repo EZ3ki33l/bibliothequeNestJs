@@ -44,3 +44,7 @@ logs
 backend/src/generated
 graphify-out
 specs
+
+.claude
+AGENTS.md
+CLAUDE.md

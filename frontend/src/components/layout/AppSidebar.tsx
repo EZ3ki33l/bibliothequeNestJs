@@ -6,6 +6,7 @@ import {
   BooksIcon,
   CardsIcon,
   FoldersIcon,
+  HeartIcon,
   SquaresFourIcon,
   StackIcon,
   MagnifyingGlassIcon,
@@ -103,7 +104,11 @@ export function AppSidebar() {
   const currentUser = session?.user ?? null;
 
   const libraryItems: NavItem[] = currentUser
-    ? [...LIBRARY_NAV, { to: '/review', label: 'Révisions', icon: CardsIcon }]
+    ? [
+        ...LIBRARY_NAV,
+        { to: '/review', label: 'Révisions', icon: CardsIcon },
+        { to: '/favoris', label: 'Favoris', icon: HeartIcon },
+      ]
     : LIBRARY_NAV;
 
   return (

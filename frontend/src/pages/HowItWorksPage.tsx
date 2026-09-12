@@ -3,6 +3,7 @@ import { Card, buttonVariants } from '@heroui/react';
 import {
   ArticleIcon,
   CardsIcon,
+  HeartIcon,
   MagnifyingGlassIcon,
   QuestionIcon,
   StackIcon,
@@ -41,14 +42,20 @@ const PARTS = [
     account: true,
     body: 'Avec un compte, les fiches lues reviennent plus tard, selon ce qui a été retenu. Le lien Révisions apparaît alors dans le menu Bibliothèque. Sans compte, cette partie n’est pas disponible.',
   },
+  {
+    title: 'Favoris',
+    icon: HeartIcon,
+    account: true,
+    body: 'Une fiche publiée peut être mise de côté depuis un compte, puis retrouvée sur l’écran Favoris. Le lien Favoris apparaît alors dans le menu Bibliothèque. Sans compte, aucun bouton n’est visible.',
+  },
 ] as const;
 
 /**
  * Présentation du produit (US3 / FR-006).
  *
  * Page publique, texte statique : on n’appelle pas l’API. Les blocs
- * décrivent l’offre réelle. Pas de favoris, certificats ni notifications —
- * ces outils n’existent pas encore (FR-013).
+ * décrivent l’offre réelle. Pas de certificats ni notifications — ces outils
+ * n’existent pas encore (FR-013).
  */
 export function HowItWorksPage() {
   const { data: session, isPending } = authClient.useSession();
