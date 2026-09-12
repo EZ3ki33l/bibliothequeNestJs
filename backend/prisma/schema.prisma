@@ -51,6 +51,7 @@ model User {
   reviewCards   ReviewCard[]
   quizAttempts  QuizAttempt[]
   favorites     Favorite[]
+  notes         Note[]
 
   @@map("user")
 }
@@ -162,6 +163,7 @@ model Entry {
   reviewCards   ReviewCard[]
   quizAttempts  QuizAttempt[]
   favorites     Favorite[]
+  notes         Note[]
 
   @@index([categoryId])
   @@index([published, kind])
@@ -206,6 +208,20 @@ model Favorite {
 
   @@unique([userId, entryId])
   @@index([userId, createdAt])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId   String
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, entryId])
+  @@index([userId, updatedAt])
 }
 
 model QuizAttempt {
