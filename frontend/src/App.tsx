@@ -29,6 +29,7 @@ import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { ContactPage } from './pages/ContactPage';
 import { SearchPage } from './pages/SearchPage';
+import { NotesPage } from './pages/NotesPage';
 
 /**
  * Table des routes de l'application.
@@ -75,6 +76,7 @@ export default function App() {
         <Route path="/entries/:slug/exam" element={<ExamPage />} />
         <Route path="/review" element={<ReviewPage />} />
         <Route path="/favoris" element={<FavoritesPage />} />
+        <Route path="/notes" element={<NotesPage />} />
 
         {/* Administration. `index` = l'URL du parent exactement, ici `/admin`. */}
         <Route path="/admin" element={<AdminLayout />}>

@@ -9,7 +9,7 @@ Deux applications distinctes — pas un monorepo pnpm :
 | `backend/`  | API NestJS 11 + Prisma 7 + PostgreSQL       | `4000` |
 | `frontend/` | SPA Vite + React 19 + HeroUI 3 + Tailwind 4 | `5173` |
 
-Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les **révisions** passent par `/reviews/...` (session, **pas** admin) ; les **quiz** passent par `/quizzes/...` (session, **pas** admin) ; les **favoris** passent par `/favorites/...` (session, **pas** admin) ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
+Auth : [better-auth](https://www.better-auth.com/) (email / mot de passe, cookie de session). Les lectures publiques sont ouvertes ; les **révisions** passent par `/reviews/...` (session, **pas** admin) ; les **quiz** passent par `/quizzes/...` (session, **pas** admin) ; les **favoris** passent par `/favorites/...` (session, **pas** admin) ; les **notes** passent par `/notes/...` (session, **pas** admin) ; les écritures et lectures admin passent par `/admin/...` (session + rôle admin).
 
 ## Prérequis
 
@@ -91,6 +91,7 @@ L’accueil (`/`) oriente (parcours, fiches, recherche, examens, révisions, fav
 | `/entries/:slug/exam`              | Épreuve d’une fiche                                                           | session (pas admin)  |
 | `/review`                          | File de révisions                                                             | session (pas admin)  |
 | `/favoris`                         | Fiches publiées mises de côté                                                 | session (pas admin)  |
+| `/notes`                           | Fiches publiées annotées d’une note personnelle                              | session (pas admin)  |
 | `/admin`                           | Dashboard admin                                                               | session + rôle admin |
 | `/admin/stacks`                    | Liste des stacks                                                              | session + rôle admin |
 | `/admin/stacks/new`                | Créer un stack                                                                | session + rôle admin |
@@ -113,6 +114,8 @@ Les **révisions** sont un écran d’apprenant, pas d’admin : `/review` est s
 
 Les **favoris** suivent le même principe : `/favoris` est un écran d’apprenant sous `AppLayout` (hors `/admin/...`), gardé par `GET /me` (**401** → `/login`). Le lien « Favoris » n’apparaît dans la sidebar que s’il y a une session. Sur une fiche **publiée**, un bouton cœur bascule le favori (`POST` pour marquer, `DELETE` pour retirer) ; l’état affiché vient de `GET /favorites?entryId=`, jamais d’un champ sur `GET /entries/:slug` (qui n’en gagne pas). `/favoris` liste les favoris du compte connecté (fiches encore publiées seulement) avec pagination et un bouton retirer par ligne ; retirer un favori ne supprime jamais la fiche du catalogue.
 
+Les **notes** suivent le même principe : `/notes` est un écran d’apprenant sous `AppLayout` (hors `/admin/...`), gardé par `GET /me` (**401** → `/login`). Le lien « Notes » n’apparaît dans la sidebar que s’il y a une session. Sur une fiche **publiée**, une zone de texte permet d’écrire, modifier ou supprimer une note privée (`PUT`/`DELETE /notes/:entryId`) ; le texte affiché vient de `GET /notes?entryId=`, jamais d’un champ sur `GET /entries/:slug`. Un texte vide/espaces enregistré équivaut à une suppression. `/notes` liste les fiches encore publiées portant une note du compte connecté (aperçu du texte, pagination, plus récemment modifiée d’abord) ; supprimer une note ne supprime jamais la fiche du catalogue. Même un compte administrateur n’a aucun accès particulier au contenu des notes d’un autre compte.
+
 L’**examen** d’une fiche est aussi un écran d’apprenant : `/entries/:slug/exam` est sous `AppLayout` (hors `/admin/...`). Le lien « Examen » n’apparaît sur la fiche que s’il y a une session better-auth (un visiteur parcourt le catalogue comme avant). La page vérifie `GET /me` (**401** → `/login`) puis `POST /quizzes/start` — jamais `GET /admin/me`, jamais `useSession()` comme garde, jamais `GET /entries/:slug` (le corps fuirait dans l’onglet réseau).
 
 `POST /quizzes/start` **génère** un QCM à partir du `bodyMdx` de la fiche publiée s’il n’y a pas de tentative en cours, puis le fige. Une tentative **en cours** se reprend **sans** nouvel appel au générateur. Un corps trop court (< 80 caractères après trim) → `{ attempt: null }` : état vide « Pas d'épreuve pour cette fiche. », aucune ligne créée. Une panne du générateur (clé absente, timeout, fournisseur, JSON invalide) → **503** : message « réessayer », **pas** l’état vide. Après **Valider** (`POST /quizzes/:id/submit`), l’écran résultat montre le score 0–100 (`correctCount` / `total`) et, pour chaque question, le choix de l’utilisateur et la bonne proposition, plus un lien **Voir la fiche** — toujours **sans** `bodyMdx`. Une nouvelle ouverture après notation produit un **nouveau** jeu (pas le snapshot noté). Le corps n’est visible que sur `/entries/:slug`.
@@ -133,7 +136,7 @@ Dans `backend/` :
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `pnpm start:dev`                                | API en watch                                                                                                                                                                         |
 | `pnpm build` / `pnpm start:prod`                | build puis prod                                                                                                                                                                      |
-| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview` + `scoreQuiz` + `LlmQuizGenerator`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches), reviews, quizzes et favorites |
+| `pnpm test` / `pnpm test:cov` / `pnpm test:e2e` | tests unitaires (services + `slugify` + `scheduleReview` + `scoreQuiz` + `LlmQuizGenerator`, seuil 90 %), couverture, e2e 401 admin (stacks, catégories, fiches), reviews, quizzes, favorites et notes |
 | `pnpm db:generate`                              | client Prisma (`src/generated`, gitignoré)                                                                                                                                           |
 | `pnpm db:migrate`                               | applique les migrations                                                                                                                                                              |
 | `pnpm db:seed`                                  | données de démo + promotion admin                                                                                                                                                    |
@@ -158,6 +161,9 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `GET`                   | `/favorites`                                           | session (paginé : `page` / `limit` 1–50 ; query optionnelle `entryId` ; fiches publiées du compte connecté seulement, sans `bodyMdx`)                                                 |
 | `POST`                  | `/favorites`                                           | session (body `{ entryId }` ; fiche publiée seulement ; `201` créé / `200` déjà présent, idempotent)                                                                                  |
 | `DELETE`                | `/favorites/:entryId`                                  | session (`204` idempotent ; déjà absent ou fiche d’un autre compte = no-op, pas 403)                                                                                                  |
+| `GET`                   | `/notes`                                               | session (paginé : `page` / `limit` 1–50 ; query optionnelle `entryId` ; fiches publiées du compte connecté seulement, triées par modification, sans `bodyMdx`)                        |
+| `PUT`                   | `/notes/:entryId`                                      | session (body `{ content }` ; fiche publiée seulement ; `201` créée / `200` remplacée ; contenu vide/espaces → `204`, suppression ou no-op)                                          |
+| `DELETE`                | `/notes/:entryId`                                      | session (`204` idempotent ; déjà absent ou fiche d’un autre compte = no-op, pas 403)                                                                                                  |
 | `POST`                  | `/quizzes/start`                                       | session (body `{ slug }` ; génère ou reprend sans `correctIndex` / `bodyMdx` ; `{ attempt: null }` si corps trop court ; **503** si génération en échec)                              |
 | `POST`                  | `/quizzes/:id/submit`                                  | session (body `{ answers: [{ questionId, choiceIndex }] }` ; `{ id, score, correctCount, total, questions[], entry }` avec récap `selectedChoice` / `correctChoice` / `correctIndex`) |
 | `GET`                   | `/admin/stacks`                                        | admin (paginé : `page` ≥ 1, `limit` 1–50, défauts 1 / 50)                                                                                                                             |
@@ -171,7 +177,7 @@ Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`
 | `DELETE`                | `/admin/entries/:id`                                   | admin (`204`, cascade révisions / quiz ; la catégorie reste)                                                                                                                          |
 | `POST` `PATCH` `DELETE` | `/admin/stacks`, `/admin/categories`, `/admin/entries` | admin                                                                                                                                                                                 |
 
-Sans cookie, les trois chemins `/reviews/*`, les deux chemins `/quizzes/*` et les trois chemins `/favorites/*` répondent **401**. Une carte ou une tentative d’un autre compte, inconnue, déjà notée / non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe). Un favori d’un autre compte ou déjà absent → **204** au retrait (même logique, sans révéler l’existence). Une génération d’épreuve en échec → **503** (aucune tentative créée, pas de `bodyMdx`).
+Sans cookie, les trois chemins `/reviews/*`, les deux chemins `/quizzes/*`, les trois chemins `/favorites/*` et les trois chemins `/notes/*` répondent **401**. Une carte ou une tentative d’un autre compte, inconnue, déjà notée / non due, ou dont la fiche n’est plus publiée → **404** (pas 403 : on ne révèle pas qu’elle existe). Un favori ou une note d’un autre compte ou déjà absent → **204** au retrait (même logique, sans révéler l’existence). Une génération d’épreuve en échec → **503** (aucune tentative créée, pas de `bodyMdx`).
 
 Slug et `position` sont calculés **côté serveur** (`position` à la création seulement). Le slug d’une fiche est unique dans toute la base.
 
@@ -189,13 +195,14 @@ backend/
     reviews/       file due, ensure, notation (SessionGuard, pas AdminGuard)
     quizzes/       génération LLM au start, submit + récap (SessionGuard, pas AdminGuard)
     favorites/     lister, marquer, retirer (SessionGuard, pas AdminGuard)
+    notes/         lister, écrire/remplacer, supprimer (SessionGuard, pas AdminGuard)
     common/        slugify, calendrier SM-2 (`scheduleReview`), score QCM (`scoreQuiz`)
 frontend/
   src/
-    pages/         une page = une route (App.tsx = table de routes) ; SearchPage = /recherche ; ReviewPage = /review ; FavoritesPage = /favoris ; ExamPage = /entries/:slug/exam ; pages publiques d’orientation / légal / 404
+    pages/         une page = une route (App.tsx = table de routes) ; SearchPage = /recherche ; ReviewPage = /review ; FavoritesPage = /favoris ; NotesPage = /notes ; ExamPage = /entries/:slug/exam ; pages publiques d’orientation / légal / 404
     pages/admin/   layout imbriqué (<Outlet />), dashboard, CRUD stacks, catégories et fiches
     components/    UI, sidebar, pied de page, Error Boundary, admin (listes, formulaires), EntryMdx, Playground
-    lib/           apiFetch, client better-auth, stacks, admin, reviews, quizzes, favorites, sandpack, site-legal
+    lib/           apiFetch, client better-auth, stacks, admin, reviews, quizzes, favorites, notes, sandpack, site-legal
 ```
 
 Flux HTTP : requête → `ValidationPipe` + DTO (`class-validator`) → controller → service → Prisma → JSON.

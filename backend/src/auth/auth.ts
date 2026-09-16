@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { expo } from '@better-auth/expo';
 import { PrismaClient } from '../generated/prisma/client';
 
 /**
@@ -11,13 +12,24 @@ import { PrismaClient } from '../generated/prisma/client';
  *
  * `trustedOrigins` limite les origines autorisées à parler à l'API d'auth ;
  * avec des cookies de session, accepter « toutes les origines » ouvrirait la
- * porte au CSRF.
+ * porte au CSRF. Le scheme `MOBILE_APP_SCHEME` (ex. `bibliotheque://`) couvre
+ * l'app Expo ; les patterns `exp://` ne sont acceptés qu'en dev, jamais en prod.
+ *
+ * Le plugin `expo()` adapte better-auth au client React Native : celui-ci n'a
+ * pas de cookie-jar de navigateur, donc le client stocke le cookie de session
+ * dans SecureStore et le renvoie lui-même à chaque requête.
  */
 function createAuth(prisma: PrismaClient) {
   return betterAuth({
     baseURL: process.env.BETTER_AUTH_URL,
     secret: process.env.BETTER_AUTH_SECRET,
-    trustedOrigins: [process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173'],
+    trustedOrigins: [
+      process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+      process.env.MOBILE_APP_SCHEME ?? 'bibliotheque://',
+      ...(process.env.NODE_ENV === 'production'
+        ? []
+        : ['exp://', 'exp://**', 'exp://192.168.*.*:*/**']),
+    ],
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     emailAndPassword: { enabled: true },
     session: {
@@ -25,6 +37,7 @@ function createAuth(prisma: PrismaClient) {
       // perte de droits) doit être immédiate, donc on relit la base.
       cookieCache: { enabled: false },
     },
+    plugins: [expo()],
   });
 }
 

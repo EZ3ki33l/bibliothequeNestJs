@@ -106,7 +106,7 @@ export function HomePage() {
         <h2 id="home-doors-heading" className="mb-4 text-lg font-semibold tracking-tight">
           Vue d’ensemble
         </h2>
-        <ul className="grid gap-4 sm:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {DOORS.map((door) => {
             const Icon = door.icon;
 

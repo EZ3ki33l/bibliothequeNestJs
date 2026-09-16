@@ -105,7 +105,13 @@ export function SearchPage() {
       />
 
       <form onSubmit={onSubmit} className="mb-8 flex flex-wrap items-end gap-3">
-        <TextField name="q" className="min-w-64 flex-1" defaultValue={q} key={q} maxLength={100}>
+        <TextField
+          name="q"
+          className="w-full sm:w-auto sm:min-w-64 sm:flex-1"
+          defaultValue={q}
+          key={q}
+          maxLength={100}
+        >
           <Label>Mots</Label>
           <Input placeholder="ex. useState, hooks…" />
         </TextField>

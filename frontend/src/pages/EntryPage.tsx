@@ -13,6 +13,7 @@ import { EntryMdx } from '../components/entry/EntryMdx';
 import { Playground } from '../components/lab/Playground';
 import { HeartIcon } from '../components/ui/HeartIcon';
 import { addFavorite, listFavorites, removeFavorite } from '../lib/favorites';
+import { deleteNote, listNotes, saveNote } from '../lib/notes';
 
 /** À quelle fiche correspond le dernier état de favori chargé depuis le serveur. */
 type FavoriteState = { entryId: string; favorited: boolean };
@@ -26,6 +27,14 @@ export function EntryPage() {
   const [favPending, setFavPending] = useState(false);
   // Message d'échec du dernier marquage/retrait, distinct de `error` (qui concerne toute la fiche).
   const [favError, setFavError] = useState<string | null>(null);
+
+  /** Fiche + dernier contenu connu du serveur pour cette fiche (chargement ou dernier enregistrement). */
+  const [noteState, setNoteState] = useState<{ entryId: string; content: string } | null>(null);
+  // Texte en cours d'édition, distinct de noteState : peut différer tant que "Enregistrer" n'a pas été cliqué.
+  const [noteDraft, setNoteDraft] = useState('');
+  const [notePending, setNotePending] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteSaved, setNoteSaved] = useState(false);
 
   const userId = session?.user?.id;
 
@@ -88,6 +97,32 @@ export function EntryPage() {
     };
   }, [entry?.id, userId]);
 
+  useEffect(() => {
+    if (!entry?.id || !userId) return;
+
+    const currentEntryId = entry.id;
+    let cancelled = false;
+
+    listNotes({ entryId: currentEntryId, limit: 1 })
+      .then((result) => {
+        if (cancelled) return;
+        const content =
+          result !== 'unauthorized' && result.items.length > 0 ? result.items[0].content : '';
+        setNoteState({ entryId: currentEntryId, content });
+        setNoteDraft(content);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNoteState({ entryId: currentEntryId, content: '' });
+          setNoteDraft('');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entry?.id, userId]);
+
   /**
    * Bascule le favori de la fiche : ajoute si absent, retire si déjà présent.
    *
@@ -134,6 +169,60 @@ export function EntryPage() {
       );
     } finally {
       setFavPending(false);
+    }
+  }
+
+  async function onSaveNote() {
+    if (!entry?.id || notePending) return;
+
+    const currentEntryId = entry.id;
+    setNotePending(true);
+    setNoteError(null);
+    setNoteSaved(false);
+
+    try {
+      const result = await saveNote(currentEntryId, noteDraft);
+
+      if (result === 'unauthorized') {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      const content = result === null ? '' : result.content;
+      setNoteState({ entryId: currentEntryId, content });
+      setNoteDraft(content);
+      setNoteSaved(true);
+    } catch (caught) {
+      setNoteError(
+        caught instanceof Error ? caught.message : "Impossible d'enregistrer cette note",
+      );
+    } finally {
+      setNotePending(false);
+    }
+  }
+
+  async function onDeleteNote() {
+    if (!entry?.id || notePending) return;
+
+    const currentEntryId = entry.id;
+    setNotePending(true);
+    setNoteError(null);
+    setNoteSaved(false);
+
+    try {
+      const result = await deleteNote(currentEntryId);
+
+      if (result === 'unauthorized') {
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      setNoteState({ entryId: currentEntryId, content: '' });
+      setNoteDraft('');
+    } catch (caught) {
+      setNoteError(caught instanceof Error ? caught.message : 'Impossible de supprimer cette note');
+    } finally {
+      setNotePending(false);
     }
   }
 
@@ -240,6 +329,54 @@ export function EntryPage() {
               />
             </Button>
             {favError ? <span className="text-danger text-xs">{favError}</span> : null}
+          </div>
+        ) : null}
+
+        {userId && noteState?.entryId === entry.id ? (
+          <div className="mt-6 flex flex-col gap-2">
+            <label htmlFor="entry-note" className="text-sm font-medium">
+              Note personnelle
+            </label>
+            <textarea
+              id="entry-note"
+              value={noteDraft}
+              onChange={(event) => {
+                setNoteDraft(event.target.value);
+                setNoteSaved(false);
+              }}
+              maxLength={4000}
+              rows={4}
+              placeholder="Un rappel personnel sur cette fiche, visible par vous seul."
+              className="border-border bg-background w-full rounded-lg border p-3 text-sm"
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                isDisabled={notePending || noteDraft === noteState.content}
+                onPress={() => {
+                  void onSaveNote();
+                }}
+              >
+                Enregistrer
+              </Button>
+              {noteState.content !== '' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={notePending}
+                  onPress={() => {
+                    void onDeleteNote();
+                  }}
+                >
+                  Supprimer
+                </Button>
+              ) : null}
+              {noteSaved ? <span className="text-muted text-xs">Enregistré.</span> : null}
+              {noteError ? <span className="text-danger text-xs">{noteError}</span> : null}
+            </div>
           </div>
         ) : null}
       </header>

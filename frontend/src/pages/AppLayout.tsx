@@ -1,15 +1,19 @@
 import { Outlet } from 'react-router';
 import { Toast } from '@heroui/react';
+import { AppBottomNav } from '../components/layout/AppBottomNav';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { SiteFooter } from '../components/layout/SiteFooter';
+import { useIsAdmin } from '../components/layout/useIsAdmin';
 
 export function AppLayout() {
+  const isAdmin = useIsAdmin();
+
   return (
     <div className="flex h-full">
       <Toast.Provider placement="top" />
-      <AppSidebar />
+      <AppSidebar isAdmin={isAdmin} />
       <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-16 px-6 py-8">
+        <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-16 px-6 pt-8 pb-24 lg:py-8">
           {/* Un seul enfant flex au-dessus du pied de page : sans ce wrapper, un
               fragment de page (accueil = deux <section>) fuitait comme plusieurs
               colonnes, et le gap s’insérait aussi entre les blocs du contenu. */}
@@ -19,6 +23,7 @@ export function AppLayout() {
           <SiteFooter />
         </div>
       </main>
+      <AppBottomNav isAdmin={isAdmin} />
     </div>
   );
 }

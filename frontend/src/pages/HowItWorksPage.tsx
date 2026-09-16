@@ -5,6 +5,7 @@ import {
   CardsIcon,
   HeartIcon,
   MagnifyingGlassIcon,
+  NotePencilIcon,
   QuestionIcon,
   StackIcon,
 } from '@phosphor-icons/react';
@@ -47,6 +48,12 @@ const PARTS = [
     icon: HeartIcon,
     account: true,
     body: 'Une fiche publiée peut être mise de côté depuis un compte, puis retrouvée sur l’écran Favoris. Le lien Favoris apparaît alors dans le menu Bibliothèque. Sans compte, aucun bouton n’est visible.',
+  },
+  {
+    title: 'Notes',
+    icon: NotePencilIcon,
+    account: true,
+    body: 'Avec un compte, un texte personnel peut être écrit sur une fiche publiée, puis retrouvé sur l’écran Notes. Le lien Notes apparaît alors dans le menu Bibliothèque. Sans compte, aucune zone de note n’est visible.',
   },
 ] as const;
 
