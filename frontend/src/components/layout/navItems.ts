@@ -5,6 +5,7 @@ import {
   FoldersIcon,
   HeartIcon,
   NotePencilIcon,
+  PathIcon,
   SquaresFourIcon,
   StackIcon,
   MagnifyingGlassIcon,
@@ -19,6 +20,7 @@ export type NavItem = {
 
 export const LIBRARY_NAV: NavItem[] = [
   { to: '/', label: 'Accueil', icon: BooksIcon, exact: true },
+  { to: '/parcours', label: 'Parcours', icon: PathIcon },
   { to: '/stacks', label: 'Stacks', icon: StackIcon },
   { to: '/recherche', label: 'Recherche', icon: MagnifyingGlassIcon },
 ];
@@ -32,6 +34,7 @@ export const LIBRARY_NAV_SIGNED_IN: NavItem[] = [
 export const ADMIN_NAV: NavItem[] = [
   { to: '/admin', label: 'Dashboard', icon: SquaresFourIcon, exact: true },
   { to: '/admin/entries', label: 'Fiches', icon: ArticleIcon },
+  { to: '/admin/parcours', label: 'Parcours', icon: PathIcon },
   { to: '/admin/stacks', label: 'Stacks', icon: StackIcon },
   { to: '/admin/categories', label: 'Catégories', icon: FoldersIcon },
 ];

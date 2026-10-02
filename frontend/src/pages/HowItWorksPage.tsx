@@ -6,6 +6,7 @@ import {
   HeartIcon,
   MagnifyingGlassIcon,
   NotePencilIcon,
+  PathIcon,
   QuestionIcon,
   StackIcon,
 } from '@phosphor-icons/react';
@@ -14,22 +15,28 @@ import { authClient } from '../lib/auth';
 
 const PARTS = [
   {
-    title: 'Parcours (stacks)',
+    title: 'Parcours',
+    icon: PathIcon,
+    account: false,
+    body: 'Un parcours est un plan guidé pour apprendre un métier : des modules ordonnés, chacun composé d’étapes qui mènent à des fiches, quelle que soit leur leçon. L’ordre est un conseil, aucune étape n’est verrouillée. Sans compte.',
+  },
+  {
+    title: 'Leçons',
     icon: StackIcon,
     account: false,
-    body: 'Un parcours publié regroupe des catégories. Il figure dans le catalogue, sans compte. Chaque catégorie contient les fiches d’un thème.',
+    body: 'Une leçon publiée regroupe des catégories. Elle figure dans le catalogue, sans compte. Chaque catégorie contient les fiches d’un thème.',
   },
   {
     title: 'Fiches',
     icon: ArticleIcon,
     account: false,
-    body: 'Une fiche s’ouvre dans son parcours. Le texte se lit sur la page ; certaines fiches proposent aussi un atelier de code. Le catalogue public ne montre que les fiches publiées.',
+    body: 'Une fiche s’ouvre dans sa leçon. Le texte se lit sur la page ; certaines fiches proposent aussi un atelier de code. Le catalogue public ne montre que les fiches publiées.',
   },
   {
     title: 'Recherche',
     icon: MagnifyingGlassIcon,
     account: false,
-    body: 'Une fiche publiée se trouve par mot (titre, résumé, étiquette), par format, par niveau ou par parcours. Sans compte. Les brouillons n’apparaissent pas.',
+    body: 'Une fiche publiée se trouve par mot (titre, résumé, étiquette), par format, par niveau ou par leçon. Sans compte. Les brouillons n’apparaissent pas.',
   },
   {
     title: 'Examen',
@@ -71,7 +78,7 @@ export function HowItWorksPage() {
     <>
       <PageHeader
         title="À propos"
-        description="Bibliothèque d’apprentissage : parcours, fiches, recherche, examens de compréhension et révisions espacées. Cette page décrit l’offre actuelle."
+        description="Bibliothèque d’apprentissage : parcours, leçons, fiches, recherche, examens de compréhension et révisions espacées. Cette page décrit l’offre actuelle."
       />
 
       <ul className="mb-10 grid list-none gap-4 p-0">

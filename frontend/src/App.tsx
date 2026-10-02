@@ -30,6 +30,11 @@ import { PrivacyPage } from './pages/PrivacyPage';
 import { ContactPage } from './pages/ContactPage';
 import { SearchPage } from './pages/SearchPage';
 import { NotesPage } from './pages/NotesPage';
+import { PathsPage } from './pages/PathsPage';
+import { PathPage } from './pages/PathPage';
+import { AdminPathsPage } from './pages/admin/AdminPathsPage';
+import { AdminPathNewPage } from './pages/admin/AdminPathNewPage';
+import { AdminPathEditPage } from './pages/admin/AdminPathEditPage';
 
 /**
  * Table des routes de l'application.
@@ -71,6 +76,8 @@ export default function App() {
         <Route path="/stacks/:stackSlug/:categorySlug" element={<CategoryPage />} />
         <Route path="/recherche" element={<SearchPage />} />
         <Route path="/entries/:slug" element={<EntryPage />} />
+        <Route path="/parcours" element={<PathsPage />} />
+        <Route path="/parcours/:slug" element={<PathPage />} />
 
         {/* Apprentissage (session requise, vérifiée par les pages) */}
         <Route path="/entries/:slug/exam" element={<ExamPage />} />
@@ -90,6 +97,9 @@ export default function App() {
           <Route path="entries" element={<AdminEntriesPage />} />
           <Route path="entries/new" element={<AdminEntryNewPage />} />
           <Route path="entries/:id/edit" element={<AdminEntryEditPage />} />
+          <Route path="parcours" element={<AdminPathsPage />} />
+          <Route path="parcours/new" element={<AdminPathNewPage />} />
+          <Route path="parcours/:id/edit" element={<AdminPathEditPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

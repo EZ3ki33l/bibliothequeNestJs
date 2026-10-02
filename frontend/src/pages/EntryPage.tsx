@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ArrowLeftIcon } from '@phosphor-icons/react';
 import { Button, Skeleton } from '@heroui/react';
 import { getEntryBySlug, jsonToStringRecord } from '../lib/stacks';
 import { useAsyncData } from '../lib/useAsyncData';
@@ -21,6 +22,13 @@ type FavoriteState = { entryId: string; favorited: boolean };
 export function EntryPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
+  /**
+   * Slug du parcours d'où la fiche a été ouverte (`?parcours=`), pour le lien
+   * de retour. Simple aide à la navigation : il n'est envoyé à aucune API et
+   * n'ouvre aucun droit. Un slug inconnu mène à « parcours introuvable ».
+   */
+  const [searchParams] = useSearchParams();
+  const fromPath = searchParams.get('parcours');
   const { data: session } = authClient.useSession();
   const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
   // Écriture en cours (POST ou DELETE /favorites) : désactive le bouton pour éviter un double-clic.
@@ -257,6 +265,15 @@ export function EntryPage() {
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      {fromPath ? (
+        <Link
+          to={`/parcours/${encodeURIComponent(fromPath)}`}
+          className="text-muted hover:text-foreground flex w-fit items-center gap-1.5 text-sm no-underline transition-colors duration-150"
+        >
+          <ArrowLeftIcon className="size-4" />
+          Retour au parcours
+        </Link>
+      ) : null}
       <Breadcrumbs
         items={[
           { label: 'Stacks', to: '/stacks' },

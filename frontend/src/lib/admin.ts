@@ -10,6 +10,8 @@ import { apiFetch } from './api';
  * Les trois ressources (stacks, catégories, fiches) exposent le même CRUD, donc
  * la mécanique est écrite **une fois** dans les fonctions génériques du haut de
  * fichier ; chaque ressource ne déclare ensuite que ses types et ses libellés.
+ * Les parcours ont en plus des sous-ressources (modules, étapes) dont les
+ * écritures renvoient le parcours entier (`AdminPathWriteResult`).
  */
 
 // ---------------------------------------------------------------------------
@@ -127,15 +129,23 @@ function withoutEmptyFields<T extends object>(payload: T): T {
   return Object.fromEntries(entries) as T;
 }
 
-/** Liste paginée. `page`/`limit` omis = valeurs par défaut du serveur. */
+/**
+ * Liste paginée. `page`/`limit` omis = valeurs par défaut du serveur.
+ * `filters` ajoute des paramètres propres à la ressource (`q` pour les fiches) ;
+ * une valeur vide n'est pas envoyée.
+ */
 async function readPage<T>(
   resource: ResourceLabels,
   page?: number,
   limit?: number,
+  filters: Record<string, string | undefined> = {},
 ): Promise<AdminListPage<T>> {
   const params = new URLSearchParams();
   if (page !== undefined) params.set('page', String(page));
   if (limit !== undefined) params.set('limit', String(limit));
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
 
   const query = params.toString();
   const response = await apiFetch(`/admin/${resource.path}${query.length > 0 ? `?${query}` : ''}`);
@@ -450,8 +460,13 @@ export type UpdateAdminEntryInput = Omit<CreateAdminEntryInput, 'categoryId'>;
 
 export type AdminEntriesListPage = AdminListPage<AdminEntryListItem>;
 
-export function listAdminEntries(page?: number, limit?: number): Promise<AdminEntriesListPage> {
-  return readPage<AdminEntryListItem>(ENTRIES, page, limit);
+/** `q` filtre par titre (brouillons compris) : sert au choix d'une fiche dans un parcours. */
+export function listAdminEntries(
+  page?: number,
+  limit?: number,
+  q?: string,
+): Promise<AdminEntriesListPage> {
+  return readPage<AdminEntryListItem>(ENTRIES, page, limit, { q: q?.trim() });
 }
 
 export function getAdminEntryById(id: string): Promise<AdminEntryDetail | null> {
@@ -471,6 +486,237 @@ export function updateAdminEntry(
 
 export function deleteAdminEntry(id: string): Promise<void> {
   return remove(ENTRIES, id);
+}
+
+// ---------------------------------------------------------------------------
+// Parcours
+// ---------------------------------------------------------------------------
+
+const PATHS: ResourceLabels = {
+  path: 'learning-paths',
+  singular: 'le parcours',
+  plural: 'les parcours',
+  gone: 'Ce parcours n’existe plus.',
+};
+
+export type AdminPathListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  published: boolean;
+  position: number;
+  moduleCount: number;
+  stepCount: number;
+};
+
+export type AdminPathStep = {
+  id: string;
+  optional: boolean;
+  entry: {
+    id: string;
+    title: string;
+    slug: string;
+    /** Une fiche brouillon reste dans le parcours mais n'apparaît pas côté public. */
+    published: boolean;
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      stack: { id: string; name: string; slug: string };
+    };
+  };
+};
+
+export type AdminPathModule = {
+  id: string;
+  title: string;
+  description: string;
+  steps: AdminPathStep[];
+};
+
+export type AdminPathDetail = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  published: boolean;
+  modules: AdminPathModule[];
+};
+
+export type AdminPathsListPage = AdminListPage<AdminPathListItem>;
+
+/**
+ * Résultat d'une écriture sur un parcours.
+ *
+ * Contrairement aux autres ressources, le serveur renvoie le **détail complet**
+ * du parcours après chaque écriture (ajout d'étape, réordonnancement…) :
+ * l'éditeur remplace son état d'un bloc, sans recharger. Les erreurs attendues
+ * restent des valeurs, comme `AdminWriteResult`.
+ */
+export type AdminPathWriteResult =
+  { ok: true; path: AdminPathDetail } | { ok: false; status: 400 | 404 | 409; message: string };
+
+async function writePath(
+  method: 'POST' | 'PATCH' | 'PUT',
+  path: string,
+  body: object,
+  failure: string,
+): Promise<AdminPathWriteResult> {
+  const response = await apiFetch(path, { method, body: JSON.stringify(body) });
+
+  if (response.ok) {
+    return { ok: true, path: (await response.json()) as AdminPathDetail };
+  }
+
+  switch (response.status) {
+    case 400:
+      return { ok: false, status: 400, message: await messageFromNest(response) };
+    // Parcours, module, étape ou fiche disparu entre le chargement et l'envoi.
+    case 404:
+      return {
+        ok: false,
+        status: 404,
+        message: 'Cet élément n’existe plus : la page va se recharger.',
+      };
+    // Doublon, plafond atteint, ordre devenu obsolète : le serveur explique.
+    case 409:
+      return { ok: false, status: 409, message: await messageFromNest(response) };
+    default:
+      throw new Error(failure);
+  }
+}
+
+/** Suppression d'une sous-ressource (module, étape) : 204 attendu. */
+async function removePathPart(path: string, failure: string): Promise<void> {
+  const response = await apiFetch(path, { method: 'DELETE' });
+
+  if (response.status === 204) {
+    return;
+  }
+
+  throw new Error(response.status === 404 ? 'Cet élément n’existe plus.' : failure);
+}
+
+const pathUrl = (id: string) => `/admin/learning-paths/${id}`;
+
+export function listAdminPaths(page?: number, limit?: number): Promise<AdminPathsListPage> {
+  return readPage<AdminPathListItem>(PATHS, page, limit);
+}
+
+export function getAdminPath(id: string): Promise<AdminPathDetail | null> {
+  return readById<AdminPathDetail>(PATHS, id);
+}
+
+/** Le parcours naît brouillon ; le slug est calculé depuis le nom. */
+export function createAdminPath(payload: {
+  name: string;
+  description?: string;
+}): Promise<AdminPathWriteResult> {
+  return writePath(
+    'POST',
+    '/admin/learning-paths',
+    withoutEmptyFields(payload),
+    'Impossible de créer le parcours',
+  );
+}
+
+export function updateAdminPath(
+  id: string,
+  payload: { name?: string; description?: string; published?: boolean },
+): Promise<AdminPathWriteResult> {
+  return writePath('PATCH', pathUrl(id), payload, 'Impossible de modifier le parcours');
+}
+
+export function deleteAdminPath(id: string): Promise<void> {
+  return remove(PATHS, id);
+}
+
+export function addAdminPathModule(
+  pathId: string,
+  payload: { title: string; description?: string },
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'POST',
+    `${pathUrl(pathId)}/modules`,
+    withoutEmptyFields(payload),
+    'Impossible d’ajouter le module',
+  );
+}
+
+export function updateAdminPathModule(
+  pathId: string,
+  moduleId: string,
+  payload: { title?: string; description?: string },
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'PATCH',
+    `${pathUrl(pathId)}/modules/${moduleId}`,
+    payload,
+    'Impossible de modifier le module',
+  );
+}
+
+export function deleteAdminPathModule(pathId: string, moduleId: string): Promise<void> {
+  return removePathPart(
+    `${pathUrl(pathId)}/modules/${moduleId}`,
+    'Impossible de supprimer le module',
+  );
+}
+
+/** Ordre **complet** des modules : le serveur refuse (409) une liste devenue obsolète. */
+export function reorderAdminPathModules(
+  pathId: string,
+  moduleIds: string[],
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'PUT',
+    `${pathUrl(pathId)}/modules/order`,
+    { moduleIds },
+    'Impossible de réordonner les modules',
+  );
+}
+
+export function addAdminPathStep(
+  pathId: string,
+  moduleId: string,
+  payload: { entryId: string; optional?: boolean },
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'POST',
+    `${pathUrl(pathId)}/modules/${moduleId}/steps`,
+    payload,
+    'Impossible d’ajouter l’étape',
+  );
+}
+
+export function updateAdminPathStep(
+  pathId: string,
+  stepId: string,
+  payload: { optional: boolean },
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'PATCH',
+    `${pathUrl(pathId)}/steps/${stepId}`,
+    payload,
+    'Impossible de modifier l’étape',
+  );
+}
+
+export function deleteAdminPathStep(pathId: string, stepId: string): Promise<void> {
+  return removePathPart(`${pathUrl(pathId)}/steps/${stepId}`, 'Impossible de retirer l’étape');
+}
+
+export function reorderAdminPathSteps(
+  pathId: string,
+  moduleId: string,
+  stepIds: string[],
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'PUT',
+    `${pathUrl(pathId)}/modules/${moduleId}/steps/order`,
+    { stepIds },
+    'Impossible de réordonner les étapes',
+  );
 }
 
 // ---------------------------------------------------------------------------

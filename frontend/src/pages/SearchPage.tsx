@@ -34,12 +34,8 @@ export function SearchPage() {
   // US2/US3 : filtrer (ou suivre un tag) sans taper de mot est valide.
   const hasCriteria = q !== '' || kind !== '' || difficulty !== '' || stack !== '' || tag !== '';
 
-  // Les parcours alimentent le select « Parcours ». Chargés une fois.
-  const { data: stacks } = useAsyncData(
-    () => listStacks(),
-    [],
-    'Impossible de charger les parcours',
-  );
+  // Les stacks alimentent le select « Leçons ». Chargés une fois.
+  const { data: stacks } = useAsyncData(() => listStacks(), [], 'Impossible de charger les leçons');
 
   const { data, error } = useAsyncData(
     () =>
@@ -93,7 +89,7 @@ export function SearchPage() {
     ...Object.entries(DIFFICULTY_LABEL).map(([id, label]) => ({ id, label })),
   ];
   const stackItems = [
-    { id: '', label: 'Tous les parcours' },
+    { id: '', label: 'Toutes les leçons' },
     ...(stacks ?? []).map((s) => ({ id: s.slug, label: s.name })),
   ];
 
@@ -101,7 +97,7 @@ export function SearchPage() {
     <>
       <PageHeader
         title="Recherche"
-        description="Recherche de fiches publiées par mots, niveau, format ou parcours. Sans compte."
+        description="Recherche de fiches publiées par mots, niveau, format ou leçon. Sans compte."
       />
 
       <form onSubmit={onSubmit} className="mb-8 flex flex-wrap items-end gap-3">
@@ -133,7 +129,7 @@ export function SearchPage() {
         <AdminSelect
           key={`stack-${stack}`}
           name="stack"
-          label="Parcours"
+          label="Leçon"
           items={stackItems}
           defaultValue={stack}
         />
