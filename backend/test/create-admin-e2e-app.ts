@@ -13,6 +13,11 @@ export async function createAdminE2eApp(): Promise<INestApplication<App>> {
       $connect: () => Promise.resolve(),
       $disconnect: () => Promise.resolve(),
       admin: { findUnique: () => Promise.resolve(null) },
+      // `GET /learning-paths` est public : sans ce mock, il atteindrait Prisma.
+      learningPath: {
+        findMany: () => Promise.resolve([]),
+        count: () => Promise.resolve(0),
+      },
     })
     .compile();
 

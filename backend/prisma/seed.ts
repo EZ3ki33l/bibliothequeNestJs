@@ -484,6 +484,78 @@ async function upsertHookEntry(categoryId: string, entry: SeedEntry) {
   });
 }
 
+/**
+ * Parcours de démonstration : il rend `/parcours` testable sans passer par
+ * l'administration.
+ *
+ * Les modules sont supprimés puis recréés à chaque seed (leurs étapes partent
+ * en cascade) : relancer le seed remet le parcours dans son état de référence,
+ * sans doublon. Une modification faite à la main sur **ce** parcours est donc
+ * écrasée, comme le contenu des fiches de démonstration.
+ */
+const DEMO_PATH = {
+  slug: 'maitriser-les-hooks-react',
+  name: 'Maîtriser les hooks React',
+  description:
+    "Un ordre conseillé pour découvrir les hooks de base : d'abord l'état local, puis les effets et l'optimisation.",
+  modules: [
+    {
+      title: 'États locaux',
+      description: 'Stocker et partager un état dans les composants.',
+      steps: [
+        { slug: 'use-state-compteur', optional: false },
+        { slug: 'use-reducer', optional: false },
+        { slug: 'use-context', optional: false },
+      ],
+    },
+    {
+      title: 'Effets et optimisation',
+      description: 'Synchroniser avec l’extérieur et éviter les calculs inutiles.',
+      steps: [
+        { slug: 'use-ref', optional: false },
+        { slug: 'use-effect', optional: false },
+        { slug: 'use-memo', optional: false },
+        { slug: 'use-callback', optional: true },
+      ],
+    },
+  ],
+};
+
+async function upsertDemoPath() {
+  const data = { name: DEMO_PATH.name, description: DEMO_PATH.description, published: true };
+  const path = await prisma.learningPath.upsert({
+    where: { slug: DEMO_PATH.slug },
+    update: data,
+    create: { ...data, slug: DEMO_PATH.slug, position: 0 },
+  });
+
+  await prisma.pathModule.deleteMany({ where: { pathId: path.id } });
+
+  for (const [moduleIndex, module] of DEMO_PATH.modules.entries()) {
+    const created = await prisma.pathModule.create({
+      data: {
+        pathId: path.id,
+        title: module.title,
+        description: module.description,
+        position: moduleIndex,
+      },
+    });
+
+    for (const [stepIndex, step] of module.steps.entries()) {
+      const entry = await prisma.entry.findUniqueOrThrow({ where: { slug: step.slug } });
+      await prisma.pathStep.create({
+        data: {
+          pathId: path.id,
+          moduleId: created.id,
+          entryId: entry.id,
+          optional: step.optional,
+          position: stepIndex,
+        },
+      });
+    }
+  }
+}
+
 async function main() {
   const stack = await prisma.stack.upsert({
     where: { slug: 'react' },
@@ -520,6 +592,8 @@ async function main() {
     await upsertHookEntry(category.id, entry);
   }
 
+  await upsertDemoPath();
+
   const email = process.env.ADMIN_EMAIL;
   if (!email) {
     console.warn('ADMIN_EMAIL manquant : aucun admin promu');
@@ -539,7 +613,7 @@ async function main() {
     }
   }
   console.log(
-    `SEED OK : stack React / catégorie Hooks / ${HOOK_ENTRIES.length} fiches (hooks de base)`,
+    `SEED OK : stack React / catégorie Hooks / ${HOOK_ENTRIES.length} fiches (hooks de base) / parcours « ${DEMO_PATH.name} »`,
   );
 }
 

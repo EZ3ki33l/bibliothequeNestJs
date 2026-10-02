@@ -42,7 +42,7 @@ export class EntriesService {
    * `kind` / `difficulty` / `stack` / `tag` s'ajoutent au `where` comme autant
    * de clés : Prisma les combine en ET (intersection). Un filtre absent = pas
    * de clé = pas de contrainte. `stack` n'est pas une colonne d'`Entry` : c'est
-   * le slug du parcours, atteint via la relation `category → stack`. `tag`
+   * le slug du stack, atteint via la relation `category → stack`. `tag`
    * filtre sur un tag **exact** (`has`) : suivre un tag depuis une fiche doit
    * donner un ensemble net, pas une recherche floue comme `q`.
    */
@@ -115,12 +115,24 @@ export class EntriesService {
     return entry;
   }
 
-  /** Liste admin paginée, dans l'ordre d'affichage du catalogue. */
-  async findAllAdmin(page: number, limit: number) {
+  /**
+   * Liste admin paginée, dans l'ordre d'affichage du catalogue, brouillons
+   * compris.
+   *
+   * `q` (après trim) filtre sur le titre, casse ignorée ; vide = absent. Le même
+   * `where` sert à la liste et au `count`, sinon la pagination annoncerait un
+   * total qui ne correspond pas aux lignes filtrées.
+   */
+  async findAllAdmin(page: number, limit: number, q?: string) {
     const skip = (page - 1) * limit;
+    const search = q?.trim();
+    const filter: { where?: Prisma.EntryWhereInput } = search
+      ? { where: { title: { contains: search, mode: 'insensitive' } } }
+      : {};
 
     const [items, total] = await Promise.all([
       this.prisma.entry.findMany({
+        ...filter,
         skip,
         take: limit,
         orderBy: [
@@ -146,7 +158,7 @@ export class EntriesService {
           },
         },
       }),
-      this.prisma.entry.count(),
+      this.prisma.entry.count(filter),
     ]);
 
     return { items, total, page, limit };
