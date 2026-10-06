@@ -11,6 +11,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { NotesModule } from './notes/notes.module';
+import { ContactModule } from './contact/contact.module';
 import { LearningPathsModule } from './learning-paths/learning-paths.module';
 
 /**
@@ -40,6 +41,7 @@ import { LearningPathsModule } from './learning-paths/learning-paths.module';
     QuizzesModule,
     FavoritesModule,
     NotesModule,
+    ContactModule,
     LearningPathsModule,
   ],
   controllers: [MeController],

@@ -7,8 +7,10 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
+    "^better-auth/api$": "<rootDir>/mocks/better-auth-api.ts",
     "^better-auth/node$": "<rootDir>/mocks/better-auth-node.ts",
     "^better-auth/adapters/prisma$": "<rootDir>/mocks/better-auth-prisma.ts",
+    "^@better-auth/expo$": "<rootDir>/mocks/better-auth-expo.ts",
     "^better-auth$": "<rootDir>/mocks/better-auth.ts",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   }

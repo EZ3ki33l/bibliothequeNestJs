@@ -33,7 +33,7 @@ Crée `backend/.env` (jamais commité) :
 
 ```env
 PORT=4000
-FRONTEND_ORIGIN=http://localhost:5173
+FRONTEND_ORIGIN=http://localhost:5173   # plusieurs origines : séparées par des virgules (ex. app mobile en mode web : ...,http://localhost:8081)
 DATABASE_URL=postgresql://USER:PASSWORD@localhost:5432/bibliotheque?schema=public
 BETTER_AUTH_URL=http://localhost:4000
 BETTER_AUTH_SECRET=          # openssl rand -base64 32
@@ -41,6 +41,9 @@ ADMIN_EMAIL=ton@email.fr     # promu admin au seed, après inscription
 QUIZ_LLM_API_KEY=            # secret ; jamais commité. Absence → 503 à la génération, pas au boot
 QUIZ_LLM_BASE_URL=           # optionnel, défaut https://api.openai.com/v1
 QUIZ_LLM_MODEL=              # optionnel, défaut gpt-4o-mini
+RESEND_API_KEY=              # secret ; formulaire de contact. Absence (ou l'une des deux suivantes) → 503 à l'envoi, pas au boot
+CONTACT_FROM_EMAIL=          # expéditeur sur un domaine vérifié dans Resend, ex. Bibliothèque <formulaire@ton-domaine.fr>
+CONTACT_TO_EMAIL=            # boîte qui reçoit les messages (jamais exposée au navigateur)
 ```
 
 Ne commite jamais `.env`. Pour un secret Better Auth :

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { ArrowCircleRightIcon } from '@phosphor-icons/react';
+import { ArrowCircleRightIcon, UserGearIcon } from '@phosphor-icons/react';
 import { Button, Skeleton } from '@heroui/react';
 import { authClient } from '../../lib/auth';
 import Avatar from '../ui/Avatar';
@@ -28,6 +28,14 @@ export function AccountBlock() {
           <p className="text-muted truncate text-xs">{currentUser.email}</p>
         </div>
       </div>
+      <Button
+        variant="ghost"
+        className="text-muted w-full justify-start"
+        onPress={() => void navigate('/compte')}
+      >
+        <UserGearIcon className="size-4" />
+        Mon compte
+      </Button>
       <Button
         variant="ghost"
         className="text-muted w-full justify-start"
