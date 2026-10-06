@@ -4,6 +4,8 @@ import { Prisma } from '../generated/prisma/client';
 import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
 import { slugify } from '../common/slug';
 import { toWriteException } from '../common/prisma-errors';
+import type { AdminRole } from '../generated/prisma/enums';
+import { assertCanPublish, assertUnlocked, canManagePublished } from '../common/editorial-rights';
 import { CreateLearningPathDto } from './dto/create-learning-path.dto';
 import { UpdateLearningPathDto } from './dto/update-learning-path.dto';
 import { CreatePathModuleDto } from './dto/create-path-module.dto';
@@ -130,6 +132,11 @@ function isSameIdSet(current: string[], received: string[]): boolean {
  * Ce service ne manipule que du **contenu** (parcours, modules, étapes) et ne
  * reçoit jamais de `userId`. Tout ce qui dépend du compte connecté vit dans
  * `PathProgressService` : la séparation rend la revue de sécurité évidente.
+ *
+ * Les écritures reçoivent le rôle de l'appelant : un `ADMIN` ne compose que
+ * des parcours brouillons. Publier, et toute écriture sur un parcours publié
+ * (lui-même, ses modules, ses étapes, leur ordre), sont réservés au
+ * `SUPER_ADMIN` (voir `common/editorial-rights.ts`).
  */
 @Injectable()
 export class LearningPathsService {
@@ -264,7 +271,10 @@ export class LearningPathsService {
    * PATCH partiel : renommer (le slug suit), décrire, publier ou dépublier.
    * Dépublier ne touche ni aux modules, ni aux étapes, ni aux fiches.
    */
-  async update(id: string, dto: UpdateLearningPathDto) {
+  async update(id: string, dto: UpdateLearningPathDto, role: AdminRole) {
+    assertCanPublish(role, dto.published);
+    await this.assertUnlocked(id, role);
+
     const data: Prisma.LearningPathUpdateInput = {};
 
     if (dto.name !== undefined) {
@@ -288,7 +298,9 @@ export class LearningPathsService {
   }
 
   /** Supprime le parcours ; modules et étapes partent en cascade, les fiches restent. */
-  async delete(id: string) {
+  async delete(id: string, role: AdminRole) {
+    await this.assertUnlocked(id, role);
+
     try {
       await this.prisma.learningPath.delete({ where: { id } });
     } catch (error) {
@@ -301,7 +313,8 @@ export class LearningPathsService {
   // ---------------------------------------------------------------------------
 
   /** Ajoute un module en fin de parcours, dans la limite de `MAX_MODULES_PER_PATH`. */
-  async addModule(pathId: string, dto: CreatePathModuleDto) {
+  async addModule(pathId: string, dto: CreatePathModuleDto, role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
     await this.assertPathExists(pathId);
 
     const [count, { _max }] = await Promise.all([
@@ -330,7 +343,9 @@ export class LearningPathsService {
    * un module d'un **autre** parcours ne correspond à aucune ligne (404), il ne
    * peut pas être modifié en passant par la mauvaise URL.
    */
-  async updateModule(pathId: string, moduleId: string, dto: UpdatePathModuleDto) {
+  async updateModule(pathId: string, moduleId: string, dto: UpdatePathModuleDto, role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
+
     const { count } = await this.prisma.pathModule.updateMany({
       where: { id: moduleId, pathId },
       data: { title: dto.title, description: dto.description },
@@ -344,7 +359,9 @@ export class LearningPathsService {
   }
 
   /** Supprime un module et ses étapes (cascade) ; les fiches restent. */
-  async deleteModule(pathId: string, moduleId: string) {
+  async deleteModule(pathId: string, moduleId: string, role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
+
     const { count } = await this.prisma.pathModule.deleteMany({
       where: { id: moduleId, pathId },
     });
@@ -363,7 +380,9 @@ export class LearningPathsService {
    * modules actuels (un module ajouté ou supprimé dans un autre onglet), 409 :
    * mieux vaut demander un rechargement qu'écrire un ordre incomplet.
    */
-  async reorderModules(pathId: string, moduleIds: string[]) {
+  async reorderModules(pathId: string, moduleIds: string[], role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
+
     await this.prisma.$transaction(async (tx) => {
       const path = await tx.learningPath.findUnique({
         where: { id: pathId },
@@ -410,7 +429,8 @@ export class LearningPathsService {
    * Un doublon déclenche `P2002`, traduit en 409 — la base tranche, même si
    * deux ajouts arrivent en même temps. Une fiche brouillon est acceptée.
    */
-  async addStep(pathId: string, moduleId: string, dto: CreatePathStepDto) {
+  async addStep(pathId: string, moduleId: string, dto: CreatePathStepDto, role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
     await this.assertModuleInPath(pathId, moduleId);
 
     const entry = await this.prisma.entry.findUnique({
@@ -448,7 +468,9 @@ export class LearningPathsService {
   }
 
   /** Marque une étape facultative ou obligatoire (même filtrage par parent que les modules). */
-  async updateStep(pathId: string, stepId: string, dto: UpdatePathStepDto) {
+  async updateStep(pathId: string, stepId: string, dto: UpdatePathStepDto, role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
+
     const { count } = await this.prisma.pathStep.updateMany({
       where: { id: stepId, pathId },
       data: { optional: dto.optional },
@@ -462,7 +484,9 @@ export class LearningPathsService {
   }
 
   /** Retire une étape ; la fiche reste intacte dans le catalogue. */
-  async deleteStep(pathId: string, stepId: string) {
+  async deleteStep(pathId: string, stepId: string, role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
+
     const { count } = await this.prisma.pathStep.deleteMany({ where: { id: stepId, pathId } });
 
     if (count === 0) {
@@ -471,7 +495,9 @@ export class LearningPathsService {
   }
 
   /** Applique un ordre complet d'étapes dans un module (voir `reorderModules`). */
-  async reorderSteps(pathId: string, moduleId: string, stepIds: string[]) {
+  async reorderSteps(pathId: string, moduleId: string, stepIds: string[], role: AdminRole) {
+    await this.assertUnlocked(pathId, role);
+
     await this.prisma.$transaction(async (tx) => {
       const module = await tx.pathModule.findFirst({
         where: { id: moduleId, pathId },
@@ -503,6 +529,26 @@ export class LearningPathsService {
     });
 
     return this.findAdminDetail(pathId);
+  }
+
+  /**
+   * 403 si le parcours est publié et que le rôle n'y a pas droit. Appelé en
+   * tête de **chaque** écriture, sous-ressources comprises : ajouter une étape
+   * à un parcours en ligne, c'est modifier ce que les visiteurs voient.
+   *
+   * Un parcours introuvable n'est pas traité ici : la suite de la méthode
+   * répond 404, comme avant. La lecture est épargnée au `SUPER_ADMIN`.
+   */
+  private async assertUnlocked(pathId: string, role: AdminRole) {
+    if (canManagePublished(role)) {
+      return;
+    }
+
+    const path = await this.prisma.learningPath.findUnique({
+      where: { id: pathId },
+      select: { published: true },
+    });
+    assertUnlocked(role, path?.published ?? false);
   }
 
   private async assertPathExists(pathId: string) {

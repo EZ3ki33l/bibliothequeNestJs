@@ -5,8 +5,12 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { slugify } from '../common/slug';
 import { toWriteException } from '../common/prisma-errors';
 import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
+import type { AdminRole } from '../generated/prisma/enums';
+import { assertUnlocked, canManagePublished } from '../common/editorial-rights';
 
 const NAME_TAKEN = 'Une catégorie avec un nom trop proche existe déjà dans ce stack';
+const HAS_PUBLISHED_ENTRIES =
+  'Cette catégorie contient des fiches publiées : seul le super administrateur peut la modifier ou la supprimer';
 
 /** Stack parent tel qu'affiché dans un fil d'Ariane : jamais la ligne entière. */
 const PARENT_STACK_SELECT = { select: { id: true, name: true, slug: true } };
@@ -127,8 +131,13 @@ export class CategoriesService {
    * PATCH partiel. `stackId` n'est volontairement pas dans `UpdateCategoryDto` :
    * déplacer une catégorie d'un stack à l'autre demanderait de recalculer les
    * positions des deux stacks, ce n'est pas la même opération qu'un renommage.
+   *
+   * Renommer change l'URL publique des fiches de la catégorie : un `ADMIN` ne
+   * le peut que si aucune n'est publiée.
    */
-  async update(id: string, dto: UpdateCategoryDto) {
+  async update(id: string, dto: UpdateCategoryDto, role: AdminRole) {
+    await this.assertUnlocked(id, role);
+
     const data: { name?: string; slug?: string; description?: string } = {};
 
     if (dto.name !== undefined) {
@@ -146,12 +155,34 @@ export class CategoriesService {
     }
   }
 
-  /** Supprime la catégorie (la cascade Prisma emporte ses fiches). */
-  async delete(id: string) {
+  /**
+   * Supprime la catégorie (la cascade Prisma emporte ses fiches). Un `ADMIN`
+   * ne le peut que si aucune de ces fiches n'est publiée : sinon la cascade
+   * supprimerait du contenu en ligne à sa place.
+   */
+  async delete(id: string, role: AdminRole) {
+    await this.assertUnlocked(id, role);
+
     try {
       await this.prisma.category.delete({ where: { id } });
     } catch (error) {
       throw toWriteException(error, NAME_TAKEN);
     }
+  }
+
+  /**
+   * Une catégorie n'a pas de drapeau `published` : elle est considérée comme
+   * publiée dès qu'elle contient une fiche publiée. 403 dans ce cas pour un
+   * `ADMIN` ; une catégorie inconnue donnera 404 à l'écriture qui suit.
+   */
+  private async assertUnlocked(id: string, role: AdminRole) {
+    if (canManagePublished(role)) {
+      return;
+    }
+
+    const published = await this.prisma.entry.count({
+      where: { categoryId: id, published: true },
+    });
+    assertUnlocked(role, published > 0, HAS_PUBLISHED_ENTRIES);
   }
 }

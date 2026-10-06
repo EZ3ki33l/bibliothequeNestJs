@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import {
@@ -295,7 +295,7 @@ describe('LearningPathsService', () => {
       prisma.learningPath.update.mockResolvedValue({ id: pathId });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await service.update(pathId, { name: 'Python', published: true });
+      await service.update(pathId, { name: 'Python', published: true }, 'SUPER_ADMIN');
 
       expect(prisma.learningPath.update).toHaveBeenCalledWith({
         where: { id: pathId },
@@ -308,7 +308,7 @@ describe('LearningPathsService', () => {
       prisma.learningPath.update.mockResolvedValue({ id: pathId });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await service.update(pathId, { description: 'Nouvelle description' });
+      await service.update(pathId, { description: 'Nouvelle description' }, 'SUPER_ADMIN');
 
       expect(prisma.learningPath.update.mock.calls[0][0].data).toEqual({
         description: 'Nouvelle description',
@@ -318,9 +318,9 @@ describe('LearningPathsService', () => {
     it('maps an unknown id to 404', async () => {
       prisma.learningPath.update.mockRejectedValue(knownRequestError('P2025'));
 
-      await expect(service.update('nope', { published: true })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.update('nope', { published: true }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -328,7 +328,7 @@ describe('LearningPathsService', () => {
     it('deletes the path only (entries untouched)', async () => {
       prisma.learningPath.delete.mockResolvedValue({ id: pathId });
 
-      await service.delete(pathId);
+      await service.delete(pathId, 'SUPER_ADMIN');
 
       expect(prisma.learningPath.delete).toHaveBeenCalledWith({ where: { id: pathId } });
     });
@@ -336,7 +336,7 @@ describe('LearningPathsService', () => {
     it('maps an unknown id to 404', async () => {
       prisma.learningPath.delete.mockRejectedValue(knownRequestError('P2025'));
 
-      await expect(service.delete('nope')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.delete('nope', 'SUPER_ADMIN')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -350,7 +350,9 @@ describe('LearningPathsService', () => {
       prisma.pathModule.aggregate.mockResolvedValue({ _max: { position: 1 } });
       prisma.learningPath.findUnique.mockResolvedValueOnce(detail);
 
-      await expect(service.addModule(pathId, { title: 'Bases' })).resolves.toBe(detail);
+      await expect(service.addModule(pathId, { title: 'Bases' }, 'SUPER_ADMIN')).resolves.toBe(
+        detail,
+      );
 
       expect(prisma.pathModule.create).toHaveBeenCalledWith({
         data: { pathId, title: 'Bases', description: '', position: 2 },
@@ -361,9 +363,9 @@ describe('LearningPathsService', () => {
       prisma.pathModule.count.mockResolvedValue(MAX_MODULES_PER_PATH);
       prisma.pathModule.aggregate.mockResolvedValue({ _max: { position: 29 } });
 
-      await expect(service.addModule(pathId, { title: 'Trop' })).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.addModule(pathId, { title: 'Trop' }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.pathModule.create).not.toHaveBeenCalled();
     });
   });
@@ -371,9 +373,9 @@ describe('LearningPathsService', () => {
   it('addModule throws 404 for an unknown path', async () => {
     prisma.learningPath.findUnique.mockResolvedValue(null);
 
-    await expect(service.addModule('nope', { title: 'Bases' })).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.addModule('nope', { title: 'Bases' }, 'SUPER_ADMIN'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   describe('updateModule / deleteModule', () => {
@@ -381,7 +383,7 @@ describe('LearningPathsService', () => {
       prisma.pathModule.updateMany.mockResolvedValue({ count: 1 });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await service.updateModule(pathId, moduleId, { title: 'Renommé' });
+      await service.updateModule(pathId, moduleId, { title: 'Renommé' }, 'SUPER_ADMIN');
 
       expect(prisma.pathModule.updateMany).toHaveBeenCalledWith({
         where: { id: moduleId, pathId },
@@ -393,14 +395,14 @@ describe('LearningPathsService', () => {
       prisma.pathModule.updateMany.mockResolvedValue({ count: 0 });
 
       await expect(
-        service.updateModule(pathId, 'foreign-module', { title: 'X' }),
+        service.updateModule(pathId, 'foreign-module', { title: 'X' }, 'SUPER_ADMIN'),
       ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('deletes scoped to the parent path', async () => {
       prisma.pathModule.deleteMany.mockResolvedValue({ count: 1 });
 
-      await service.deleteModule(pathId, moduleId);
+      await service.deleteModule(pathId, moduleId, 'SUPER_ADMIN');
 
       expect(prisma.pathModule.deleteMany).toHaveBeenCalledWith({
         where: { id: moduleId, pathId },
@@ -410,7 +412,9 @@ describe('LearningPathsService', () => {
     it('delete: 404 when nothing matched', async () => {
       prisma.pathModule.deleteMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.deleteModule(pathId, 'nope')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.deleteModule(pathId, 'nope', 'SUPER_ADMIN')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -424,7 +428,9 @@ describe('LearningPathsService', () => {
       prisma.pathModule.updateMany.mockResolvedValue({ count: 1 });
       prisma.learningPath.findUnique.mockResolvedValueOnce(detail);
 
-      await expect(service.reorderModules(pathId, ['m2', 'm1'])).resolves.toBe(detail);
+      await expect(service.reorderModules(pathId, ['m2', 'm1'], 'SUPER_ADMIN')).resolves.toBe(
+        detail,
+      );
 
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(prisma.pathModule.updateMany).toHaveBeenNthCalledWith(1, {
@@ -438,16 +444,16 @@ describe('LearningPathsService', () => {
     });
 
     it('409 when a module is missing from the list', async () => {
-      await expect(service.reorderModules(pathId, ['m1'])).rejects.toBeInstanceOf(
+      await expect(service.reorderModules(pathId, ['m1'], 'SUPER_ADMIN')).rejects.toBeInstanceOf(
         ConflictException,
       );
       expect(prisma.pathModule.updateMany).not.toHaveBeenCalled();
     });
 
     it('409 when the list contains a foreign module', async () => {
-      await expect(service.reorderModules(pathId, ['m1', 'other'])).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.reorderModules(pathId, ['m1', 'other'], 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
 
     it('409 when a module disappears between read and write', async () => {
@@ -455,16 +461,18 @@ describe('LearningPathsService', () => {
         .mockResolvedValueOnce({ count: 1 })
         .mockResolvedValueOnce({ count: 0 });
 
-      await expect(service.reorderModules(pathId, ['m1', 'm2'])).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.reorderModules(pathId, ['m1', 'm2'], 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 
   it('reorderModules throws 404 for an unknown path', async () => {
     prisma.learningPath.findUnique.mockResolvedValue(null);
 
-    await expect(service.reorderModules('nope', ['m1'])).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.reorderModules('nope', ['m1'], 'SUPER_ADMIN')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   describe('addStep', () => {
@@ -477,7 +485,9 @@ describe('LearningPathsService', () => {
       prisma.pathStep.aggregate.mockResolvedValue({ _max: { position: 2 } });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await expect(service.addStep(pathId, moduleId, { entryId })).resolves.toBe(detail);
+      await expect(service.addStep(pathId, moduleId, { entryId }, 'SUPER_ADMIN')).resolves.toBe(
+        detail,
+      );
 
       expect(prisma.pathModule.findFirst).toHaveBeenCalledWith({
         where: { id: moduleId, pathId },
@@ -500,7 +510,7 @@ describe('LearningPathsService', () => {
       prisma.pathStep.aggregate.mockResolvedValue({ _max: { position: null } });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await service.addStep(pathId, moduleId, { entryId, optional: true });
+      await service.addStep(pathId, moduleId, { entryId, optional: true }, 'SUPER_ADMIN');
 
       expect(prisma.pathStep.create.mock.calls[0][0].data).toMatchObject({
         optional: true,
@@ -511,9 +521,9 @@ describe('LearningPathsService', () => {
     it('404 when the module belongs to another path', async () => {
       prisma.pathModule.findFirst.mockResolvedValue(null);
 
-      await expect(service.addStep(pathId, 'foreign', { entryId })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.addStep(pathId, 'foreign', { entryId }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.pathStep.create).not.toHaveBeenCalled();
     });
 
@@ -521,9 +531,9 @@ describe('LearningPathsService', () => {
       prisma.pathModule.findFirst.mockResolvedValue({ id: moduleId });
       prisma.entry.findUnique.mockResolvedValue(null);
 
-      await expect(service.addStep(pathId, moduleId, { entryId })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.addStep(pathId, moduleId, { entryId }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('409 beyond the step cap', async () => {
@@ -532,9 +542,9 @@ describe('LearningPathsService', () => {
       prisma.pathStep.count.mockResolvedValue(MAX_STEPS_PER_PATH);
       prisma.pathStep.aggregate.mockResolvedValue({ _max: { position: 10 } });
 
-      await expect(service.addStep(pathId, moduleId, { entryId })).rejects.toBeInstanceOf(
-        ConflictException,
-      );
+      await expect(
+        service.addStep(pathId, moduleId, { entryId }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.pathStep.create).not.toHaveBeenCalled();
     });
 
@@ -545,7 +555,7 @@ describe('LearningPathsService', () => {
       prisma.pathStep.aggregate.mockResolvedValue({ _max: { position: 0 } });
       prisma.pathStep.create.mockRejectedValue(knownRequestError('P2002'));
 
-      await expect(service.addStep(pathId, moduleId, { entryId })).rejects.toThrow(
+      await expect(service.addStep(pathId, moduleId, { entryId }, 'SUPER_ADMIN')).rejects.toThrow(
         'Cette fiche est déjà dans ce parcours',
       );
     });
@@ -556,7 +566,7 @@ describe('LearningPathsService', () => {
       prisma.pathStep.updateMany.mockResolvedValue({ count: 1 });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await service.updateStep(pathId, 'step-1', { optional: true });
+      await service.updateStep(pathId, 'step-1', { optional: true }, 'SUPER_ADMIN');
 
       expect(prisma.pathStep.updateMany).toHaveBeenCalledWith({
         where: { id: 'step-1', pathId },
@@ -567,15 +577,15 @@ describe('LearningPathsService', () => {
     it('update: 404 when nothing matched', async () => {
       prisma.pathStep.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.updateStep(pathId, 'nope', { optional: true })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.updateStep(pathId, 'nope', { optional: true }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('deletes scoped to the parent path, never the entry', async () => {
       prisma.pathStep.deleteMany.mockResolvedValue({ count: 1 });
 
-      await service.deleteStep(pathId, 'step-1');
+      await service.deleteStep(pathId, 'step-1', 'SUPER_ADMIN');
 
       expect(prisma.pathStep.deleteMany).toHaveBeenCalledWith({ where: { id: 'step-1', pathId } });
     });
@@ -583,7 +593,9 @@ describe('LearningPathsService', () => {
     it('delete: 404 when nothing matched', async () => {
       prisma.pathStep.deleteMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.deleteStep(pathId, 'nope')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.deleteStep(pathId, 'nope', 'SUPER_ADMIN')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 
@@ -594,7 +606,9 @@ describe('LearningPathsService', () => {
       prisma.pathStep.updateMany.mockResolvedValue({ count: 1 });
       prisma.learningPath.findUnique.mockResolvedValue(detail);
 
-      await expect(service.reorderSteps(pathId, moduleId, ['s2', 's1'])).resolves.toBe(detail);
+      await expect(
+        service.reorderSteps(pathId, moduleId, ['s2', 's1'], 'SUPER_ADMIN'),
+      ).resolves.toBe(detail);
 
       expect(prisma.pathModule.findFirst).toHaveBeenCalledWith({
         where: { id: moduleId, pathId },
@@ -609,9 +623,9 @@ describe('LearningPathsService', () => {
     it('404 when the module belongs to another path', async () => {
       prisma.pathModule.findFirst.mockResolvedValue(null);
 
-      await expect(service.reorderSteps(pathId, 'foreign', ['s1'])).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.reorderSteps(pathId, 'foreign', ['s1'], 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('409 when the list is not the exact current set', async () => {
@@ -619,7 +633,7 @@ describe('LearningPathsService', () => {
       prisma.pathStep.findMany.mockResolvedValue([{ id: 's1' }, { id: 's2' }]);
 
       await expect(
-        service.reorderSteps(pathId, moduleId, ['s1', 's2', 's3']),
+        service.reorderSteps(pathId, moduleId, ['s1', 's2', 's3'], 'SUPER_ADMIN'),
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -628,8 +642,75 @@ describe('LearningPathsService', () => {
       prisma.pathStep.findMany.mockResolvedValue([{ id: 's1' }]);
       prisma.pathStep.updateMany.mockResolvedValue({ count: 0 });
 
-      await expect(service.reorderSteps(pathId, moduleId, ['s1'])).rejects.toBeInstanceOf(
-        ConflictException,
+      await expect(
+        service.reorderSteps(pathId, moduleId, ['s1'], 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('ADMIN role (draft paths only)', () => {
+    it('refuses to publish a path', async () => {
+      await expect(service.update(pathId, { published: true }, 'ADMIN')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.learningPath.update).not.toHaveBeenCalled();
+    });
+
+    describe('on a published path', () => {
+      beforeEach(() => {
+        prisma.learningPath.findUnique.mockResolvedValue({ published: true });
+      });
+
+      it.each([
+        ['update', () => service.update(pathId, { name: 'Python' }, 'ADMIN')],
+        ['unpublish', () => service.update(pathId, { published: false }, 'ADMIN')],
+        ['delete', () => service.delete(pathId, 'ADMIN')],
+        ['addModule', () => service.addModule(pathId, { title: 'Bases' }, 'ADMIN')],
+        ['updateModule', () => service.updateModule(pathId, moduleId, { title: 'X' }, 'ADMIN')],
+        ['deleteModule', () => service.deleteModule(pathId, moduleId, 'ADMIN')],
+        ['reorderModules', () => service.reorderModules(pathId, ['m1'], 'ADMIN')],
+        ['addStep', () => service.addStep(pathId, moduleId, { entryId: 'e1' }, 'ADMIN')],
+        ['updateStep', () => service.updateStep(pathId, 's1', { optional: true }, 'ADMIN')],
+        ['deleteStep', () => service.deleteStep(pathId, 's1', 'ADMIN')],
+        ['reorderSteps', () => service.reorderSteps(pathId, moduleId, ['s1'], 'ADMIN')],
+      ])('refuses %s with 403 and writes nothing', async (_name, write) => {
+        await expect(write()).rejects.toBeInstanceOf(ForbiddenException);
+
+        expect(prisma.learningPath.findUnique).toHaveBeenCalledWith({
+          where: { id: pathId },
+          select: { published: true },
+        });
+        expect(prisma.learningPath.update).not.toHaveBeenCalled();
+        expect(prisma.learningPath.delete).not.toHaveBeenCalled();
+        expect(prisma.pathModule.create).not.toHaveBeenCalled();
+        expect(prisma.pathModule.updateMany).not.toHaveBeenCalled();
+        expect(prisma.pathModule.deleteMany).not.toHaveBeenCalled();
+        expect(prisma.pathStep.create).not.toHaveBeenCalled();
+        expect(prisma.pathStep.updateMany).not.toHaveBeenCalled();
+        expect(prisma.pathStep.deleteMany).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+    });
+
+    it('composes a draft path', async () => {
+      prisma.learningPath.findUnique.mockResolvedValue({ published: false });
+      prisma.pathModule.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.learningPath.delete.mockResolvedValue({ id: pathId });
+
+      await service.deleteModule(pathId, moduleId, 'ADMIN');
+      await service.delete(pathId, 'ADMIN');
+
+      expect(prisma.pathModule.deleteMany).toHaveBeenCalledWith({
+        where: { id: moduleId, pathId },
+      });
+      expect(prisma.learningPath.delete).toHaveBeenCalledWith({ where: { id: pathId } });
+    });
+
+    it('answers 404, not 403, for an unknown path', async () => {
+      prisma.learningPath.findUnique.mockResolvedValue(null);
+
+      await expect(service.addModule('nope', { title: 'Bases' }, 'ADMIN')).rejects.toBeInstanceOf(
+        NotFoundException,
       );
     });
   });

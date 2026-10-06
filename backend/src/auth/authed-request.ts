@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+import type { AdminRole } from '../generated/prisma/enums';
 
 /**
  * Utilisateur tel que `SessionGuard` le dépose sur la requête.
@@ -17,5 +18,11 @@ export type SessionUser = { id: string };
  *
  * Le `Request` importé est bien celui d'Express, pas le `Request` global de la
  * Fetch API — deux types homonymes qui n'ont rien en commun.
+ *
+ * `adminRole` n'est présent qu'après `AdminGuard` : c'est le rôle lu en base,
+ * jamais une valeur envoyée par le client.
  */
-export type AuthedRequest = Request & { session?: { user: SessionUser } };
+export type AuthedRequest = Request & {
+  session?: { user: SessionUser };
+  adminRole?: AdminRole;
+};

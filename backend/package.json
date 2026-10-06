@@ -21,7 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "admin:role": "tsx prisma/set-admin-role.ts"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.5",

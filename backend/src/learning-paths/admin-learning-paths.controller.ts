@@ -15,6 +15,8 @@ import {
 } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
 import { AdminGuard } from '../auth/admin.guard';
+import { CurrentAdminRole } from '../auth/current-user.decorator';
+import type { AdminRole } from '../generated/prisma/enums';
 import { LearningPathsService } from './learning-paths.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateLearningPathDto } from './dto/create-learning-path.dto';
@@ -62,27 +64,39 @@ export class AdminLearningPathsController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateLearningPathDto) {
-    return this.learningPathsService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateLearningPathDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.update(id, dto, role);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  delete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.learningPathsService.delete(id);
+  delete(@Param('id', ParseUUIDPipe) id: string, @CurrentAdminRole() role: AdminRole) {
+    return this.learningPathsService.delete(id, role);
   }
 
   // Modules
 
   @Put(':id/modules/order')
-  reorderModules(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ReorderModulesDto) {
-    return this.learningPathsService.reorderModules(id, dto.moduleIds);
+  reorderModules(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderModulesDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.reorderModules(id, dto.moduleIds, role);
   }
 
   @Post(':id/modules')
   @HttpCode(HttpStatus.CREATED)
-  addModule(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreatePathModuleDto) {
-    return this.learningPathsService.addModule(id, dto);
+  addModule(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreatePathModuleDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.addModule(id, dto, role);
   }
 
   @Patch(':id/modules/:moduleId')
@@ -90,8 +104,9 @@ export class AdminLearningPathsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('moduleId', ParseUUIDPipe) moduleId: string,
     @Body() dto: UpdatePathModuleDto,
+    @CurrentAdminRole() role: AdminRole,
   ) {
-    return this.learningPathsService.updateModule(id, moduleId, dto);
+    return this.learningPathsService.updateModule(id, moduleId, dto, role);
   }
 
   @Delete(':id/modules/:moduleId')
@@ -99,8 +114,9 @@ export class AdminLearningPathsController {
   deleteModule(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('moduleId', ParseUUIDPipe) moduleId: string,
+    @CurrentAdminRole() role: AdminRole,
   ) {
-    return this.learningPathsService.deleteModule(id, moduleId);
+    return this.learningPathsService.deleteModule(id, moduleId, role);
   }
 
   // Étapes
@@ -110,8 +126,9 @@ export class AdminLearningPathsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('moduleId', ParseUUIDPipe) moduleId: string,
     @Body() dto: ReorderStepsDto,
+    @CurrentAdminRole() role: AdminRole,
   ) {
-    return this.learningPathsService.reorderSteps(id, moduleId, dto.stepIds);
+    return this.learningPathsService.reorderSteps(id, moduleId, dto.stepIds, role);
   }
 
   @Post(':id/modules/:moduleId/steps')
@@ -120,8 +137,9 @@ export class AdminLearningPathsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('moduleId', ParseUUIDPipe) moduleId: string,
     @Body() dto: CreatePathStepDto,
+    @CurrentAdminRole() role: AdminRole,
   ) {
-    return this.learningPathsService.addStep(id, moduleId, dto);
+    return this.learningPathsService.addStep(id, moduleId, dto, role);
   }
 
   @Patch(':id/steps/:stepId')
@@ -129,8 +147,9 @@ export class AdminLearningPathsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('stepId', ParseUUIDPipe) stepId: string,
     @Body() dto: UpdatePathStepDto,
+    @CurrentAdminRole() role: AdminRole,
   ) {
-    return this.learningPathsService.updateStep(id, stepId, dto);
+    return this.learningPathsService.updateStep(id, stepId, dto, role);
   }
 
   @Delete(':id/steps/:stepId')
@@ -138,7 +157,8 @@ export class AdminLearningPathsController {
   deleteStep(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('stepId', ParseUUIDPipe) stepId: string,
+    @CurrentAdminRole() role: AdminRole,
   ) {
-    return this.learningPathsService.deleteStep(id, stepId);
+    return this.learningPathsService.deleteStep(id, stepId, role);
   }
 }

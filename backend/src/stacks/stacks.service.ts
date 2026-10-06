@@ -4,8 +4,12 @@ import { CreateStackDto } from './dto/create-stack.dto';
 import { UpdateStackDto } from './dto/update-stack.dto';
 import { slugify } from '../common/slug';
 import { toWriteException } from '../common/prisma-errors';
+import type { AdminRole } from '../generated/prisma/enums';
+import { assertUnlocked, canManagePublished } from '../common/editorial-rights';
 
 const SLUG_TAKEN = 'Ce slug est déjà utilisé';
+const HAS_PUBLISHED_ENTRIES =
+  'Ce stack contient des fiches publiées : seul le super administrateur peut le modifier ou le supprimer';
 
 /**
  * Règles métier des stacks (React, Prisma, HeroUI…), le premier niveau du
@@ -136,8 +140,12 @@ export class StacksService {
    * l'objet reçu écraserait les colonnes absentes avec `undefined`, et
    * laisserait passer n'importe quelle clé envoyée par le client
    * (« mass assignment »).
+   *
+   * Un `ADMIN` ne modifie pas un stack qui contient des fiches publiées.
    */
-  async update(id: string, dto: UpdateStackDto) {
+  async update(id: string, dto: UpdateStackDto, role: AdminRole) {
+    await this.assertUnlocked(id, role);
+
     const data: { name?: string; slug?: string; description?: string } = {};
 
     if (dto.name !== undefined) {
@@ -156,12 +164,33 @@ export class StacksService {
     }
   }
 
-  /** Supprime le stack (la cascade Prisma emporte catégories et fiches). */
-  async delete(id: string) {
+  /**
+   * Supprime le stack (la cascade Prisma emporte catégories et fiches). Un
+   * `ADMIN` ne le peut que si aucune de ces fiches n'est publiée.
+   */
+  async delete(id: string, role: AdminRole) {
+    await this.assertUnlocked(id, role);
+
     try {
       await this.prisma.stack.delete({ where: { id } });
     } catch (error) {
       throw toWriteException(error, SLUG_TAKEN);
     }
+  }
+
+  /**
+   * Un stack n'a pas de drapeau `published` : il est considéré comme publié
+   * dès qu'une de ses catégories contient une fiche publiée. 403 dans ce cas
+   * pour un `ADMIN` ; un stack inconnu donnera 404 à l'écriture qui suit.
+   */
+  private async assertUnlocked(id: string, role: AdminRole) {
+    if (canManagePublished(role)) {
+      return;
+    }
+
+    const published = await this.prisma.entry.count({
+      where: { published: true, category: { stackId: id } },
+    });
+    assertUnlocked(role, published > 0, HAS_PUBLISHED_ENTRIES);
   }
 }
