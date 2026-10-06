@@ -1,8 +1,9 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { SessionGuard } from './session.guard';
 import { AdminGuard } from './admin.guard';
-import { CurrentUser } from './current-user.decorator';
+import { CurrentAdminRole, CurrentUser } from './current-user.decorator';
 import type { SessionUser } from './authed-request';
+import type { AdminRole } from '../generated/prisma/enums';
 
 /**
  * Routes de vérification de session, utilisées par le frontend comme gardes de
@@ -30,10 +31,14 @@ export class MeController {
    * dépose la session sur la requête, puis `AdminGuard` autorise (*as-tu le
    * droit ?*) en la relisant. Inversés, `AdminGuard` ne trouverait pas de
    * session et renverrait 401 au lieu de 403.
+   *
+   * La réponse porte aussi le `role` (`ADMIN` ou `SUPER_ADMIN`) : un client
+   * peut s'en servir pour adapter son écran, mais ce sont les services qui
+   * appliquent réellement les droits.
    */
   @Get('admin/me')
   @UseGuards(SessionGuard, AdminGuard)
-  adminMe(@CurrentUser() user: SessionUser) {
-    return user;
+  adminMe(@CurrentUser() user: SessionUser, @CurrentAdminRole() role: AdminRole) {
+    return { ...user, role };
   }
 }

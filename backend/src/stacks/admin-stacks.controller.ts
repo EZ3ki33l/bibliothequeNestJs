@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
 import { AdminGuard } from '../auth/admin.guard';
+import { CurrentAdminRole } from '../auth/current-user.decorator';
+import type { AdminRole } from '../generated/prisma/enums';
 import { StacksService } from './stacks.service';
 import { CreateStackDto } from './dto/create-stack.dto';
 import { UpdateStackDto } from './dto/update-stack.dto';
@@ -55,14 +57,18 @@ export class AdminStacksController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateStackDto) {
-    return this.stacksService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateStackDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.stacksService.update(id, dto, role);
   }
 
   /** 204 : suppression réussie, rien à renvoyer. */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  delete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.stacksService.delete(id);
+  delete(@Param('id', ParseUUIDPipe) id: string, @CurrentAdminRole() role: AdminRole) {
+    return this.stacksService.delete(id, role);
   }
 }

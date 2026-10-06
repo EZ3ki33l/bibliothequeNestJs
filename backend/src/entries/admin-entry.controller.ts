@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
 import { AdminGuard } from '../auth/admin.guard';
+import { CurrentAdminRole } from '../auth/current-user.decorator';
+import type { AdminRole } from '../generated/prisma/enums';
 import { EntriesService } from './entries.service';
 import { CreateEntryDto } from './dto/create-entry.dto';
 import { UpdateEntryDto } from './dto/update-entry.dto';
@@ -40,18 +42,22 @@ export class AdminEntriesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreateEntryDto) {
-    return this.entriesService.create(dto);
+  create(@Body() dto: CreateEntryDto, @CurrentAdminRole() role: AdminRole) {
+    return this.entriesService.create(dto, role);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEntryDto) {
-    return this.entriesService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEntryDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.entriesService.update(id, dto, role);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  delete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.entriesService.delete(id);
+  delete(@Param('id', ParseUUIDPipe) id: string, @CurrentAdminRole() role: AdminRole) {
+    return this.entriesService.delete(id, role);
   }
 }

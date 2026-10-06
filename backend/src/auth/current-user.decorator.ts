@@ -1,4 +1,10 @@
-import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  createParamDecorator,
+  ExecutionContext,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import type { AdminRole } from '../generated/prisma/enums';
 import type { AuthedRequest, SessionUser } from './authed-request';
 
 /**
@@ -47,4 +53,24 @@ export const CurrentUser = createParamDecorator((_data: unknown, context: Execut
  */
 export const CurrentUserId = createParamDecorator(
   (_data: unknown, context: ExecutionContext): string => readSessionUser(context).id,
+);
+
+/**
+ * Rôle d'administration de l'utilisateur courant, tel qu'`AdminGuard` l'a lu
+ * en base.
+ *
+ * À passer aux services d'écriture : c'est lui qui distingue ce qu'un `ADMIN`
+ * et un `SUPER_ADMIN` peuvent faire. Sans rôle sur la requête (route sans
+ * `AdminGuard`), le refus est immédiat — jamais un rôle par défaut.
+ */
+export const CurrentAdminRole = createParamDecorator(
+  (_data: unknown, context: ExecutionContext): AdminRole => {
+    const role = context.switchToHttp().getRequest<AuthedRequest>().adminRole;
+
+    if (!role) {
+      throw new ForbiddenException();
+    }
+
+    return role;
+  },
 );

@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
@@ -14,6 +14,9 @@ function knownRequestError(code: string) {
 describe('StacksService', () => {
   let service: StacksService;
   const prisma = {
+    entry: {
+      count: jest.fn(),
+    },
     stack: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
@@ -167,7 +170,7 @@ describe('StacksService', () => {
     it('recomputes the slug from the name', async () => {
       prisma.stack.update.mockResolvedValue({ id: 's1' });
 
-      await service.update('s1', { name: 'New Name', description: 'd' });
+      await service.update('s1', { name: 'New Name', description: 'd' }, 'SUPER_ADMIN');
 
       expect(prisma.stack.update).toHaveBeenCalledWith({
         where: { id: 's1' },
@@ -178,7 +181,7 @@ describe('StacksService', () => {
     it('sends an empty data object when no field is provided', async () => {
       prisma.stack.update.mockResolvedValue({ id: 's1' });
 
-      await service.update('s1', {});
+      await service.update('s1', {}, 'SUPER_ADMIN');
 
       expect(prisma.stack.update).toHaveBeenCalledWith({
         where: { id: 's1' },
@@ -189,15 +192,15 @@ describe('StacksService', () => {
     it('maps Prisma P2025 to NotFoundException', async () => {
       prisma.stack.update.mockRejectedValue(knownRequestError('P2025'));
 
-      await expect(service.update('s1', { description: 'x' })).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.update('s1', { description: 'x' }, 'SUPER_ADMIN'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('maps Prisma P2002 to ConflictException', async () => {
       prisma.stack.update.mockRejectedValue(knownRequestError('P2002'));
 
-      await expect(service.update('s1', { name: 'Taken' })).rejects.toBeInstanceOf(
+      await expect(service.update('s1', { name: 'Taken' }, 'SUPER_ADMIN')).rejects.toBeInstanceOf(
         ConflictException,
       );
     });
@@ -205,7 +208,7 @@ describe('StacksService', () => {
     it('rethrows unexpected errors', async () => {
       prisma.stack.update.mockRejectedValue(new Error('db down'));
 
-      await expect(service.update('s1', {})).rejects.toThrow('db down');
+      await expect(service.update('s1', {}, 'SUPER_ADMIN')).rejects.toThrow('db down');
     });
   });
 
@@ -213,20 +216,66 @@ describe('StacksService', () => {
     it('deletes by id', async () => {
       prisma.stack.delete.mockResolvedValue({ id: 's1' });
 
-      await expect(service.delete('s1')).resolves.toBeUndefined();
+      await expect(service.delete('s1', 'SUPER_ADMIN')).resolves.toBeUndefined();
       expect(prisma.stack.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
     });
 
     it('maps Prisma P2025 to NotFoundException', async () => {
       prisma.stack.delete.mockRejectedValue(knownRequestError('P2025'));
 
-      await expect(service.delete('missing')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(service.delete('missing', 'SUPER_ADMIN')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('rethrows unexpected errors', async () => {
       prisma.stack.delete.mockRejectedValue(new Error('db down'));
 
-      await expect(service.delete('s1')).rejects.toThrow('db down');
+      await expect(service.delete('s1', 'SUPER_ADMIN')).rejects.toThrow('db down');
     });
+  });
+
+  describe('ADMIN role (drafts only)', () => {
+    it('refuses to rename a stack that holds published entries', async () => {
+      prisma.entry.count.mockResolvedValue(3);
+
+      await expect(service.update('s1', { name: 'React' }, 'ADMIN')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.entry.count).toHaveBeenCalledWith({
+        where: { published: true, category: { stackId: 's1' } },
+      });
+      expect(prisma.stack.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to delete a stack that holds published entries', async () => {
+      prisma.entry.count.mockResolvedValue(1);
+
+      await expect(service.delete('s1', 'ADMIN')).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.stack.delete).not.toHaveBeenCalled();
+    });
+
+    it('edits and deletes a stack with drafts only', async () => {
+      prisma.entry.count.mockResolvedValue(0);
+      prisma.stack.update.mockResolvedValue({ id: 's1' });
+      prisma.stack.delete.mockResolvedValue({ id: 's1' });
+
+      await service.update('s1', { description: 'd' }, 'ADMIN');
+      await service.delete('s1', 'ADMIN');
+
+      expect(prisma.stack.update).toHaveBeenCalledWith({
+        where: { id: 's1' },
+        data: { description: 'd' },
+      });
+      expect(prisma.stack.delete).toHaveBeenCalledWith({ where: { id: 's1' } });
+    });
+  });
+
+  it('SUPER_ADMIN deletes without the lock lookup', async () => {
+    prisma.stack.delete.mockResolvedValue({ id: 's1' });
+
+    await service.delete('s1', 'SUPER_ADMIN');
+
+    expect(prisma.entry.count).not.toHaveBeenCalled();
   });
 });

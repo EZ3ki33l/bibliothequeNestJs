@@ -7,6 +7,8 @@ import { slugify } from '../common/slug';
 import { toWriteException } from '../common/prisma-errors';
 import { SearchEntriesQueryDto } from './dto/search-entries-query.dto';
 import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
+import type { AdminRole } from '../generated/prisma/enums';
+import { assertCanPublish, assertUnlocked, canManagePublished } from '../common/editorial-rights';
 
 const SLUG_TAKEN = 'Ce slug est déjà utilisé';
 
@@ -25,6 +27,9 @@ const withTaxonomy = {
  * - lectures publiques (`findPublished*`) : uniquement les fiches publiées ;
  * - lectures admin (`findAllAdmin`, `findById`) : brouillons inclus, derrière
  *   `SessionGuard` + `AdminGuard`.
+ *
+ * Les écritures reçoivent le rôle de l'appelant : un `ADMIN` ne publie pas et
+ * ne touche pas à une fiche publiée (voir `common/editorial-rights.ts`).
  */
 @Injectable()
 export class EntriesService {
@@ -206,9 +211,11 @@ export class EntriesService {
   /**
    * Création. Tout ce qui n'est pas fourni prend un défaut explicite côté
    * serveur — dont `published: false` : une fiche naît brouillon, on ne publie
-   * jamais par accident.
+   * jamais par accident. Créer directement publié est réservé au `SUPER_ADMIN`.
    */
-  async create(dto: CreateEntryDto) {
+  async create(dto: CreateEntryDto, role: AdminRole) {
+    assertCanPublish(role, dto.published);
+
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
 
     if (!category) {
@@ -252,8 +259,14 @@ export class EntriesService {
    * `Prisma.EntryUpdateInput` évite de recopier ici la liste des colonnes du
    * modèle — une liste à la main se désynchronise dès le prochain champ ajouté
    * au schéma.
+   *
+   * Pour un `ADMIN` : 403 si la fiche est publiée, ou si le PATCH demande sa
+   * publication.
    */
-  async update(id: string, dto: UpdateEntryDto) {
+  async update(id: string, dto: UpdateEntryDto, role: AdminRole) {
+    assertCanPublish(role, dto.published);
+    await this.assertUnlocked(id, role);
+
     const data: Prisma.EntryUpdateInput = {};
 
     if (dto.title !== undefined) {
@@ -277,12 +290,36 @@ export class EntriesService {
     }
   }
 
-  /** Supprime la fiche (la cascade emporte cartes de révision et tentatives). */
-  async delete(id: string) {
+  /**
+   * Supprime la fiche (la cascade emporte cartes de révision et tentatives).
+   * Un `ADMIN` ne supprime qu'un brouillon.
+   */
+  async delete(id: string, role: AdminRole) {
+    await this.assertUnlocked(id, role);
+
     try {
       await this.prisma.entry.delete({ where: { id } });
     } catch (error) {
       throw toWriteException(error, SLUG_TAKEN);
     }
+  }
+
+  /**
+   * 403 si la fiche est publiée et que le rôle n'y a pas droit.
+   *
+   * Une fiche introuvable n'est pas traitée ici : l'écriture qui suit lève
+   * `P2025`, traduit en 404 comme pour tout autre id inconnu. La lecture est
+   * épargnée au `SUPER_ADMIN`, qui a tous les droits.
+   */
+  private async assertUnlocked(id: string, role: AdminRole) {
+    if (canManagePublished(role)) {
+      return;
+    }
+
+    const entry = await this.prisma.entry.findUnique({
+      where: { id },
+      select: { published: true },
+    });
+    assertUnlocked(role, entry?.published ?? false);
   }
 }

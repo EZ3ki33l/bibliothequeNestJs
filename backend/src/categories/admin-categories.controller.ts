@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
 import { AdminGuard } from '../auth/admin.guard';
+import { CurrentAdminRole } from '../auth/current-user.decorator';
+import type { AdminRole } from '../generated/prisma/enums';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -42,13 +44,17 @@ export class AdminCategoriesController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCategoryDto) {
-    return this.categoriesService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCategoryDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.categoriesService.update(id, dto, role);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  delete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.categoriesService.delete(id);
+  delete(@Param('id', ParseUUIDPipe) id: string, @CurrentAdminRole() role: AdminRole) {
+    return this.categoriesService.delete(id, role);
   }
 }
