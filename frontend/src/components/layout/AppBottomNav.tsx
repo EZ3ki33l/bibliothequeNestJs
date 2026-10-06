@@ -58,11 +58,7 @@ export function AppBottomNav({ isAdmin }: { isAdmin: boolean }) {
             </div>
 
             {hasMoreItems ? (
-              <NavSection
-                title="Bibliothèque"
-                items={LIBRARY_NAV_SIGNED_IN}
-                pathname={pathname}
-              />
+              <NavSection title="Bibliothèque" items={LIBRARY_NAV_SIGNED_IN} pathname={pathname} />
             ) : null}
 
             {isAdmin && currentUser ? (
