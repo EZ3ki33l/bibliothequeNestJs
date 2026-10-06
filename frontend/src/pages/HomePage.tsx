@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { Card, buttonVariants } from '@heroui/react';
-import { MagnifyingGlassIcon, QuestionIcon, StackIcon } from '@phosphor-icons/react';
+import { MagnifyingGlassIcon, PathIcon, QuestionIcon, StackIcon } from '@phosphor-icons/react';
 import { authClient } from '../lib/auth';
 
 /**
@@ -12,10 +12,16 @@ import { authClient } from '../lib/auth';
  */
 const DOORS = [
   {
+    to: '/parcours',
+    icon: PathIcon,
+    title: 'Suivre un parcours',
+    body: 'Un plan guidé qui ordonne les fiches pour apprendre un métier, étape par étape. Sans compte.',
+  },
+  {
     to: '/stacks',
     icon: StackIcon,
     title: 'Parcourir les stacks',
-    body: 'Le catalogue se parcourt par parcours, puis par catégorie. Sans compte.',
+    body: 'Le catalogue se parcourt par leçons, puis par catégorie. Sans compte.',
   },
   {
     to: '/recherche',
@@ -27,15 +33,15 @@ const DOORS = [
     to: '/a-propos',
     icon: QuestionIcon,
     title: 'À propos',
-    body: 'Présentation de l’offre : parcours, fiches, examen, révisions.',
+    body: 'Présentation de l’offre : parcours, leçons, fiches, examen, révisions.',
   },
 ] as const;
 
 /**
  * Accueil public (orientation).
  *
- * Rôle : dire ce qu'est le site et ouvrir ses trois usages (parcourir,
- * chercher, comprendre). Il n'appelle plus l'API — aucune grille de catalogue
+ * Rôle : dire ce qu'est le site et ouvrir ses usages (suivre un parcours,
+ * parcourir, chercher, comprendre). Il n'appelle plus l'API — aucune grille de catalogue
  * ici, donc rien à charger : un `GET /stacks` en panne ne casse pas la landing.
  * `useSession` ne décide que du CTA de compte, ce n'est pas une garde d'accès.
  *
@@ -66,9 +72,9 @@ export function HomePage() {
           </h1>
 
           <p className="text-muted mt-5 text-base leading-relaxed sm:text-lg">
-            Des parcours (stacks) à explorer, des fiches à lire, des examens de compréhension et des
-            révisions espacées. Le catalogue se parcourt sans compte ; un compte ouvre examens et
-            révisions.
+            Des parcours guidés à suivre, des leçons à explorer, des fiches à lire, des examens de
+            compréhension et des révisions espacées. Le catalogue se parcourt sans compte ; un
+            compte ouvre examens et révisions.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -106,7 +112,7 @@ export function HomePage() {
         <h2 id="home-doors-heading" className="mb-4 text-lg font-semibold tracking-tight">
           Vue d’ensemble
         </h2>
-        <ul className="grid gap-4 sm:grid-cols-3">
+        <ul className="grid gap-4 sm:grid-cols-2">
           {DOORS.map((door) => {
             const Icon = door.icon;
 

@@ -12,7 +12,7 @@ export function StacksPage() {
 
   return (
     <>
-      <PageHeader title="Stacks" description="Parcours les stacks et leurs fiches publiées." />
+      <PageHeader title="Stacks" description="Les stacks et leurs fiches publiées." />
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>

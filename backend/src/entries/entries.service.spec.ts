@@ -438,6 +438,29 @@ describe('EntriesService', () => {
         expect.objectContaining({ where: expect.anything() }),
       );
     });
+
+    it('filters by title (case-insensitive) on both list and count when q is set', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findAllAdmin(1, 50, '  useSt  ');
+
+      const where = { title: { contains: 'useSt', mode: 'insensitive' } };
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where });
+    });
+
+    it('treats a blank q as absent', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findAllAdmin(1, 50, '   ');
+
+      expect(prisma.entry.findMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.anything() }),
+      );
+      expect(prisma.entry.count).toHaveBeenCalledWith({});
+    });
   });
 
   describe('findById', () => {

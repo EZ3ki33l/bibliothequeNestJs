@@ -65,6 +65,12 @@ export function LoginPage() {
           autoComplete="current-password"
           isRequired
         />
+        <Link
+          to="/mot-de-passe-oublie"
+          className="text-muted hover:text-foreground -mt-2 self-end text-sm no-underline transition-colors duration-150"
+        >
+          Mot de passe oublié ?
+        </Link>
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
         <Button type="submit" variant="primary" isDisabled={pending}>
           {pending ? 'Connexion…' : 'Se connecter'}

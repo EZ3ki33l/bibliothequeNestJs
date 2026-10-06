@@ -11,6 +11,8 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { QuizzesModule } from './quizzes/quizzes.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { NotesModule } from './notes/notes.module';
+import { ContactModule } from './contact/contact.module';
+import { LearningPathsModule } from './learning-paths/learning-paths.module';
 
 /**
  * Module racine : il assemble les modules de domaine, il ne contient pas de
@@ -39,6 +41,8 @@ import { NotesModule } from './notes/notes.module';
     QuizzesModule,
     FavoritesModule,
     NotesModule,
+    ContactModule,
+    LearningPathsModule,
   ],
   controllers: [MeController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

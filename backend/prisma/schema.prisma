@@ -164,9 +164,62 @@ model Entry {
   quizAttempts  QuizAttempt[]
   favorites     Favorite[]
   notes         Note[]
+  pathSteps     PathStep[]
 
   @@index([categoryId])
   @@index([published, kind])
+}
+
+// Parcours guidé orienté métier (« Développement web »…). Il ne possède pas
+// les fiches : ses étapes les référencent, quel que soit leur stack.
+model LearningPath {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique
+  description String       @default("")
+  published   Boolean      @default(false)
+  position    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  modules     PathModule[]
+  steps       PathStep[]
+
+  @@index([published, position])
+}
+
+// Regroupement ordonné d'étapes à l'intérieur d'un parcours.
+model PathModule {
+  id          String       @id @default(uuid())
+  pathId      String
+  path        LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  title       String
+  description String       @default("")
+  position    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  steps       PathStep[]
+
+  @@index([pathId, position])
+}
+
+// Place d'une fiche dans un module. `pathId` est copié depuis le module pour
+// que la base garantisse « une fiche au plus une fois par parcours » : une
+// étape ne change jamais de module, la copie ne peut donc pas diverger.
+model PathStep {
+  id        String       @id @default(uuid())
+  pathId    String
+  path      LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  moduleId  String
+  module    PathModule   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  entryId   String
+  entry     Entry        @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  optional  Boolean      @default(false)
+  position  Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  @@unique([pathId, entryId])
+  @@index([moduleId, position])
+  @@index([entryId])
 }
 
 model ReviewCard {

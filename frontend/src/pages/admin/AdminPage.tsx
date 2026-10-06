@@ -27,13 +27,13 @@ export function AdminPage() {
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
       ) : counts === undefined ? (
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[0, 1, 2].map((index) => (
             <Skeleton key={index} className="h-28 rounded-xl" />
           ))}
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((card) => {
             const Icon = card.icon;
 

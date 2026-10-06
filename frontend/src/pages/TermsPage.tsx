@@ -20,18 +20,18 @@ export function TermsPage() {
         <section>
           <h2 className="mb-2 text-base font-medium">Objet du service</h2>
           <p>
-            Ce site est une bibliothèque d’apprentissage : des parcours (stacks), des fiches à lire,
-            des examens de compréhension et des révisions espacées. Il n’est ni une boutique, ni une
-            place de marché, ni un service de paiement.
+            Ce site est une bibliothèque d’apprentissage : des parcours guidés, des leçons, des
+            fiches à lire, des examens de compréhension et des révisions espacées. Il n’est ni une
+            boutique, ni une place de marché, ni un service de paiement.
           </p>
         </section>
 
         <section>
           <h2 className="mb-2 text-base font-medium">Catalogue</h2>
           <p>
-            Le catalogue public se parcourt sans compte. Seuls les parcours et les fiches publiés y
-            figurent. Le contenu est fourni à des fins de formation ; il ne constitue pas un conseil
-            professionnel personnalisé.
+            Le catalogue public se parcourt sans compte. Seuls les parcours, les leçons et les
+            fiches publiés y figurent. Le contenu est fourni à des fins de formation ; il ne
+            constitue pas un conseil professionnel personnalisé.
           </p>
         </section>
 

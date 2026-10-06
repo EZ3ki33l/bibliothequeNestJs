@@ -12,7 +12,7 @@ import { Prisma } from '../generated/prisma/client';
  *    on n'expose jamais un modèle de base tel quel.
  * 2. Cohérence. Les endpoints publics de liste renvoient la même forme.
  *
- * `category.stack` (id, name, slug) permet d'afficher le parcours sur une
+ * `category.stack` (id, name, slug) permet d'afficher le stack sur une
  * carte de recherche, sans `bodyMdx` / `files` / `quizQuestions`.
  *
  * `satisfies` vérifie que l'objet est un `select` Prisma valide tout en gardant

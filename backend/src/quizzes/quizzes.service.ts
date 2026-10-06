@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { scoreQuiz } from '../common/score-quiz';
+import { isQuizEligible } from '../common/quiz-eligibility';
 import {
   parseQuizQuestions,
   toPublicQuestions,
@@ -27,14 +28,6 @@ type QuizEntryPublic = {
   slug: string;
   summary: string;
 };
-
-/**
- * Longueur minimale du corps d'une fiche pour tenter une génération.
- *
- * En dessous, il n'y a pas de quoi poser quatre questions honnêtes : le service
- * répond « pas d'épreuve » (`attempt: null`) au lieu de faire inventer un QCM.
- */
-const MIN_BODY_LENGTH = 80;
 
 function toEntryPublic(entry: QuizEntryPublic): QuizEntryPublic {
   return { title: entry.title, slug: entry.slug, summary: entry.summary };
@@ -195,7 +188,9 @@ export class QuizzesService {
       };
     }
 
-    if (entry.bodyMdx.trim().length < MIN_BODY_LENGTH) {
+    // Corps trop court : pas de quoi poser quatre questions honnêtes, on
+    // répond « pas d'épreuve » au lieu de faire inventer un QCM.
+    if (!isQuizEligible(entry.bodyMdx)) {
       return { attempt: null, entry: entryPublic };
     }
 

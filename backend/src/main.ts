@@ -8,6 +8,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { AppModule } from './app.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { getAuth } from './auth/auth';
+import { frontendOrigins } from './common/frontend-origins';
 
 /**
  * Point d'entrée du serveur : tout ce qui vaut pour **toute** l'application se
@@ -25,11 +26,12 @@ async function bootstrap() {
   // après CORS ou le parseur.
   app.use(helmet());
 
-  // Une seule origine explicite, jamais `*` : avec `credentials: true`, le
-  // navigateur envoie le cookie de session, donc autoriser n'importe quelle
-  // origine laisserait un autre site agir au nom de l'utilisateur.
+  // Origines explicites (liste issue de `FRONTEND_ORIGIN`), jamais `*` : avec
+  // `credentials: true`, le navigateur envoie le cookie de session, donc
+  // autoriser n'importe quelle origine laisserait un autre site agir au nom de
+  // l'utilisateur.
   app.enableCors({
-    origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:5173',
+    origin: frontendOrigins(),
     credentials: true,
   });
 
@@ -78,6 +80,35 @@ async function bootstrap() {
   });
   expressApp.use('/api/auth/sign-in', authLimiter);
   expressApp.use('/api/auth/sign-up', authLimiter);
+  // `delete-user` vérifie lui aussi le mot de passe : sans plafond, une session
+  // volée servirait d'oracle pour deviner le mot de passe.
+  expressApp.use('/api/auth/delete-user', authLimiter);
+
+  // « Mot de passe oublié » : chaque demande envoie un courriel. 5 / heure / IP
+  // empêche d'inonder la boîte d'une personne (mail bombing) ou d'épuiser le
+  // quota d'envoi de Resend. Même plafond que le formulaire de contact.
+  expressApp.use(
+    '/api/auth/request-password-reset',
+    rateLimit({
+      windowMs: 60 * 60 * 1000,
+      limit: 5,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { statusCode: 429, message: 'Trop de demandes. Réessayer plus tard.' },
+    }),
+  );
+  // Le jeton de réinitialisation est long et aléatoire ; le plafond ne sert
+  // qu'à décourager un script qui les essaierait en série.
+  expressApp.use(
+    '/api/auth/reset-password',
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: 20,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { statusCode: 429, message: 'Trop de tentatives. Réessayer plus tard.' },
+    }),
+  );
 
   // better-auth gère lui-même `/api/auth/*` (inscription, connexion, session) :
   // on lui délègue ces routes avant tout parsing du corps.

@@ -37,7 +37,7 @@ export function AdminKeyValueList({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium">{title}</p>
           <p className="text-muted mt-0.5 text-xs">{description}</p>
@@ -59,9 +59,9 @@ export function AdminKeyValueList({
         <ul className="flex flex-col gap-3">
           {pairs.map((pair) => (
             <li key={pair.id} className="border-border flex flex-col gap-3 rounded-xl border p-4">
-              <div className="flex items-start gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                 <TextField
-                  className="min-w-0 flex-1"
+                  className="w-full sm:min-w-0 sm:flex-1"
                   value={pair.key}
                   onChange={(value) => updatePair(pair.id, { key: value })}
                   autoComplete="off"
@@ -71,7 +71,7 @@ export function AdminKeyValueList({
                 </TextField>
                 {compact ? (
                   <TextField
-                    className="w-36 shrink-0"
+                    className="w-full sm:w-36 sm:shrink-0"
                     value={pair.value}
                     onChange={(value) => updatePair(pair.id, { value })}
                     autoComplete="off"
@@ -86,7 +86,7 @@ export function AdminKeyValueList({
                   size="sm"
                   isIconOnly
                   aria-label="Supprimer"
-                  className="mt-6"
+                  className="self-end sm:mt-6 sm:self-auto"
                   onPress={() => onChange(pairs.filter((item) => item.id !== pair.id))}
                 >
                   <TrashIcon className="size-4" />

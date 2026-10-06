@@ -73,3 +73,29 @@ body {
   font-size: 0.8125rem;
   font-family: var(--font-mono), ui-monospace, monospace;
 }
+
+/* Sandpack (Playground.tsx) place éditeur et aperçu côte à côte par défaut :
+   ça déborde sur mobile. `.sp-layout`/`.sp-stack`/`.sp-resize-handler` sont les
+   classes stables exposées par Sandpack (voir sa prop `classes`), pas des
+   classes générées — donc sûres à cibler ici.
+   Sandpack calcule la largeur de ses volets via son propre gestionnaire de
+   redimensionnement (`.sp-resize-handler`), qui suppose toujours une scission
+   horizontale : lui laisser du `flex-grow`/`flex-basis` en colonne réduit le
+   panneau à une hauteur quasi nulle. On fige donc une hauteur explicite par
+   volet et on masque la poignée, plutôt que de reproduire son calcul. */
+@media (max-width: 767px) {
+  .sp-layout {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+
+  .sp-layout > .sp-resize-handler {
+    display: none !important;
+  }
+
+  .sp-layout > .sp-stack {
+    width: 100% !important;
+    height: 260px !important;
+    flex: none !important;
+  }
+}
