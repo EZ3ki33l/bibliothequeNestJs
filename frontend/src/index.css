@@ -51,6 +51,28 @@ body {
   padding-left: 1.25rem;
 }
 
+/* Un lien du corps se reconnaît sans survol, et pas par la couleur seule : le
+   soulignement est permanent. La couleur du texte principal ajoute le
+   contraste sur le gris du corps. La règle vit ici, pas dans le pipeline
+   Markdown : elle vaut pour la page publique comme pour l'aperçu de
+   l'administration, qui rendent le même `.entry-mdx`. */
+.entry-mdx a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 0.125rem;
+}
+
+.entry-mdx a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Navigation au clavier : l'élément actif reste visible. */
+.entry-mdx a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .entry-mdx :not(pre) > code {
   border-radius: 0.25rem;
   background: rgb(255 255 255 / 8%);

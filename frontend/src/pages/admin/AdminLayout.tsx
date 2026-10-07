@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { Outlet } from 'react-router';
 import { Skeleton } from '@heroui/react';
 import { getAdminMe } from '../../lib/admin';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useLoginRedirect } from '../../lib/useLoginRedirect';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
@@ -15,7 +16,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
  * contenu admin n'est rendu (`<Outlet />` seulement en cas de succès).
  */
 export function AdminLayout() {
-  const navigate = useNavigate();
+  const redirectToLogin = useLoginRedirect();
   const { data: access, error } = useAsyncData(
     getAdminMe,
     [],
@@ -23,13 +24,13 @@ export function AdminLayout() {
   );
 
   // Une redirection est un effet de bord : elle ne peut pas se faire pendant le
-  // rendu, d'où le `useEffect`. `replace` évite d'empiler la page admin dans
-  // l'historique, sinon le bouton « retour » y ramènerait en boucle.
+  // rendu, d'où le `useEffect`. La page d'administration demandée est retenue
+  // (`?retour=`) : une session expirée y ramène après connexion.
   useEffect(() => {
     if (access === 'unauthorized') {
-      navigate('/login', { replace: true });
+      redirectToLogin();
     }
-  }, [access, navigate]);
+  }, [access, redirectToLogin]);
 
   if (error) return <ErrorMessage>{error}</ErrorMessage>;
 

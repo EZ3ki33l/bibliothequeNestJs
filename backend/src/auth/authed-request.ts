@@ -7,7 +7,18 @@ import type { AdminRole } from '../generated/prisma/enums';
  * On ne déclare que ce dont l'application a besoin : better-auth renvoie
  * davantage de champs, mais un type large obligerait à les maintenir ici.
  */
-export type SessionUser = { id: string };
+export type SessionUser = {
+  id: string;
+  /**
+   * L'adresse du compte a-t-elle été vérifiée par le lien du message ?
+   *
+   * La valeur vient de la session que `SessionGuard` relit **en base** à chaque
+   * requête (`cookieCache` est désactivé dans `auth.ts`) : une adresse tout
+   * juste vérifiée compte dès la requête suivante, sans reconnexion. Elle ne
+   * vient jamais du client : ni corps, ni en-tête, ni paramètre.
+   */
+  emailVerified: boolean;
+};
 
 /**
  * Requête Express **après** passage de `SessionGuard`.

@@ -4,6 +4,7 @@ import { QuizzesService } from './quizzes.service';
 import { SessionGuard } from '../auth/session.guard';
 import { QUIZ_GENERATOR } from './quiz-generator';
 import { LlmQuizGenerator } from './llm-quiz-generator';
+import { EntryAccessModule } from '../entry-access/entry-access.module';
 
 /**
  * Frontière du domaine « examens ».
@@ -15,8 +16,12 @@ import { LlmQuizGenerator } from './llm-quiz-generator';
  *
  * Un jeton est nécessaire parce que `QuizGenerator` est une *interface* :
  * elle disparaît à la compilation, Nest n'a donc rien à injecter sans lui.
+ *
+ * `EntryAccessModule` : un examen révèle le contenu d'une fiche, le service
+ * applique donc la règle d'accès avant de le démarrer ou de le corriger.
  */
 @Module({
+  imports: [EntryAccessModule],
   controllers: [QuizzesController],
   providers: [
     QuizzesService,

@@ -10,6 +10,12 @@ import type { StackEntry } from './stacks';
  * `listNotes({ entryId })`.
  */
 
+/**
+ * Longueur maximale d'une note. Aide à la saisie seulement : le contrôle qui
+ * compte est celui du DTO serveur (`UpsertNoteDto`), qui refuse au-delà.
+ */
+export const MAX_NOTE_LENGTH = 4000;
+
 export type NoteItem = {
   id: string;
   content: string;

@@ -32,7 +32,7 @@ export class AdminEntriesController {
 
   @Get()
   findAll(@Query() query: AdminEntriesQueryDto) {
-    return this.entriesService.findAllAdmin(query.page, query.limit, query.q);
+    return this.entriesService.findAllAdmin(query.page, query.limit, query);
   }
 
   @Get(':id')

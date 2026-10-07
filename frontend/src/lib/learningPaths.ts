@@ -102,6 +102,18 @@ export function entryHrefFromPath(entrySlug: string, pathSlug: string): string {
   return `/entries/${entrySlug}?parcours=${encodeURIComponent(pathSlug)}`;
 }
 
+/**
+ * Adresse de l'examen d'une fiche. Ouverte depuis un parcours, la fiche
+ * transmet ce parcours à son examen : le résultat pourra proposer l'étape
+ * suivante. Comme pour la fiche, le paramètre ne porte qu'un slug et n'ouvre
+ * aucun droit.
+ */
+export function examHrefFromPath(entrySlug: string, pathSlug: string | null): string {
+  const base = `/entries/${entrySlug}/exam`;
+
+  return pathSlug ? `${base}?parcours=${encodeURIComponent(pathSlug)}` : base;
+}
+
 // ---------------------------------------------------------------------------
 // Progression (session requise)
 // ---------------------------------------------------------------------------
@@ -119,6 +131,8 @@ export type PathModuleProgress = {
  */
 export type PathProgress = {
   pathId: string;
+  /** Score qui valide une étape, fourni par le serveur. */
+  passingScore: number;
   /** Étapes validées, facultatives comprises. */
   validatedStepIds: string[];
   /** Étapes obligatoires, et combien sont validées. */
@@ -171,4 +185,32 @@ export function getPathProgress(slug: string): Promise<PathProgress | null> {
 export function listPathProgress(page?: number): Promise<PathProgressPage | null> {
   const suffix = page !== undefined && page > 1 ? `?page=${page}` : '';
   return readProgress<PathProgressPage>(`/progress/learning-paths${suffix}`);
+}
+
+/**
+ * Parcours commencé par le compte, tel que l'accueil le propose : progression
+ * et prochaine étape conseillée.
+ */
+export type StartedPath = {
+  pathId: string;
+  slug: string;
+  name: string;
+  required: number;
+  validatedRequired: number;
+  completed: boolean;
+  /** `null` : parcours terminé, ou sans étape obligatoire. */
+  nextStep: { entrySlug: string; title: string } | null;
+  lastActivityAt: string;
+};
+
+export type StartedPaths = {
+  /** Trois au plus, le plus récemment suivi d'abord. */
+  items: StartedPath[];
+  /** Nombre de parcours commencés : supérieur à `items.length` s'il y en a d'autres. */
+  total: number;
+};
+
+/** Parcours commencés par le compte connecté ; `null` pour un visiteur (401). */
+export function getStartedPaths(): Promise<StartedPaths | null> {
+  return readProgress<StartedPaths>('/progress/started-paths');
 }

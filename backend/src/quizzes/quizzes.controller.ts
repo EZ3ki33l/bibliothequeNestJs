@@ -9,7 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { SessionGuard } from '../auth/session.guard';
-import { CurrentUserId } from '../auth/current-user.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { SessionUser } from '../auth/authed-request';
 import { QuizzesService } from './quizzes.service';
 import { StartQuizDto } from './dto/start-quiz.dto';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
@@ -22,6 +23,11 @@ import { SubmitQuizDto } from './dto/submit-quiz.dto';
  * en base. Le `@HttpCode(OK)` remplace le 201 par défaut de Nest sur `POST`,
  * car la réponse décrit un état de travail, pas une ressource nouvellement
  * créée à une URL.
+ *
+ * `@CurrentUser()` et non `@CurrentUserId()` : le service a besoin de savoir si
+ * l'adresse du compte est vérifiée, pour refuser l'examen d'une fiche que ce
+ * compte ne peut pas lire. Cette information vient de la session, jamais du
+ * corps de la requête.
  */
 @Controller('quizzes')
 @UseGuards(SessionGuard)
@@ -31,8 +37,8 @@ export class QuizzesController {
   /** Reprend la tentative en cours, ou en génère une nouvelle. */
   @Post('start')
   @HttpCode(HttpStatus.OK)
-  start(@Body() dto: StartQuizDto, @CurrentUserId() userId: string) {
-    return this.quizzesService.start(userId, dto.slug);
+  start(@Body() dto: StartQuizDto, @CurrentUser() user: SessionUser) {
+    return this.quizzesService.start(user, dto.slug);
   }
 
   /** Corrige les réponses et renvoie le score + le récapitulatif. */
@@ -41,8 +47,8 @@ export class QuizzesController {
   submit(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: SubmitQuizDto,
-    @CurrentUserId() userId: string,
+    @CurrentUser() user: SessionUser,
   ) {
-    return this.quizzesService.submit(userId, id, dto.answers);
+    return this.quizzesService.submit(user, id, dto.answers);
   }
 }

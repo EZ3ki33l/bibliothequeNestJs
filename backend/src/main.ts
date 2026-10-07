@@ -83,6 +83,10 @@ async function bootstrap() {
   // `delete-user` vérifie lui aussi le mot de passe : sans plafond, une session
   // volée servirait d'oracle pour deviner le mot de passe.
   expressApp.use('/api/auth/delete-user', authLimiter);
+  // `change-password` compare le mot de passe actuel : même oracle. Une
+  // session volée ne doit pas pouvoir l'essayer en boucle pour s'approprier
+  // durablement le compte.
+  expressApp.use('/api/auth/change-password', authLimiter);
 
   // « Mot de passe oublié » : chaque demande envoie un courriel. 5 / heure / IP
   // empêche d'inonder la boîte d'une personne (mail bombing) ou d'épuiser le
@@ -101,6 +105,33 @@ async function bootstrap() {
   // qu'à décourager un script qui les essaierait en série.
   expressApp.use(
     '/api/auth/reset-password',
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: 20,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { statusCode: 429, message: 'Trop de tentatives. Réessayer plus tard.' },
+    }),
+  );
+
+  // Message de vérification de l'adresse : chaque demande envoie un courriel.
+  // Même plafond que « mot de passe oublié », pour la même raison (inondation
+  // d'une boîte, quota d'envoi). Il compte par origine : la demande part à
+  // l'inscription comme au renvoi, et passe par cette seule route.
+  expressApp.use(
+    '/api/auth/send-verification-email',
+    rateLimit({
+      windowMs: 60 * 60 * 1000,
+      limit: 5,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { statusCode: 429, message: 'Trop de demandes. Réessayer plus tard.' },
+    }),
+  );
+  // Le lien du message porte un jeton signé, infalsifiable sans le secret ; le
+  // plafond ne sert qu'à décourager un script qui en essaierait en série.
+  expressApp.use(
+    '/api/auth/verify-email',
     rateLimit({
       windowMs: 15 * 60 * 1000,
       limit: 20,

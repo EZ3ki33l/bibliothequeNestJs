@@ -22,6 +22,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:demo-content": "tsx prisma/update-demo-content.ts",
     "admin:role": "tsx prisma/set-admin-role.ts"
   },
   "dependencies": {

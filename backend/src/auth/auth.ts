@@ -1,11 +1,20 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { APIError, createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware, getSessionFromCtx } from 'better-auth/api';
 import { expo } from '@better-auth/expo';
 import { PrismaClient } from '../generated/prisma/client';
 import { deletionRefusal, isPasswordProvided } from '../common/account-deletion';
+import {
+  isValidDisplayName,
+  mustRevokeOtherSessions,
+  profileUpdateRefusal,
+} from '../common/account-profile';
+import { verificationRequestRefusal } from '../common/email-verification-rules';
 import { isResetMailConfigured, sendPasswordResetEmail } from './password-reset-mailer';
+import { isVerificationMailConfigured, sendVerificationEmail } from './verification-mailer';
 import { frontendOrigins } from '../common/frontend-origins';
+
+const INVALID_NAME_MESSAGE = 'Le nom doit contenir entre 2 et 80 caractères';
 
 /**
  * Configuration de l'authentification.
@@ -49,6 +58,32 @@ function createAuth(prisma: PrismaClient) {
         return Promise.resolve();
       },
     },
+    // Vérification de l'adresse : un lien signé, valable une heure, envoyé par
+    // message. `emailAndPassword.requireEmailVerification` reste **absent**,
+    // exprès : un compte non vérifié se connecte et utilise le site ; seule la
+    // lecture des fiches réservées lui est fermée (`VerifiedEmailGuard`).
+    emailVerification: {
+      expiresIn: 3600,
+      // Le message ne part pas pendant l'inscription : better-auth l'enverrait
+      // en tâche de fond, et l'écran ne saurait pas s'il est arrivé. Le
+      // navigateur le demande juste après, par la même route que le renvoi :
+      // un seul chemin d'envoi, dont le résultat se lit.
+      sendOnSignUp: false,
+      // Le lien ne pose aucun cookie : transmis à un tiers, il ne fait que
+      // vérifier l'adresse et n'ouvre ni session ni donnée du compte.
+      autoSignInAfterVerification: false,
+      // **Attendu**, à l'inverse de `sendResetPassword` : la demande est sous
+      // session et ne vise que l'adresse du compte connecté (voir le hook
+      // `before`), donc sa durée ne renseigne sur aucun autre compte. Attendre
+      // permet de répondre 503 quand rien n'est parti, au lieu d'un faux succès.
+      sendVerificationEmail: async ({ user, url }) => {
+        if (!(await sendVerificationEmail(user.email, url))) {
+          throw new APIError('SERVICE_UNAVAILABLE', {
+            message: 'Le message de vérification n’a pas pu être envoyé',
+          });
+        }
+      },
+    },
     session: {
       // Pas de cache de session dans un cookie : la révocation (déconnexion,
       // perte de droits) doit être immédiate, donc on relit la base.
@@ -57,7 +92,7 @@ function createAuth(prisma: PrismaClient) {
     user: {
       // Suppression de compte en libre-service (`POST /api/auth/delete-user`).
       // better-auth efface la ligne `user` ; toutes les données de l'apprenant
-      // (sessions, comptes, révisions, favoris, notes, quiz) partent avec elle
+      // (sessions, comptes, lectures, favoris, notes, quiz) partent avec elle
       // par les `onDelete: Cascade` du schéma Prisma.
       deleteUser: {
         enabled: true,
@@ -75,9 +110,31 @@ function createAuth(prisma: PrismaClient) {
     hooks: {
       // Les hooks tournent avant l'endpoint : en cas de refus, rien n'est créé
       // ni supprimé.
-      // `async` sans `await` : better-auth exige une fonction qui renvoie une promesse.
-      // eslint-disable-next-line @typescript-eslint/require-await
       before: createAuthMiddleware(async (ctx) => {
+        // Un message de vérification ne se demande que **sous session**. Sans
+        // cette règle, better-auth écrirait à toute adresse inscrite et non
+        // vérifiée qu'un inconnu lui donnerait (inondation d'une boîte, quota
+        // d'envoi épuisé). Avec une session, il exige lui-même que l'adresse
+        // soit celle du compte : la demande ne peut viser que sa propre boîte.
+        if (ctx.path === '/send-verification-email') {
+          const session = await getSessionFromCtx(ctx);
+          const refusal = verificationRequestRefusal({
+            hasSession: session !== null,
+            mailerConfigured: isVerificationMailConfigured(),
+          });
+
+          if (refusal === 'SESSION_REQUIRED') {
+            throw new APIError('UNAUTHORIZED', {
+              message: 'Une session est requise pour demander un message de vérification',
+            });
+          }
+          if (refusal === 'MAILER_UNAVAILABLE') {
+            throw new APIError('SERVICE_UNAVAILABLE', {
+              message: 'L’envoi du message de vérification est momentanément indisponible',
+            });
+          }
+        }
+
         // Sans expéditeur configuré, la demande échoue franchement (503) au lieu
         // de répondre « courriel envoyé » à quelqu'un qui n'en recevra jamais.
         // Le refus ne dépend pas de l'adresse saisie : il ne révèle aucun compte.
@@ -100,6 +157,48 @@ function createAuth(prisma: PrismaClient) {
               message: 'Le mot de passe est requis pour supprimer le compte',
             });
           }
+        }
+
+        // Les trois règles qui suivent durcissent des routes que better-auth
+        // expose déjà (voir `common/account-profile.ts`). Elles vivent ici, et
+        // pas seulement dans le formulaire : une requête forgée ne passe pas
+        // par le formulaire.
+        const body: unknown = ctx.body;
+
+        // Nom affiché : mêmes bornes à l'inscription et à la modification.
+        if (ctx.path === '/sign-up/email') {
+          const name =
+            typeof body === 'object' && body !== null
+              ? (body as { name?: unknown }).name
+              : undefined;
+
+          if (!isValidDisplayName(name)) {
+            throw new APIError('BAD_REQUEST', { message: INVALID_NAME_MESSAGE });
+          }
+        }
+
+        // Profil : seul le nom se modifie. `image`, ou tout autre champ, est
+        // refusé plutôt qu'ignoré (liste blanche, contre le mass assignment).
+        if (ctx.path === '/update-user') {
+          const refusal = profileUpdateRefusal(body);
+
+          if (refusal === 'UNKNOWN_FIELD') {
+            throw new APIError('BAD_REQUEST', {
+              message: 'Seul le nom affiché peut être modifié',
+            });
+          }
+          if (refusal === 'INVALID_NAME') {
+            throw new APIError('BAD_REQUEST', { message: INVALID_NAME_MESSAGE });
+          }
+        }
+
+        // Changer de mot de passe ferme les autres sessions : si le compte
+        // était compromis, l'intrus ne reste pas connecté. better-auth vérifie
+        // ensuite lui-même le mot de passe actuel et la longueur du nouveau.
+        if (ctx.path === '/change-password' && !mustRevokeOtherSessions(body)) {
+          throw new APIError('BAD_REQUEST', {
+            message: 'Le changement de mot de passe doit fermer les autres sessions',
+          });
         }
       }),
     },

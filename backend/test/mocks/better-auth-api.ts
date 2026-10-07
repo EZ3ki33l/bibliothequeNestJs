@@ -11,3 +11,8 @@ export class APIError extends Error {
 export function createAuthMiddleware<T>(handler: T): T {
   return handler;
 }
+
+/** Aucune session dans l'application e2e, comme `getSession` de la doublure de `better-auth`. */
+export function getSessionFromCtx(): Promise<null> {
+  return Promise.resolve(null);
+}

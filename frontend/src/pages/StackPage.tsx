@@ -2,10 +2,13 @@ import { Link, useParams } from 'react-router';
 import { Skeleton } from '@heroui/react';
 import { getStackBySlug } from '../lib/stacks';
 import { useAsyncData } from '../lib/useAsyncData';
+import { useEntryStates } from '../lib/useEntryStates';
+import { useAccessMentions } from '../lib/entryAccess';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryCard } from '../components/ui/EntryCard';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { NotFoundState } from '../components/ui/NotFoundState';
 import { PageHeader } from '../components/ui/PageHeader';
 
 export function StackPage() {
@@ -13,8 +16,20 @@ export function StackPage() {
   const { data: stack, error } = useAsyncData(
     () => (slug ? getStackBySlug(slug) : Promise.resolve(null)),
     [slug],
-    'Impossible de charger le stack',
+    'Impossible de charger la leçon',
   );
+
+  // Repères du compte connecté pour toutes les fiches de la leçon, en une
+  // lecture sous session. `undefined` pour un visiteur ou en cas d'échec : les
+  // cartes s'affichent alors sans repère, la liste reste utilisable.
+  const entryIds =
+    stack?.categories.flatMap((category) => category.entries.map((entry) => entry.id)) ?? [];
+  const states = useEntryStates(entryIds);
+
+  // Mention des fiches réservées (« Compte requis », « Adresse à vérifier ») :
+  // lecture publique, séparée de celle de la leçon. Toutes les fiches publiées
+  // restent listées ; un compte vérifié ne demande rien et ne voit aucune mention.
+  const accessOf = useAccessMentions(entryIds);
 
   if (error) {
     return <ErrorMessage>{error}</ErrorMessage>;
@@ -31,16 +46,21 @@ export function StackPage() {
   }
 
   if (stack === null) {
-    return <EmptyMessage>Stack introuvable.</EmptyMessage>;
+    return (
+      <NotFoundState
+        message="Leçon introuvable."
+        listLink={{ to: '/stacks', label: 'Toutes les leçons' }}
+      />
+    );
   }
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Stacks', to: '/stacks' }, { label: stack.name }]} />
+      <Breadcrumbs items={[{ label: 'Leçons', to: '/stacks' }, { label: stack.name }]} />
       <PageHeader title={stack.name} description={stack.description || undefined} />
 
       {stack.categories.length === 0 ? (
-        <EmptyMessage>Aucune catégorie dans ce stack.</EmptyMessage>
+        <EmptyMessage>Aucune catégorie dans cette leçon.</EmptyMessage>
       ) : (
         <div className="flex flex-col gap-10">
           {stack.categories.map((category) => (
@@ -65,7 +85,11 @@ export function StackPage() {
                 <ul className="grid gap-4 sm:grid-cols-2">
                   {category.entries.map((entry) => (
                     <li key={entry.id}>
-                      <EntryCard entry={entry} />
+                      <EntryCard
+                        entry={entry}
+                        state={states?.byEntryId.get(entry.id)}
+                        access={accessOf(entry.id)}
+                      />
                     </li>
                   ))}
                 </ul>

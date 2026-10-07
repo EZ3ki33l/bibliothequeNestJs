@@ -13,7 +13,8 @@ export function AdminCategoriesPage() {
     load: listAdminCategories,
     remove: deleteAdminCategory,
     loadError: 'Impossible de charger les catégories',
-    confirmMessage: 'Supprimer cette catégorie et toutes ses fiches ?',
+    confirmMessage: (name) =>
+      `Supprimer la catégorie « ${name} » et toutes ses fiches ? Lectures, quiz, favoris et notes des lecteurs sur ces fiches sont supprimés aussi.`,
     deletedMessage: 'Catégorie supprimée',
     deleteError: 'Impossible de supprimer la catégorie',
   });
@@ -22,7 +23,7 @@ export function AdminCategoriesPage() {
     <>
       <PageHeader
         title="Catégories"
-        description="Thèmes dans un stack (Hooks, Formulaires…)."
+        description="Thèmes dans une leçon (Hooks, Formulaires…)."
         action={
           <Link
             to="/admin/categories/new"
@@ -56,7 +57,7 @@ export function AdminCategoriesPage() {
                   category._count.entries > 1 ? 'fiches' : 'fiche'
                 }`}
                 editTo={`/admin/categories/${category.id}/edit`}
-                onDelete={() => void requestDelete(category.id)}
+                onDelete={() => void requestDelete(category.id, category.name)}
               />
             ))}
           </ul>

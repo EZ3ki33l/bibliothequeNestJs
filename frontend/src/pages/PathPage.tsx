@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useParams } from 'react-router';
 import { Chip, Skeleton, buttonVariants } from '@heroui/react';
 import { CheckCircleIcon } from '@phosphor-icons/react';
 import {
@@ -10,10 +10,15 @@ import {
   type PathStep,
 } from '../lib/learningPaths';
 import { useAsyncData } from '../lib/useAsyncData';
+import { useAccessMentions } from '../lib/entryAccess';
+import { currentReturnTo, loginHref, registerHref } from '../lib/returnTo';
+import { useViewerAccess } from '../lib/viewerAccess';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
+import { EntryMarkers } from '../components/ui/EntryMarkers';
 import { EntryMeta } from '../components/ui/EntryMeta';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { NotFoundState } from '../components/ui/NotFoundState';
 import { PageHeader } from '../components/ui/PageHeader';
 
 /**
@@ -37,9 +42,17 @@ type PathPageData = { path: PathDetail | null; progress: ProgressState };
  * Le plan (public) et la progression (sous session) viennent de deux routes
  * distinctes, chargées en parallèle. Un 401 sur la progression n'est pas une
  * erreur : il signifie simplement « visiteur ».
+ *
+ * Le premier module se lit sans compte ; les fiches des modules suivants sont
+ * réservées à un compte dont l'adresse est vérifiée. Leurs étapes restent
+ * affichées et cliquables : chacune porte une mention (« Compte requis »,
+ * « Adresse à vérifier »), obtenue par une troisième lecture, publique elle
+ * aussi. Ces mentions annoncent la règle ; c'est le serveur qui l'applique à
+ * l'ouverture de la fiche.
  */
 export function PathPage() {
   const { slug } = useParams();
+  const location = useLocation();
 
   const { data, error } = useAsyncData<PathPageData>(
     async () => {
@@ -53,6 +66,13 @@ export function PathPage() {
     },
     [slug],
     'Impossible de charger le parcours',
+  );
+
+  const viewer = useViewerAccess();
+  // Mention des étapes dont la fiche est réservée. Rien n'est demandé pour un
+  // compte vérifié, qui lit tout.
+  const accessOf = useAccessMentions(
+    data?.path?.modules.flatMap((module) => module.steps.map((step) => step.entry.id)) ?? [],
   );
 
   if (error) {
@@ -72,7 +92,12 @@ export function PathPage() {
   const { path } = data;
 
   if (path === null) {
-    return <EmptyMessage>Parcours introuvable.</EmptyMessage>;
+    return (
+      <NotFoundState
+        message="Parcours introuvable."
+        listLink={{ to: '/parcours', label: 'Tous les parcours' }}
+      />
+    );
   }
 
   const progress = data.progress === 'unavailable' ? undefined : data.progress;
@@ -102,11 +127,34 @@ export function PathPage() {
             <ProgressSummary path={path} progress={progress} />
           ) : progress === null ? (
             <p className="border-border text-muted mb-8 rounded-xl border border-dashed px-4 py-3 text-sm">
-              <Link to="/login" className="text-foreground underline">
-                Se connecter
+              Le premier module se lit sans compte. Un compte dont l’adresse est vérifiée ouvre les
+              modules suivants et le suivi de la progression.{' '}
+              {/* L'inscription et la connexion ramènent à ce parcours, pas à
+                  l'accueil. */}
+              <Link
+                to={registerHref(currentReturnTo(location))}
+                className="text-foreground underline"
+              >
+                Créer un compte
               </Link>{' '}
-              permet de suivre sa progression : une étape est validée en réussissant l’examen de sa
-              fiche.
+              ou{' '}
+              <Link to={loginHref(currentReturnTo(location))} className="text-foreground underline">
+                se connecter
+              </Link>
+              .
+            </p>
+          ) : null}
+
+          {/* Compte connecté dont l'adresse reste à vérifier : dire pourquoi
+              les modules suivants portent une mention, et où agir. */}
+          {viewer === 'unverified' && progress !== null ? (
+            <p className="border-border text-muted mb-8 rounded-xl border border-dashed px-4 py-3 text-sm">
+              L’adresse du compte reste à vérifier : seul le premier module se lit pour le moment.
+              Le message de vérification se demande depuis{' '}
+              <Link to="/compte" className="text-foreground underline">
+                Mon compte
+              </Link>
+              .
             </p>
           ) : null}
 
@@ -140,6 +188,7 @@ export function PathPage() {
                             pathSlug={path.slug}
                             isValidated={validated.has(step.id)}
                             isNext={step.id === nextStepId}
+                            access={accessOf(step.entry.id)}
                           />
                         </li>
                       ))}
@@ -210,7 +259,8 @@ function ProgressSummary({ path, progress }: { path: PathDetail; progress: PathP
             Continuer : {nextStep.entry.title}
           </Link>
           <span className="text-muted text-xs">
-            Une étape est validée par un examen réussi (70 / 100 ou plus).
+            {/* Seuil fourni par le serveur : celui qui valide réellement. */}
+            Une étape est validée par un examen réussi ({progress.passingScore} / 100 ou plus).
           </span>
         </div>
       ) : null}
@@ -225,14 +275,19 @@ type StepRowProps = {
   isValidated: boolean;
   /** Prochaine étape conseillée : mise en avant, sans bloquer les autres. */
   isNext: boolean;
+  /** Mention d'accès de la fiche, si elle est réservée pour ce lecteur. */
+  access?: string;
 };
 
 /**
  * Une étape : numéro (ou coche si validée), fiche, provenance
  * (stack › catégorie). La provenance compte ici : un même parcours enchaîne
  * des fiches de stacks différents.
+ *
+ * Une étape réservée reste un lien : la fiche s'ouvre sur son titre et son
+ * résumé. Sa mention (cadenas et libellé) prévient avant le clic.
  */
-function StepRow({ step, number, pathSlug, isValidated, isNext }: StepRowProps) {
+function StepRow({ step, number, pathSlug, isValidated, isNext, access }: StepRowProps) {
   const { entry } = step;
 
   return (
@@ -267,6 +322,7 @@ function StepRow({ step, number, pathSlug, isValidated, isNext }: StepRowProps) 
         </span>
         <span className="mt-1 flex flex-wrap gap-2">
           <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
+          <EntryMarkers access={access} />
           {step.optional ? (
             <Chip size="sm" variant="soft">
               Facultative

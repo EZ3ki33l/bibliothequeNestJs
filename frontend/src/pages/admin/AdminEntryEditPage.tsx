@@ -1,7 +1,8 @@
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { getAdminEntryById } from '../../lib/admin';
 import { jsonToStringRecord } from '../../lib/stacks';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useReturnToList } from '../../components/admin/useReturnToList';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -11,7 +12,7 @@ import { AdminEntryForm } from './AdminEntryForm';
 
 export function AdminEntryEditPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const returnToList = useReturnToList('/admin/entries');
   const { data: entry, error } = useAsyncData(
     () => (id ? getAdminEntryById(id) : Promise.resolve(null)),
     [id],
@@ -41,7 +42,10 @@ export function AdminEntryEditPage() {
         // Colonnes JSON : on les valide avant de les donner au formulaire.
         initialFiles={jsonToStringRecord(entry.files) ?? {}}
         initialDependencies={jsonToStringRecord(entry.dependencies) ?? {}}
-        onSuccess={() => navigate('/admin/entries')}
+        initialSources={entry.sources}
+        initialVerifiedOn={entry.verifiedOn}
+        initialVerifiedVersion={entry.verifiedVersion}
+        onSuccess={returnToList}
       />
     </>
   );

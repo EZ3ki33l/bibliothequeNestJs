@@ -6,12 +6,12 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { EmailVerifiedPage } from './pages/EmailVerifiedPage';
 import { StacksPage } from './pages/StacksPage';
 import { StackPage } from './pages/StackPage';
 import { CategoryPage } from './pages/CategoryPage';
 import { EntryPage } from './pages/EntryPage';
 import { ExamPage } from './pages/ExamPage';
-import { ReviewPage } from './pages/ReviewPage';
 import { FavoritesPage } from './pages/FavoritesPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
@@ -47,7 +47,8 @@ import { AdminPathEditPage } from './pages/admin/AdminPathEditPage';
  * s'affichent à l'emplacement de son `<Outlet />`).
  *
  * - `AppLayout` entoure tout : barre latérale et cadre général ;
- * - `AuthLayout` centre les écrans de connexion et d'inscription ;
+ * - `AuthLayout` centre les écrans de connexion, d'inscription et d'arrivée
+ *   des liens reçus par message ;
  * - `AdminLayout` vérifie les droits avant d'afficher quoi que ce soit
  *   d'administration — la garde est donc écrite une fois pour les dix routes
  *   `/admin/*`, sans risque d'en oublier une.
@@ -73,6 +74,8 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/mot-de-passe-oublie" element={<ForgotPasswordPage />} />
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPasswordPage />} />
+          {/* Arrivée du lien de vérification de l'adresse (redirection de l'API). */}
+          <Route path="/adresse-verifiee" element={<EmailVerifiedPage />} />
         </Route>
 
         {/* Catalogue public */}
@@ -86,7 +89,9 @@ export default function App() {
 
         {/* Apprentissage (session requise, vérifiée par les pages) */}
         <Route path="/entries/:slug/exam" element={<ExamPage />} />
-        <Route path="/review" element={<ReviewPage />} />
+        {/* Ancienne page des révisions, retirée : un favori du navigateur ou
+            un lien ancien mène à l'accueil plutôt qu'à une page d'erreur. */}
+        <Route path="/review" element={<Navigate to="/" replace />} />
         <Route path="/favoris" element={<FavoritesPage />} />
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/compte" element={<AccountPage />} />

@@ -39,12 +39,34 @@ export type StartQuizResponse = {
 };
 
 /**
+ * Plafond d'examens atteint (429) : le compte en a démarré trop dans l'heure.
+ * `retryAt` est l'instant du prochain essai possible, `null` si le serveur ne
+ * l'a pas donné (le 429 peut aussi venir du plafond général de l'API).
+ */
+export type QuizLimited = { limited: true; retryAt: string | null };
+
+/**
  * Chaque échec attendu a sa propre valeur, car la page réagit différemment :
  * redirection pour `unauthorized`, message « introuvable » pour `not_found`,
- * bouton « réessayer » pour `unavailable`. Un booléen ne suffirait pas, et
- * TypeScript force à traiter tous les cas.
+ * bouton « réessayer » pour `unavailable`, heure du prochain essai pour le
+ * plafond, explication pour `forbidden` (403 : la fiche est réservée et
+ * l'adresse du compte n'est pas vérifiée ; un examen révélerait son contenu).
+ * Un booléen ne suffirait pas, et TypeScript force à traiter tous les cas.
  */
-export type StartQuizResult = StartQuizResponse | 'unauthorized' | 'not_found' | 'unavailable';
+export type StartQuizResult =
+  StartQuizResponse | QuizLimited | 'unauthorized' | 'forbidden' | 'not_found' | 'unavailable';
+
+/** Lit `retryAt` dans le corps d'un 429, sans faire confiance à sa forme. */
+async function readRetryAt(response: Response): Promise<string | null> {
+  const body: unknown = await response.json().catch(() => null);
+
+  if (typeof body === 'object' && body !== null && 'retryAt' in body) {
+    const { retryAt } = body as { retryAt: unknown };
+    return typeof retryAt === 'string' ? retryAt : null;
+  }
+
+  return null;
+}
 
 /**
  * Démarre l'épreuve — ou reprend celle déjà en cours, sans rien régénérer.
@@ -63,12 +85,20 @@ export async function startQuiz(slug: string): Promise<StartQuizResult> {
     return 'unauthorized';
   }
 
+  if (response.status === 403) {
+    return 'forbidden';
+  }
+
   if (response.status === 404) {
     return 'not_found';
   }
 
   if (response.status === 503) {
     return 'unavailable';
+  }
+
+  if (response.status === 429) {
+    return { limited: true, retryAt: await readRetryAt(response) };
   }
 
   if (!response.ok) {
@@ -97,12 +127,20 @@ export type QuizQuestionRecap = {
 export type SubmitQuizResponse = {
   id: string;
   score: number;
+  /**
+   * Verdict et seuil, décidés par le serveur : c'est le seuil qui valide une
+   * étape de parcours. Le navigateur ne le recopie pas, il ne peut donc pas
+   * annoncer « réussi » pour un examen qui ne valide rien.
+   */
+  passed: boolean;
+  passingScore: number;
   correctCount: number;
   total: number;
   questions: QuizQuestionRecap[];
   entry: QuizEntrySummary;
 };
-export type SubmitQuizResult = SubmitQuizResponse | 'unauthorized' | 'not_found' | 'bad_request';
+export type SubmitQuizResult =
+  SubmitQuizResponse | 'unauthorized' | 'forbidden' | 'not_found' | 'bad_request';
 
 /**
  * Envoie les réponses et reçoit le score corrigé.
@@ -111,6 +149,9 @@ export type SubmitQuizResult = SubmitQuizResponse | 'unauthorized' | 'not_found'
  * question inconnue, doublon ou nombre de réponses incorrect. Le serveur vérifie
  * cette correspondance car les identifiants de questions transitent par le
  * navigateur et pourraient être modifiés.
+ *
+ * Le 403 (`forbidden`) : la fiche a été refermée depuis le démarrage et
+ * l'adresse du compte n'est pas vérifiée. Le corrigé ne sort pas.
  */
 export async function submitQuiz(
   attemptId: string,
@@ -123,6 +164,10 @@ export async function submitQuiz(
 
   if (response.status === 401) {
     return 'unauthorized';
+  }
+
+  if (response.status === 403) {
+    return 'forbidden';
   }
 
   if (response.status === 404) {

@@ -8,7 +8,7 @@ import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
 import type { AdminRole } from '../generated/prisma/enums';
 import { assertUnlocked, canManagePublished } from '../common/editorial-rights';
 
-const NAME_TAKEN = 'Une catégorie avec un nom trop proche existe déjà dans ce stack';
+const NAME_TAKEN = 'Une catégorie avec un nom trop proche existe déjà dans cette leçon';
 const HAS_PUBLISHED_ENTRIES =
   'Cette catégorie contient des fiches publiées : seul le super administrateur peut la modifier ou la supprimer';
 

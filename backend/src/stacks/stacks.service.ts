@@ -9,7 +9,7 @@ import { assertUnlocked, canManagePublished } from '../common/editorial-rights';
 
 const SLUG_TAKEN = 'Ce slug est déjà utilisé';
 const HAS_PUBLISHED_ENTRIES =
-  'Ce stack contient des fiches publiées : seul le super administrateur peut le modifier ou le supprimer';
+  'Cette leçon contient des fiches publiées : seul le super administrateur peut la modifier ou la supprimer';
 
 /**
  * Règles métier des stacks (React, Prisma, HeroUI…), le premier niveau du

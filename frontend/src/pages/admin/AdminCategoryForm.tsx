@@ -63,13 +63,13 @@ export function AdminCategoryForm(props: AdminCategoryFormProps) {
       {props.mode === 'create' ? (
         <AdminSelect
           name="stackId"
-          label="Stack parent"
+          label="Leçon parente"
           isRequired
-          placeholder="Choisir un stack"
+          placeholder="Choisir une leçon"
           items={props.stacks.map((stack) => ({ id: stack.id, label: stack.name }))}
         />
       ) : (
-        <p className="text-muted text-sm">Stack parent : {props.stackName}</p>
+        <p className="text-muted text-sm">Leçon parente : {props.stackName}</p>
       )}
       <TextField
         isRequired
