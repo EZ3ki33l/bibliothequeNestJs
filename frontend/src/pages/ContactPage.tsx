@@ -17,6 +17,7 @@ import { sendContactMessage, type ContactResult } from '../lib/contact';
 import { REPORT_PARAM, reportMessage } from '../lib/errorReport';
 import { getEntryBySlug } from '../lib/stacks';
 import { useAsyncData } from '../lib/useAsyncData';
+import { Typo } from '../components/ui/Typo';
 
 const ERROR_MESSAGES: Record<Exclude<ContactResult, 'sent'>, string> = {
   invalid:
@@ -163,23 +164,23 @@ export function ContactPage() {
             {pending ? 'Envoi…' : 'Envoyer le message'}
           </Button>
 
-          <p className="text-muted text-xs">
+          <Typo variant="caption">
             Les données saisies servent uniquement à répondre. Détails dans la{' '}
             <Link
               to="/confidentialite"
-              className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
+              className="text-blueberry-light underline underline-offset-2"
             >
               politique de confidentialité
             </Link>{' '}
             ; l’identité de l’éditeur figure aux{' '}
             <Link
               to="/mentions-legales"
-              className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
+              className="text-blueberry-light underline underline-offset-2"
             >
               mentions légales
             </Link>
             .
-          </p>
+          </Typo>
         </Form>
       )}
     </>

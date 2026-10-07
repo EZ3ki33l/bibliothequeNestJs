@@ -23,6 +23,7 @@ import { AdminSelect } from '../../components/admin/AdminSelect';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Typo } from '../../components/ui/Typo';
 
 const STATUS_ITEMS = [
   { id: '', label: 'Tous les états' },
@@ -276,16 +277,19 @@ export function AdminEntriesPage() {
         ) : (
           <EmptyMessage>
             Aucune fiche pour le moment.{' '}
-            <Link to="/admin/entries/new" className="text-foreground underline">
+            <Link
+              to="/admin/entries/new"
+              className="text-blueberry-light underline underline-offset-2"
+            >
               Créer la première
             </Link>
           </EmptyMessage>
         )
       ) : (
         <>
-          <p className="text-muted mb-3 text-sm">
+          <Typo variant="small" as="p" className="mb-3">
             {data.total} {data.total > 1 ? 'fiches' : 'fiche'}
-          </p>
+          </Typo>
           <ul className="flex flex-col gap-2">
             {data.items.map((entry) => (
               <AdminListRow

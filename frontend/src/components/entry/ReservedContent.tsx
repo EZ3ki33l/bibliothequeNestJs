@@ -3,6 +3,7 @@ import { buttonVariants } from '@heroui/react';
 import { LockIcon } from '@phosphor-icons/react';
 import { loginHref, registerHref } from '../../lib/returnTo';
 import { VerifyEmailReminder } from '../account/VerifyEmailReminder';
+import { Typo } from '../ui/Typo';
 
 type ReservedContentProps = {
   /** Lecteur à qui s'adresse le message : sans compte, ou compte à vérifier. */
@@ -71,7 +72,9 @@ export function ReservedContent({ reader, email, returnTo }: ReservedContentProp
         className="text-muted pointer-events-none col-start-1 row-start-1 flex min-w-0 flex-col gap-4 p-6 text-sm leading-relaxed blur-sm select-none"
       >
         {DECOY_PARAGRAPHS.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
+          <Typo variant="p" key={paragraph}>
+            {paragraph}
+          </Typo>
         ))}
         <pre className="bg-surface overflow-hidden rounded-lg p-4 text-xs whitespace-pre-wrap">
           {DECOY_CODE}
@@ -85,20 +88,20 @@ export function ReservedContent({ reader, email, returnTo }: ReservedContentProp
           juste après le résumé, sans faire défiler du texte flouté. */}
       <div className="bg-background/70 relative z-10 col-start-1 row-start-1 flex min-w-0 items-start justify-center p-4 sm:p-8">
         <div className="border-border bg-surface flex w-full max-w-md min-w-0 flex-col gap-4 rounded-xl border p-6 shadow-lg">
-          <LockIcon aria-hidden="true" weight="fill" className="text-brand size-6" />
+          <LockIcon aria-hidden="true" weight="fill" className="text-blueberry-light size-6" />
           {reader === 'visitor' ? (
             <>
-              <h2 id="reserved-content-title" className="text-lg font-semibold tracking-tight">
+              <Typo variant="h3" as="h2" id="reserved-content-title">
                 La suite de cette fiche demande un compte.
-              </h2>
-              <p className="text-muted text-sm">
+              </Typo>
+              <Typo variant="small" as="p">
                 Un compte dont l’adresse est vérifiée ouvre tout le catalogue, les examens et le
                 suivi des parcours.
-              </p>
+              </Typo>
               <div className="flex flex-wrap gap-3">
                 <Link
                   to={registerHref(returnTo)}
-                  className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+                  className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
                 >
                   Créer un compte
                 </Link>
@@ -112,13 +115,13 @@ export function ReservedContent({ reader, email, returnTo }: ReservedContentProp
             </>
           ) : (
             <>
-              <h2 id="reserved-content-title" className="text-lg font-semibold tracking-tight">
+              <Typo variant="h3" as="h2" id="reserved-content-title">
                 Adresse à vérifier
-              </h2>
-              <p className="text-muted text-sm">
+              </Typo>
+              <Typo variant="small" as="p">
                 La suite de cette fiche demande une adresse vérifiée. Le lien reçu par message ouvre
                 tout le catalogue.
-              </p>
+              </Typo>
               {email ? <VerifyEmailReminder email={email} returnTo={returnTo} /> : null}
             </>
           )}

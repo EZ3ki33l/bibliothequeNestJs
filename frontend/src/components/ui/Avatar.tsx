@@ -11,7 +11,7 @@ type AvatarProps = {
 export default function Avatar({ name, email }: AvatarProps) {
   return (
     <span
-      className="bg-brand text-brand-foreground ring-border flex size-8 items-center justify-center rounded-full text-sm font-medium ring-1"
+      className="bg-blueberry text-blacksea-dark font-heading flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
       aria-hidden
     >
       {getUserInitial(name, email)}

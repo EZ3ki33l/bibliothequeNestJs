@@ -41,7 +41,10 @@ export function AdminCategoriesPage() {
       ) : data.items.length === 0 ? (
         <EmptyMessage>
           Aucune catégorie pour le moment.{' '}
-          <Link to="/admin/categories/new" className="text-foreground underline">
+          <Link
+            to="/admin/categories/new"
+            className="text-blueberry-light underline underline-offset-2"
+          >
             Créer la première
           </Link>
         </EmptyMessage>

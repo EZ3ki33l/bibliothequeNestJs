@@ -7,7 +7,6 @@ import {
   PathIcon,
   SquaresFourIcon,
   StackIcon,
-  MagnifyingGlassIcon,
 } from '@phosphor-icons/react';
 
 export type NavItem = {
@@ -21,7 +20,6 @@ export const LIBRARY_NAV: NavItem[] = [
   { to: '/', label: 'Accueil', icon: BooksIcon, exact: true },
   { to: '/parcours', label: 'Parcours', icon: PathIcon },
   { to: '/stacks', label: 'Leçons', icon: StackIcon },
-  { to: '/recherche', label: 'Recherche', icon: MagnifyingGlassIcon },
 ];
 
 export const LIBRARY_NAV_SIGNED_IN: NavItem[] = [

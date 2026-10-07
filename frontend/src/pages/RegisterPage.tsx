@@ -6,6 +6,7 @@ import { loginHref, safeReturnTo } from '../lib/returnTo';
 import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
 /** Messages des refus connus de l'inscription ; les autres restent généraux. */
 function signUpMessage(error: { status?: number; code?: string }): string {
@@ -148,36 +149,30 @@ export function RegisterPage() {
           minLength={8}
         />
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-        <Button type="submit" variant="primary" isDisabled={pending}>
+        <Button type="submit" variant="primary" className="cta" isDisabled={pending}>
           {pending ? 'Création…' : 'Créer le compte'}
         </Button>
       </Form>
-      <p className="text-muted mt-6 text-xs leading-relaxed">
+      <Typo variant="caption" className="mt-6 leading-relaxed">
         La création d’un compte vaut acceptation des{' '}
-        <Link
-          to="/cgu"
-          className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
-        >
+        <Link to="/cgu" className="text-blueberry-light underline underline-offset-2">
           conditions d’utilisation
         </Link>{' '}
         et la{' '}
-        <Link
-          to="/confidentialite"
-          className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
-        >
+        <Link to="/confidentialite" className="text-blueberry-light underline underline-offset-2">
           politique de confidentialité
         </Link>
         .
-      </p>
-      <p className="text-muted mt-4 text-sm">
+      </Typo>
+      <Typo variant="small" as="p" className="mt-4">
         Déjà un compte ?{' '}
         <Link
           to={loginHref(destination)}
-          className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
+          className="text-blueberry-light underline underline-offset-2"
         >
           Se connecter
         </Link>
-      </p>
+      </Typo>
     </>
   );
 }

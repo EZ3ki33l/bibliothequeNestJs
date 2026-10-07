@@ -14,9 +14,11 @@ import { examExits, formatRetryTime } from '../lib/examResult';
 import { usePageTitle } from '../lib/pageTitle';
 import { useAsyncData } from '../lib/useAsyncData';
 import { useLoginRedirect } from '../lib/useLoginRedirect';
+import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { NotFoundState } from '../components/ui/NotFoundState';
 import { ExamResult } from '../components/exam/ExamResult';
+import { Typo } from '../components/ui/Typo';
 
 const INCOMPLETE = 'Toutes les questions attendent une réponse.';
 const UNAVAILABLE =
@@ -248,9 +250,9 @@ export function ExamPage() {
       <Fallback>
         {/* La génération prend quelques secondes : le dire évite de croire à
             une page figée. `role="status"` l'annonce aux lecteurs d'écran. */}
-        <p role="status" className="text-muted text-sm">
+        <Typo variant="small" as="p" role="status">
           Préparation des questions…
-        </p>
+        </Typo>
         <Skeleton className="h-10 w-3/4 rounded-lg" />
         <Skeleton className="h-5 w-1/2 rounded-lg" />
         <Skeleton className="h-64 rounded-xl" />
@@ -272,12 +274,12 @@ export function ExamPage() {
   if (exam === 'forbidden') {
     return (
       <Fallback>
-        <p role="status" className="text-sm">
+        <Typo variant="small" as="p" role="status" className="text-foreground">
           {FORBIDDEN}
-        </p>
-        <p className="text-muted text-sm">
+        </Typo>
+        <Typo variant="small" as="p">
           Le message de vérification se demande depuis la fiche, ou depuis « Mon compte ».
-        </p>
+        </Typo>
         <Actions>
           <Link to={entryHref} className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
             Voir la fiche
@@ -326,10 +328,12 @@ export function ExamPage() {
   if (attempt === null) {
     return (
       <Fallback>
-        <h1 className="text-3xl font-semibold tracking-tight">{entry.title}</h1>
-        <p className="text-muted">
+        <Typo variant="h2" as="h1">
+          {entry.title}
+        </Typo>
+        <Typo variant="p" className="text-muted">
           Cette fiche n’a pas d’examen : sa lecture suffit à valider l’étape.
-        </p>
+        </Typo>
         <Actions>
           <Link to={entryHref} className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
             Voir la fiche
@@ -344,8 +348,12 @@ export function ExamPage() {
     return (
       <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
         <header className="border-border border-b pb-6">
-          <p className="text-muted mb-2 text-xs tracking-wide uppercase">Résultat de l’examen</p>
-          <h1 className="text-3xl font-semibold tracking-tight">{result.entry.title}</h1>
+          <Typo variant="caption" className="mb-2">
+            Résultat de l’examen
+          </Typo>
+          <Typo variant="h2" as="h1">
+            {result.entry.title}
+          </Typo>
         </header>
         <ExamResult
           result={result}
@@ -365,15 +373,22 @@ export function ExamPage() {
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+      <Breadcrumbs items={[{ label: entry.title, to: entryHref }, { label: 'Examen' }]} />
       <header className="border-border mb-8 border-b pb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">{entry.title}</h1>
-        {entry.summary ? <p className="text-muted mt-3 text-base">{entry.summary}</p> : null}
+        <Typo variant="h2" as="h1">
+          {entry.title}
+        </Typo>
+        {entry.summary ? (
+          <Typo variant="lead" className="mt-4 max-w-[60ch]">
+            {entry.summary}
+          </Typo>
+        ) : null}
         {/* Les questions ne sont relues par personne avant d'être posées :
             le dire ici, là où elles sont lues (FR-035). */}
-        <p className="text-muted mt-4 text-xs">
+        <Typo variant="caption" className="mt-4">
           Questions générées automatiquement à partir du contenu de la fiche : elles peuvent
           comporter des erreurs.
-        </p>
+        </Typo>
       </header>
       {/* `key` : un nouvel examen repart d'un formulaire vierge, sans réponse
           cochée héritée du précédent.
@@ -417,7 +432,10 @@ export function ExamPage() {
           <Button type="submit" variant="primary" isDisabled={pending}>
             {pending ? 'Correction…' : 'Valider'}
           </Button>
-          <Link to={entryHref} className="text-muted hover:text-foreground text-sm underline">
+          <Link
+            to={entryHref}
+            className="text-blueberry-light text-sm underline-offset-4 hover:underline"
+          >
             Revenir à la fiche
           </Link>
         </div>

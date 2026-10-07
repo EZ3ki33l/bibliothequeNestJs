@@ -30,7 +30,10 @@ export function AdminCategoryNewPage() {
       ) : data.length === 0 ? (
         <EmptyMessage>
           Une catégorie appartient à une leçon : aucune n’existe encore.{' '}
-          <Link to="/admin/stacks/new" className="text-foreground underline">
+          <Link
+            to="/admin/stacks/new"
+            className="text-blueberry-light underline underline-offset-2"
+          >
             Nouvelle leçon
           </Link>
         </EmptyMessage>

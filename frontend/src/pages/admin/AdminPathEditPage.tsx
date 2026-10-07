@@ -39,6 +39,7 @@ import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Typo } from '../../components/ui/Typo';
 
 /** Copie de `ids` où l'élément `index` a été déplacé de `delta` (−1 = monter). */
 function moved(ids: string[], index: number, delta: -1 | 1): string[] {
@@ -226,9 +227,9 @@ export function AdminPathEditPage() {
       />
 
       <section aria-labelledby="path-modules" className="mt-12">
-        <h2 id="path-modules" className="mb-4 text-lg font-semibold">
+        <Typo variant="h3" as="h2" id="path-modules" className="mb-4">
           Modules
-        </h2>
+        </Typo>
 
         {path.modules.length === 0 ? (
           <EmptyMessage>Aucun module : ajouter un premier module ci-dessous.</EmptyMessage>
@@ -416,7 +417,9 @@ function ModuleCard({
   return (
     <div className="border-border flex flex-col gap-5 rounded-xl border p-4">
       <div className="flex items-start gap-3">
-        <p className="text-muted pt-2 text-xs tracking-wide uppercase">Module {index + 1}</p>
+        <Typo variant="caption" className="text-blueberry-light pt-2 font-medium">
+          Module {index + 1}
+        </Typo>
         <div className="flex-1" />
         <MoveButtons
           label={`le module « ${module.title} »`}
@@ -443,12 +446,12 @@ function ModuleCard({
           placer une fiche, c'est la rendre lisible sans compte. Pictogramme
           et libellé, pour que l'indication ne repose pas sur la couleur. */}
       {freeAccess ? (
-        <p className="text-muted flex items-start gap-2 text-sm">
+        <Typo variant="small" as="p" className="flex items-start gap-2">
           <LockOpenIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {freeAccess === 'published'
             ? 'Les fiches de ce module se lisent sans compte.'
             : 'Les fiches de ce module se liront sans compte une fois le parcours publié.'}
-        </p>
+        </Typo>
       ) : null}
 
       <div className="flex max-w-md flex-col gap-3">
@@ -475,7 +478,9 @@ function ModuleCard({
       </div>
 
       {module.steps.length === 0 ? (
-        <p className="text-muted text-sm">Aucune étape dans ce module.</p>
+        <Typo variant="small" as="p">
+          Aucune étape dans ce module.
+        </Typo>
       ) : (
         <ol className="flex flex-col gap-2">
           {module.steps.map((step, stepIndex) => (
@@ -488,9 +493,9 @@ function ModuleCard({
                 <Link to={`/admin/entries/${step.entry.id}/edit`} className="text-sm font-medium">
                   {step.entry.title}
                 </Link>
-                <p className="text-muted text-xs">
+                <Typo variant="caption">
                   {step.entry.category.stack.name} › {step.entry.category.name}
-                </p>
+                </Typo>
               </div>
               {step.entry.published ? null : (
                 <Chip size="sm" variant="soft" color="warning">
@@ -605,7 +610,9 @@ function AddModuleForm({ busy, onAdd }: AddModuleFormProps) {
         });
       }}
     >
-      <p className="text-sm font-medium">Nouveau module</p>
+      <Typo variant="small" as="p" className="text-foreground font-medium">
+        Nouveau module
+      </Typo>
       <TextField
         isRequired
         value={title}

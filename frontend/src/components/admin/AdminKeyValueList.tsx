@@ -1,6 +1,7 @@
 import { Button, Input, Label, TextArea, TextField } from '@heroui/react';
 import { PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { emptyPair, type KeyValuePair } from './keyValuePairs';
+import { Typo } from '../ui/Typo';
 
 type AdminKeyValueListProps = {
   title: string;
@@ -39,8 +40,12 @@ export function AdminKeyValueList({
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium">{title}</p>
-          <p className="text-muted mt-0.5 text-xs">{description}</p>
+          <Typo variant="small" as="p" className="text-foreground font-medium">
+            {title}
+          </Typo>
+          <Typo variant="caption" className="mt-0.5">
+            {description}
+          </Typo>
         </div>
         <Button
           type="button"
@@ -54,7 +59,9 @@ export function AdminKeyValueList({
       </div>
 
       {pairs.length === 0 ? (
-        <p className="text-muted text-sm">{emptyLabel}</p>
+        <Typo variant="small" as="p">
+          {emptyLabel}
+        </Typo>
       ) : (
         <ul className="flex flex-col gap-3">
           {pairs.map((pair) => (

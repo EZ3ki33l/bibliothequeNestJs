@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Chip, Input, Label, TextField } from '@heroui/react';
 import { listAdminEntries, type AdminEntryListItem } from '../../lib/admin';
+import { Typo } from '../ui/Typo';
 
 type AdminPathEntryPickerProps = {
   /** Fiches déjà présentes dans le parcours : affichées mais non sélectionnables. */
@@ -63,11 +64,15 @@ export function AdminPathEntryPicker({
         <Input placeholder="Rechercher par titre…" />
       </TextField>
 
-      {error ? <p className="text-danger text-xs">{error}</p> : null}
+      {error ? (
+        <Typo variant="caption" className="text-cherry-light">
+          {error}
+        </Typo>
+      ) : null}
 
       {search !== '' && results !== null ? (
         results.length === 0 ? (
-          <p className="text-muted text-xs">Aucune fiche ne correspond.</p>
+          <Typo variant="caption">Aucune fiche ne correspond.</Typo>
         ) : (
           <ul className="border-border flex flex-col rounded-xl border">
             {results.map((entry) => {
@@ -79,10 +84,12 @@ export function AdminPathEntryPicker({
                   className="border-border flex items-center gap-3 border-b p-3 last:border-b-0"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{entry.title}</p>
-                    <p className="text-muted text-xs">
+                    <Typo variant="small" as="p" className="text-foreground font-medium">
+                      {entry.title}
+                    </Typo>
+                    <Typo variant="caption">
                       {entry.category.stack.name} › {entry.category.name}
-                    </p>
+                    </Typo>
                   </div>
                   {entry.published ? null : (
                     <Chip size="sm" variant="soft" color="warning">

@@ -25,6 +25,7 @@ import { ReservedContent } from '../components/entry/ReservedContent';
 import { HeartIcon } from '../components/ui/HeartIcon';
 import { addFavorite, listFavorites, removeFavorite } from '../lib/favorites';
 import { deleteNote, listNotes, MAX_NOTE_LENGTH, saveNote } from '../lib/notes';
+import { Typo } from '../components/ui/Typo';
 
 /** À quelle fiche correspond le dernier état de favori chargé depuis le serveur. */
 type FavoriteState = { entryId: string; favorited: boolean };
@@ -357,7 +358,7 @@ export function EntryPage() {
   // floutée (elle annoncerait à tort un refus).
   if (reading.status === 'loading') {
     return (
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
         <Skeleton className="h-10 w-3/4 rounded-lg" />
         <Skeleton className="h-5 w-1/2 rounded-lg" />
         <Skeleton className="h-64 rounded-xl" />
@@ -504,12 +505,12 @@ export function EntryPage() {
                   filled={favorited}
                   className={
                     favorited
-                      ? 'text-danger size-5 transition-transform duration-150 hover:scale-125'
-                      : 'text-muted hover:text-danger size-5 transition-transform duration-150 hover:scale-125'
+                      ? 'text-blueberry-light size-5 transition-transform duration-150 hover:scale-125'
+                      : 'text-muted hover:text-blueberry-light size-5 transition-transform duration-150 hover:scale-125'
                   }
                 />
               </Button>
-              {favError ? <span className="text-danger text-xs">{favError}</span> : null}
+              {favError ? <span className="text-cherry-light text-xs">{favError}</span> : null}
             </div>
           ) : null}
         </>
@@ -528,23 +529,23 @@ export function EntryPage() {
               compte connecté ne voit pas passer l'invitation du visiteur. */}
           {!fullEntry.quizEligible ? (
             userId ? (
-              <p className="text-muted text-sm">
+              <Typo variant="small" as="p">
                 Cette fiche n’a pas d’examen : sa lecture suffit à valider l’étape.
-              </p>
+              </Typo>
             ) : null
           ) : userId ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <Link
                 to={examHrefFromPath(fullEntry.slug, fromPath)}
-                className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+                className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
               >
                 {hasFinishedExam ? 'Repasser l’examen' : 'Passer l’examen'}
               </Link>
               {state && state.bestScore !== null ? (
-                <p className="text-muted text-sm">
+                <Typo variant="small" as="p">
                   Meilleur score : {state.bestScore} / 100 ·{' '}
                   {state.passed ? 'examen réussi' : 'examen non réussi'}
-                </p>
+                </Typo>
               ) : null}
             </div>
           ) : sessionPending ? null : (
@@ -601,7 +602,7 @@ export function EntryPage() {
                   </Button>
                 ) : null}
                 {noteSaved ? <span className="text-muted text-xs">Enregistré.</span> : null}
-                {noteError ? <span className="text-danger text-xs">{noteError}</span> : null}
+                {noteError ? <span className="text-cherry-light text-xs">{noteError}</span> : null}
               </div>
             </div>
           ) : null}
@@ -610,15 +611,15 @@ export function EntryPage() {
 
           {/* Pour tout lecteur, connecté ou non : le formulaire de contact
               est public. Seul le slug voyage dans l'adresse. */}
-          <p className="text-muted text-xs">
+          <Typo variant="caption">
             Une erreur dans cette fiche ?{' '}
             <Link
               to={reportHref(fullEntry.slug)}
-              className="text-foreground rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+              className="text-blueberry-light rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
             >
               Signaler une erreur
             </Link>
-          </p>
+          </Typo>
         </>
       }
     />

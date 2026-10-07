@@ -80,22 +80,22 @@ export function AdminPage() {
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
       ) : counts === undefined ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="card-grid grid gap-3 [--card-min:17rem]">
           {CARDS.map((card) => (
             <Skeleton key={card.to} className="h-28 rounded-xl" />
           ))}
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="card-grid grid gap-3 [--card-min:17rem]">
           {CARDS.map((card) => {
             const Icon = card.icon;
 
             return (
               <li key={card.to}>
                 <Link to={card.to} className="block h-full no-underline">
-                  <Card className="hover:bg-surface-hover h-full transition-colors duration-150">
+                  <Card className="card-interactive h-full">
                     <Card.Header>
-                      <Icon className="text-muted size-4" />
+                      <Icon className="text-blueberry-light size-4" />
                       <Card.Title>{card.label}</Card.Title>
                       <Card.Description>{counts[card.key]}</Card.Description>
                     </Card.Header>

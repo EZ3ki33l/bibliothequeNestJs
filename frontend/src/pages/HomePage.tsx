@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Alert, Card, buttonVariants } from '@heroui/react';
-import { MagnifyingGlassIcon, PathIcon, QuestionIcon, StackIcon } from '@phosphor-icons/react';
+import {
+  CheckCircleIcon,
+  MagnifyingGlassIcon,
+  PathIcon,
+  QuestionIcon,
+  StackIcon,
+} from '@phosphor-icons/react';
 import { authClient, type VerificationRequestResult } from '../lib/auth';
 import { usePageTitle } from '../lib/pageTitle';
 import { LearnerHome } from '../components/home/LearnerHome';
+import { Typo } from '../components/ui/Typo';
 
 /**
  * Portes d'entrée de l'accueil : une carte par usage distinct du site.
@@ -46,6 +53,18 @@ const DOORS = [
     body: 'Présentation de l’offre : parcours, leçons, fiches, examens, progression.',
     guestNote: null,
   },
+] as const;
+
+/**
+ * Les trois temps d'une étape de parcours, illustrés dans la hero.
+ *
+ * C'est une suite ordonnée, d'où la liste numérotée. Aucun seuil ni chiffre
+ * n'est écrit ici : le serveur seul connaît la note qui valide un examen.
+ */
+const STEP_TIMES = [
+  { title: 'Lire la fiche', body: 'Une notion, son explication et ses sources.' },
+  { title: 'Manipuler le code', body: 'Un atelier modifiable accompagne les fiches pratiques.' },
+  { title: 'Passer l’examen', body: 'Un examen réussi valide l’étape du parcours.' },
 ] as const;
 
 /** Messages d'arrivée, portés par l'état de navigation (`navigate(…, { state })`). */
@@ -99,8 +118,8 @@ function readArrival(state: unknown): Arrival {
  * c'est le serveur qui renvoie, ou non, les données du compte.
  *
  * La *hero* porte le `<h1>` de la page : on n'utilise donc pas `PageHeader`
- * ici (un seul `h1` par page). Couleurs : uniquement des tokens (`bg-surface`,
- * `text-brand`…), jamais de valeur en dur, pour rester cohérent avec le thème.
+ * ici (un seul `h1` par page). Couleurs : uniquement des tokens et les teintes
+ * de la charte (`bg-surface`, `border-blueberry`…), jamais de valeur en dur.
  */
 export function HomePage() {
   const location = useLocation();
@@ -181,33 +200,32 @@ export function HomePage() {
         </Alert>
       ) : null}
 
-      <section className="border-border bg-surface relative mb-12 overflow-hidden rounded-3xl border px-6 py-16 sm:px-12 sm:py-20">
-        {/* Halo de marque : purement décoratif, donc masqué aux lecteurs d'écran. */}
-        <div
-          aria-hidden
-          className="bg-brand/20 pointer-events-none absolute -top-24 -right-16 size-72 rounded-full blur-3xl"
-        />
+      {/* Hero sans cadre : le titre porte la page. À droite, les trois temps
+          d'une étape de parcours, dessinés comme les étapes réelles de
+          `PathPage` : c'est ce que le site fait, montré plutôt que décrit. */}
+      <section className="3xl:grid-cols-[minmax(0,1fr)_32rem] 3xl:gap-20 mb-14 grid items-center gap-10 pt-2 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-14 lg:pt-8 2xl:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="min-w-0">
+          <Typo variant="h1" className="3xl:text-7xl lg:text-6xl">
+            Apprendre par parcours et fiches.
+          </Typo>
 
-        <div className="relative max-w-2xl">
-          <p className="text-brand mb-4 text-xs font-semibold tracking-[0.2em] uppercase">
-            Bibliothèque d’apprentissage
-          </p>
-
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-            Apprendre par <span className="text-brand">parcours</span> et fiches.
-          </h1>
-
-          <p className="text-muted mt-5 text-base leading-relaxed sm:text-lg">
+          <Typo variant="lead" className="3xl:text-xl mt-5 max-w-[56ch]">
             Des parcours guidés à suivre, des leçons à explorer, des fiches à lire et des examens de
             compréhension.
             {/* La mention du compte ne s'adresse qu'à qui n'en a pas. */}
             {isPending || isSignedIn
               ? null
               : ' Le premier module de chaque parcours se lit sans compte ; un compte dont l’adresse est vérifiée ouvre tout le catalogue, les examens, le suivi des parcours, les favoris et les notes.'}
-          </p>
+          </Typo>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link to="/stacks" className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
+            {/* Action principale de l'écran (Cherry), la seule de l'accueil :
+                elle ne dépend pas de la session, donc ne change pas de couleur
+                pendant que celle-ci se charge. */}
+            <Link
+              to="/stacks"
+              className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
+            >
               Parcourir le catalogue
             </Link>
             {isPending ? null : isSignedIn ? (
@@ -227,7 +245,7 @@ export function HomePage() {
                 </Link>
                 <Link
                   to="/login"
-                  className="text-muted hover:text-foreground px-2 text-sm no-underline transition-colors duration-150"
+                  className="text-blueberry-light px-2 text-sm no-underline underline-offset-4 hover:underline"
                 >
                   Connexion
                 </Link>
@@ -235,6 +253,42 @@ export function HomePage() {
             )}
           </div>
         </div>
+
+        <ol aria-label="Les trois temps d’une étape" className="flex flex-col gap-3">
+          {STEP_TIMES.map((time, index) => (
+            <li
+              key={time.title}
+              className={`flex items-start gap-4 rounded-xl border p-4 ${
+                index === 1 ? 'border-blueberry bg-blueberry/10' : 'border-border'
+              }`}
+            >
+              {index === 0 ? (
+                <CheckCircleIcon
+                  aria-hidden="true"
+                  weight="fill"
+                  className="text-success size-8 shrink-0"
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className={`font-heading flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+                    index === 1 ? 'bg-blueberry text-blacksea-dark' : 'bg-surface text-muted'
+                  }`}
+                >
+                  {index + 1}
+                </span>
+              )}
+              <div className="min-w-0">
+                <Typo variant="small" as="p" className="text-foreground font-medium">
+                  {time.title}
+                </Typo>
+                <Typo variant="caption" className="mt-0.5">
+                  {time.body}
+                </Typo>
+              </div>
+            </li>
+          ))}
+        </ol>
       </section>
 
       {/* Bloc personnel, au-dessus des accès d'orientation. Rendu seulement si
@@ -243,20 +297,20 @@ export function HomePage() {
       {isSignedIn ? <LearnerHome /> : null}
 
       <section aria-labelledby="home-doors-heading">
-        <h2 id="home-doors-heading" className="mb-4 text-lg font-semibold tracking-tight">
+        <Typo variant="h3" as="h2" id="home-doors-heading" className="mb-4">
           Vue d’ensemble
-        </h2>
-        <ul className="grid gap-4 sm:grid-cols-2">
+        </Typo>
+        <ul className="card-grid grid gap-4">
           {DOORS.map((door) => {
             const Icon = door.icon;
 
             return (
               <li key={door.to}>
                 <Link to={door.to} className="block h-full no-underline">
-                  <Card className="hover:bg-surface-hover h-full transition-colors duration-150">
+                  <Card className="card-interactive h-full">
                     <Card.Header>
                       <Card.Title className="flex items-center gap-2">
-                        <Icon className="text-muted size-4" />
+                        <Icon aria-hidden="true" className="text-blueberry-light size-4 shrink-0" />
                         {door.title}
                       </Card.Title>
                       <Card.Description>

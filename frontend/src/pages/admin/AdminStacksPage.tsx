@@ -42,7 +42,10 @@ export function AdminStacksPage() {
       ) : data.items.length === 0 ? (
         <EmptyMessage>
           Aucune leçon pour le moment.{' '}
-          <Link to="/admin/stacks/new" className="text-foreground underline">
+          <Link
+            to="/admin/stacks/new"
+            className="text-blueberry-light underline underline-offset-2"
+          >
             Créer le premier
           </Link>
         </EmptyMessage>

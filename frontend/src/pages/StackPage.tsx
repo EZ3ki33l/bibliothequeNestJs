@@ -10,6 +10,7 @@ import { EntryCard } from '../components/ui/EntryCard';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { NotFoundState } from '../components/ui/NotFoundState';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
 export function StackPage() {
   const { slug } = useParams();
@@ -66,23 +67,27 @@ export function StackPage() {
           {stack.categories.map((category) => (
             <section key={category.id}>
               <div className="border-border mb-4 border-b pb-2">
-                <h2 className="text-lg font-medium">
+                <Typo variant="h3" as="h2">
                   <Link
                     to={`/stacks/${stack.slug}/${category.slug}`}
-                    className="hover:text-muted no-underline transition-colors duration-150"
+                    className="hover:text-blueberry-light no-underline transition-colors duration-150"
                   >
                     {category.name}
                   </Link>
-                </h2>
+                </Typo>
                 {category.description ? (
-                  <p className="text-muted mt-1 text-sm">{category.description}</p>
+                  <Typo variant="small" as="p" className="mt-1">
+                    {category.description}
+                  </Typo>
                 ) : null}
               </div>
 
               {category.entries.length === 0 ? (
-                <p className="text-muted/70 text-sm">Aucune fiche publiée.</p>
+                <Typo variant="small" as="p" className="text-muted/70">
+                  Aucune fiche publiée.
+                </Typo>
               ) : (
-                <ul className="grid gap-4 sm:grid-cols-2">
+                <ul className="card-grid grid gap-4">
                   {category.entries.map((entry) => (
                     <li key={entry.id}>
                       <EntryCard

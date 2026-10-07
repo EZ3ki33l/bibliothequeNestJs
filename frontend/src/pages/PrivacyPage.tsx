@@ -2,12 +2,12 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SITE_LEGAL } from '../lib/site-legal';
+import { Typo } from '../components/ui/Typo';
 
 /** À mettre à jour à chaque modification de fond de cette page. */
 const LAST_UPDATED = '7 octobre 2026';
 
-const LINK_CLASS =
-  'text-foreground hover:text-foreground no-underline transition-colors duration-150';
+const LINK_CLASS = 'text-blueberry-light underline underline-offset-2';
 
 type Treatment = {
   title: string;
@@ -94,7 +94,9 @@ const TREATMENTS: Treatment[] = [
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2 text-base font-medium">{title}</h2>
+      <Typo variant="h4" as="h2" className="mb-2">
+        {title}
+      </Typo>
       {children}
     </section>
   );
@@ -109,8 +111,10 @@ function TreatmentCard({ treatment }: { treatment: Treatment }) {
   ];
 
   return (
-    <div className="rounded-xl border border-white/8 p-4">
-      <h3 className="mb-3 font-medium">{treatment.title}</h3>
+    <div className="border-border rounded-xl border p-4">
+      <Typo variant="h4" as="h3" className="text-foreground mb-3 text-base">
+        {treatment.title}
+      </Typo>
       <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-[7rem_1fr]">
         {rows.map(([label, value]) => (
           <div key={label} className="contents">
@@ -138,11 +142,13 @@ export function PrivacyPage() {
         description="Quelles données personnelles sont collectées, pourquoi, pendant combien de temps, et comment exercer ses droits."
       />
 
-      <p className="text-muted -mt-4 mb-8 text-xs">Dernière mise à jour : {LAST_UPDATED}</p>
+      <Typo variant="caption" className="-mt-4 mb-8">
+        Dernière mise à jour : {LAST_UPDATED}
+      </Typo>
 
-      <div className="space-y-8 text-sm">
+      <div className="max-w-3xl space-y-8 text-sm">
         <Section title="Responsable du traitement">
-          <p>
+          <Typo variant="p">
             Le responsable du traitement est {SITE_LEGAL.publisherName}, éditeur à titre personnel
             de ce site non professionnel (voir les{' '}
             <Link to="/mentions-legales" className={LINK_CLASS}>
@@ -153,17 +159,17 @@ export function PrivacyPage() {
               page contact
             </Link>
             .
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Données collectées, finalités et durées">
-          <p className="mb-4">
+          <Typo variant="p" className="mb-4">
             Les parcours, les leçons, la recherche, le titre et le résumé des fiches, ainsi que le
             premier module de chaque parcours se consultent sans compte : dans ce cas, seules les
             données techniques (dernier bloc) et, si le formulaire est utilisé, celles du formulaire
             de contact sont concernées. Lire le reste du catalogue demande un compte dont l’adresse
             est vérifiée.
-          </p>
+          </Typo>
           <div className="space-y-4">
             {TREATMENTS.map((treatment) => (
               <TreatmentCard key={treatment.title} treatment={treatment} />
@@ -172,23 +178,23 @@ export function PrivacyPage() {
         </Section>
 
         <Section title="Cookies et traceurs">
-          <p className="mb-2">
+          <Typo variant="p" className="mb-2">
             Un seul cookie est déposé, et seulement après connexion : le cookie de session. Il est
             strictement nécessaire au fonctionnement du compte, ce qui le dispense de consentement.
             C’est pourquoi le site n’affiche pas de bandeau cookies.
-          </p>
-          <p className="mb-2">
+          </Typo>
+          <Typo variant="p" className="mb-2">
             Le site n’utilise ni outil de mesure d’audience, ni publicité, ni pixel de suivi, ni
             captcha tiers, et ne stocke rien d’autre dans le navigateur.
-          </p>
-          <p>
+          </Typo>
+          <Typo variant="p">
             Une exception : sur les fiches qui comportent un éditeur de code exécutable, le
             navigateur charge des ressources du service CodeSandbox (domaines codesandbox.io), qui
             reçoit à cette occasion l’adresse IP et les informations techniques du navigateur du
             visiteur. Le site ne dépose lui-même aucun cookie pour cela ; les pratiques de ce
             prestataire relèvent de sa propre politique de confidentialité. Cette exécution est
             nécessaire au fonctionnement de l’éditeur de code (intérêt légitime, RGPD, art. 6.1.f).
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Destinataires et sous-traitants">
@@ -207,44 +213,44 @@ export function PrivacyPage() {
               des fiches (voir ci-dessus).
             </li>
           </ul>
-          <p className="mt-3">
+          <Typo variant="p" className="mt-3">
             Les données ne sont ni vendues, ni utilisées à des fins publicitaires ou de profilage,
             ni communiquées à d’autres tiers, sauf obligation légale. Les données d’un compte ne
             sont accessibles, dans l’application, qu’à son titulaire ; l’éditeur y a accès
             techniquement en tant qu’administrateur de la base.
-          </p>
-          <p className="mt-3">
+          </Typo>
+          <Typo variant="p" className="mt-3">
             La génération des questions d’examen envoie à un fournisseur de modèle de langage
             uniquement le contenu des fiches, rédigé par l’éditeur. Aucune donnée de compte, note ou
             réponse d’utilisateur n’est transmise.
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Transferts hors de l’Union européenne">
-          <p>
+          <Typo variant="p">
             Le traitement de Resend a principalement lieu aux États-Unis. Il est encadré par les
             clauses contractuelles types de la Commission européenne et par l’adhésion du
             prestataire au Data Privacy Framework. L’infrastructure de CodeSandbox peut également se
             situer hors de l’Union européenne.
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Sécurité">
-          <p>
+          <Typo variant="p">
             Les échanges avec le site sont chiffrés (HTTPS). Les mots de passe sont conservés
             hachés. Les tentatives de connexion et l’envoi de messages sont limités par adresse IP.
             En cas de violation de données présentant un risque, l’éditeur en informe la CNIL et, si
             le risque est élevé, les personnes concernées, conformément au RGPD.
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Droits sur les données">
-          <p className="mb-2">
+          <Typo variant="p" className="mb-2">
             Toute personne dispose d’un droit d’accès, de rectification, d’effacement, de limitation
             du traitement et de portabilité de ses données, ainsi que d’un droit d’opposition aux
             traitements fondés sur l’intérêt légitime.
-          </p>
-          <p className="mb-2">
+          </Typo>
+          <Typo variant="p" className="mb-2">
             Le droit d’effacement s’exerce directement : la page{' '}
             <Link to="/compte" className={LINK_CLASS}>
               Mon compte
@@ -252,8 +258,8 @@ export function PrivacyPage() {
             permet de supprimer son compte, après confirmation du mot de passe. La suppression est
             immédiate et définitive ; elle efface en même temps toutes les données liées au compte
             (sessions, notes, favoris, trace de lecture, examens).
-          </p>
-          <p className="mb-2">
+          </Typo>
+          <Typo variant="p" className="mb-2">
             Les autres droits s’exercent via la{' '}
             <Link to="/contact" className={LINK_CLASS}>
               page contact
@@ -261,16 +267,16 @@ export function PrivacyPage() {
             . Une réponse est apportée dans un délai d’un mois. L’éditeur peut demander de quoi
             s’assurer que la demande émane bien du titulaire du compte, par exemple en la faisant
             depuis le courriel du compte.
-          </p>
-          <p>
+          </Typo>
+          <Typo variant="p">
             Il n’existe pas encore d’outil d’export de compte en libre-service : cette demande est
             traitée manuellement, et l’export est remis dans un format structuré et couramment
             utilisé.
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Réclamation">
-          <p>
+          <Typo variant="p">
             En cas de désaccord, une réclamation peut être adressée à la CNIL, autorité française de
             protection des données :{' '}
             <a
@@ -282,16 +288,16 @@ export function PrivacyPage() {
               cnil.fr/fr/plaintes
             </a>
             .
-          </p>
+          </Typo>
         </Section>
 
         <Section title="Décisions automatisées et évolutions">
-          <p>
+          <Typo variant="p">
             Aucune décision produisant des effets juridiques ou significatifs n’est prise de façon
             automatisée : le score d’un examen et la progression dans un parcours ne sont que des
             aides à l’apprentissage. Cette politique évolue avec le service (nouvel outil, nouveau
             prestataire) ; sa date de dernière mise à jour figure en tête de page.
-          </p>
+          </Typo>
         </Section>
       </div>
     </>

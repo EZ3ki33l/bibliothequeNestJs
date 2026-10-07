@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { buttonVariants } from '@heroui/react';
+import { Typo } from './Typo';
 
 type NotFoundStateProps = {
   /** Ce qui est introuvable : « Fiche introuvable. » */
@@ -22,7 +23,9 @@ type NotFoundStateProps = {
 export function NotFoundState({ message, listLink }: NotFoundStateProps) {
   return (
     <div className="border-border flex flex-col items-center gap-5 rounded-xl border border-dashed px-6 py-12 text-center">
-      <p className="text-muted text-sm">{message}</p>
+      <Typo variant="small" as="p">
+        {message}
+      </Typo>
       <div className="flex flex-wrap justify-center gap-3">
         {listLink ? (
           <Link
