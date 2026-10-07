@@ -21,27 +21,34 @@ export function TermsPage() {
           <h2 className="mb-2 text-base font-medium">Objet du service</h2>
           <p>
             Ce site est une bibliothèque d’apprentissage : des parcours guidés, des leçons, des
-            fiches à lire, des examens de compréhension et des révisions espacées. Il n’est ni une
-            boutique, ni une place de marché, ni un service de paiement.
+            fiches à lire et des examens de compréhension. Il n’est ni une boutique, ni une place de
+            marché, ni un service de paiement.
           </p>
         </section>
 
         <section>
           <h2 className="mb-2 text-base font-medium">Catalogue</h2>
           <p>
-            Le catalogue public se parcourt sans compte. Seuls les parcours, les leçons et les
-            fiches publiés y figurent. Le contenu est fourni à des fins de formation ; il ne
-            constitue pas un conseil professionnel personnalisé.
+            Les parcours, les leçons, la recherche, ainsi que le titre et le résumé des fiches se
+            consultent sans compte. Le contenu des fiches du premier module de chaque parcours se
+            lit sans compte ; celui des autres fiches demande un compte dont l’adresse est vérifiée.
+            Seuls les parcours, les leçons et les fiches publiés figurent au catalogue. Le contenu
+            est fourni à des fins de formation ; il ne constitue pas un conseil professionnel
+            personnalisé.
           </p>
         </section>
 
         <section>
           <h2 className="mb-2 text-base font-medium">Comptes</h2>
           <p>
-            Un compte s’identifie par un courriel et un mot de passe. Il ouvre l’examen de
-            compréhension et les révisions. La confidentialité des identifiants relève du titulaire
-            du compte. L’éditeur peut refuser ou clôturer un compte en cas d’usage abusif
-            (contournement des accès, atteinte au service).
+            Un compte s’identifie par un courriel et un mot de passe. À sa création, un message est
+            envoyé à ce courriel : le lien qu’il contient, valable une heure, vérifie l’adresse. Un
+            compte dont l’adresse est vérifiée ouvre tout le catalogue. Sur les fiches qu’il peut
+            lire, tout compte ouvre les examens de compréhension, le suivi de la progression dans
+            les parcours, les favoris et les notes. Le courriel d’un compte ne se modifie pas. La
+            confidentialité des identifiants relève du titulaire du compte. L’éditeur peut refuser
+            ou clôturer un compte en cas d’usage abusif (contournement des accès, atteinte au
+            service).
           </p>
         </section>
 

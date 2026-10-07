@@ -4,7 +4,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { SITE_LEGAL } from '../lib/site-legal';
 
 /** À mettre à jour à chaque modification de fond de cette page. */
-const LAST_UPDATED = '20 septembre 2026';
+const LAST_UPDATED = '7 octobre 2026';
 
 const LINK_CLASS =
   'text-foreground hover:text-foreground no-underline transition-colors duration-150';
@@ -29,12 +29,21 @@ type Treatment = {
 const TREATMENTS: Treatment[] = [
   {
     title: 'Compte',
-    data: 'Nom, courriel, mot de passe (conservé haché, jamais lisible en clair) et date de création du compte.',
+    data: 'Nom, courriel, état de vérification de ce courriel (vérifié ou non), mot de passe (conservé haché, jamais lisible en clair) et date de création du compte.',
     purpose:
-      'Créer et gérer le compte, qui ouvre les examens, les révisions, les notes et les favoris.',
+      'Créer et gérer le compte, qui ouvre tout le catalogue une fois son adresse vérifiée, ainsi que les examens, le suivi des parcours, les notes et les favoris.',
     basis: 'Exécution du service demandé (RGPD, art. 6.1.b).',
     retention:
       'Jusqu’à la suppression du compte, que chaque personne peut effectuer elle-même depuis la page « Mon compte ».',
+  },
+  {
+    title: 'Vérification de l’adresse',
+    data: 'Courriel du compte. Le lien envoyé contient un jeton signé, qui porte ce courriel et une date d’expiration.',
+    purpose:
+      'S’assurer que le courriel du compte est bien consulté par son titulaire, condition de la lecture de tout le catalogue. Un message contenant un lien est envoyé au courriel du compte à sa création, puis à chaque demande faite depuis le compte connecté. Le lien ne fait que vérifier l’adresse : il n’ouvre aucune session.',
+    basis: 'Exécution du service demandé (RGPD, art. 6.1.b).',
+    retention:
+      'Le lien est valable une heure. Rien n’est enregistré pour lui : ni jeton, ni trace de l’envoi. Le message lui-même n’est pas conservé par le site ; Resend en garde une trace technique. L’état « adresse vérifiée » est conservé avec le compte et supprimé avec lui.',
   },
   {
     title: 'Réinitialisation du mot de passe',
@@ -56,12 +65,12 @@ const TREATMENTS: Treatment[] = [
   },
   {
     title: 'Contenus d’apprentissage liés au compte',
-    data: 'Notes personnelles (le texte saisi, dont le contenu est laissé au choix de son auteur), favoris, calendrier et historique des révisions (dates, évaluations), tentatives d’examen (questions posées, réponses, score).',
+    data: 'Notes personnelles (le texte saisi, dont le contenu est laissé au choix de son auteur), favoris, trace de lecture (quelles fiches ont été ouvertes par le compte, avec la date de la première et de la dernière ouverture), tentatives d’examen (questions posées, réponses, score).',
     purpose:
-      'Fournir les fonctions d’apprentissage : examens, révisions espacées, notes et favoris.',
+      'Fournir les fonctions d’apprentissage : examens, progression dans les parcours, notes et favoris. La trace de lecture valide les étapes de parcours dont la fiche n’a pas d’examen, permet de proposer la reprise d’un parcours commencé et d’indiquer, dans le catalogue, les fiches déjà lues. Elle n’est enregistrée que pour un compte connecté : la lecture sans compte ne laisse aucune trace.',
     basis: 'Exécution du service demandé (RGPD, art. 6.1.b).',
     retention:
-      'Jusqu’à la suppression du compte. Les notes et les favoris peuvent aussi être supprimés un par un, à tout moment, depuis l’application.',
+      'Jusqu’à la suppression du compte, qui efface la trace de lecture avec le reste. Les notes et les favoris peuvent aussi être supprimés un par un, à tout moment, depuis l’application ; la trace de lecture ne s’efface pas fiche par fiche. Elle disparaît aussi quand la fiche concernée est supprimée du site.',
   },
   {
     title: 'Formulaire de contact',
@@ -149,9 +158,11 @@ export function PrivacyPage() {
 
         <Section title="Données collectées, finalités et durées">
           <p className="mb-4">
-            Le catalogue public se parcourt sans compte : dans ce cas, seules les données techniques
-            (dernier bloc) et, si le formulaire est utilisé, celles du formulaire de contact sont
-            concernées.
+            Les parcours, les leçons, la recherche, le titre et le résumé des fiches, ainsi que le
+            premier module de chaque parcours se consultent sans compte : dans ce cas, seules les
+            données techniques (dernier bloc) et, si le formulaire est utilisé, celles du formulaire
+            de contact sont concernées. Lire le reste du catalogue demande un compte dont l’adresse
+            est vérifiée.
           </p>
           <div className="space-y-4">
             {TREATMENTS.map((treatment) => (
@@ -188,8 +199,8 @@ export function PrivacyPage() {
             </li>
             <li>
               <strong className="font-medium">Resend</strong> : acheminement par courriel des
-              messages du formulaire de contact et des liens de réinitialisation de mot de passe
-              (sous-traitant).
+              messages du formulaire de contact, des liens de vérification de l’adresse et des liens
+              de réinitialisation de mot de passe (sous-traitant).
             </li>
             <li>
               <strong className="font-medium">CodeSandbox</strong> : exécution de l’éditeur de code
@@ -240,7 +251,7 @@ export function PrivacyPage() {
             </Link>{' '}
             permet de supprimer son compte, après confirmation du mot de passe. La suppression est
             immédiate et définitive ; elle efface en même temps toutes les données liées au compte
-            (sessions, notes, favoris, révisions, examens).
+            (sessions, notes, favoris, trace de lecture, examens).
           </p>
           <p className="mb-2">
             Les autres droits s’exercent via la{' '}
@@ -277,8 +288,8 @@ export function PrivacyPage() {
         <Section title="Décisions automatisées et évolutions">
           <p>
             Aucune décision produisant des effets juridiques ou significatifs n’est prise de façon
-            automatisée : le calendrier de révision et le score d’un examen ne sont que des aides à
-            l’apprentissage. Cette politique évolue avec le service (nouvel outil, nouveau
+            automatisée : le score d’un examen et la progression dans un parcours ne sont que des
+            aides à l’apprentissage. Cette politique évolue avec le service (nouvel outil, nouveau
             prestataire) ; sa date de dernière mise à jour figure en tête de page.
           </p>
         </Section>

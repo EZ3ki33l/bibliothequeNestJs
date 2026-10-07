@@ -8,16 +8,28 @@ type AdminListRowProps = {
   subtitle: ReactNode;
   editTo: string;
   onDelete: () => void;
+  /** Actions propres à la ressource, placées avant « Modifier » (ex. publier). */
+  actions?: ReactNode;
 };
 
-export function AdminListRow({ icon: Icon, title, subtitle, editTo, onDelete }: AdminListRowProps) {
+export function AdminListRow({
+  icon: Icon,
+  title,
+  subtitle,
+  editTo,
+  onDelete,
+  actions,
+}: AdminListRowProps) {
   return (
-    <li className="border-border flex items-center gap-3 rounded-xl border p-4">
+    // `flex-wrap` : sur un écran étroit, les actions passent sous le titre
+    // plutôt que de l'écraser.
+    <li className="border-border flex flex-wrap items-center gap-3 rounded-xl border p-4">
       <Icon className="text-muted size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="font-medium">{title}</p>
         <p className="text-muted text-xs">{subtitle}</p>
       </div>
+      {actions}
       <Link
         to={editTo}
         className="text-muted hover:text-foreground text-sm no-underline transition-colors duration-150"

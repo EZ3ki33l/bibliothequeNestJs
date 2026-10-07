@@ -35,7 +35,7 @@ export type PathProgress = {
  * Fonction **pure** : elle reçoit les modules (déjà réduits à ce qui est
  * visible, dans l'ordre) et l'ensemble des fiches validées, et ne lit ni la
  * base ni l'heure. C'est ce qui permet de tester toutes les règles directement,
- * comme `scoreQuiz` et `scheduleReview`.
+ * comme `scoreQuiz` et `quizRetryAt`.
  *
  * Règles :
  * - la validation porte sur la **fiche** : une fiche validée l'est dans tous

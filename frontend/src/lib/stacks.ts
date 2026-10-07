@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import type { EntrySource } from './entrySources';
 
 /**
  * Types du catalogue public et appels correspondants à l'API Nest.
@@ -64,12 +65,16 @@ export type CategoryDetail = {
 /** Fichiers Sandpack : chemin (`/App.tsx`) vers contenu. */
 export type SandpackFiles = Record<string, string>;
 
-export type EntryDetail = {
+/**
+ * En-tête d'une fiche : ce que le serveur transmet à **tout le monde**, y
+ * compris pour une fiche réservée. Ce sont les colonnes d'une carte de liste,
+ * plus le rattachement à une leçon et à une catégorie.
+ */
+export type EntryHeader = {
   id: string;
   title: string;
   slug: string;
   summary: string | null;
-  bodyMdx: string;
   kind: EntryKind;
   difficulty: Difficulty;
   tags: string[];
@@ -83,10 +88,46 @@ export type EntryDetail = {
       slug: string;
     };
   };
+};
+
+/** Fiche entière : l'en-tête, plus le contenu. */
+export type FullEntry = EntryHeader & {
+  bodyMdx: string;
   template: string;
   files: SandpackFiles | null;
   dependencies: SandpackFiles | null;
+  /** Documents d'origine, dans l'ordre saisi. Tableau vide : aucune source. */
+  sources: EntrySource[];
+  /** Jour de la dernière vérification, `AAAA-MM-JJ`. Saisi par l'administration. */
+  verifiedOn: string | null;
+  /** Version vérifiée (« React 19 »). Chaîne vide : non renseignée. */
+  verifiedVersion: string;
+  /**
+   * Un examen existe pour cette fiche (contenu assez long). Décidé par le
+   * serveur, identique pour tous : la règle n'est pas recopiée ici.
+   */
+  quizEligible: boolean;
 };
+
+/**
+ * Réponse de la lecture **publique** d'une fiche (`GET /entries/:slug`), la
+ * même pour tout le monde :
+ * - `access: 'free'` : la fiche entière (elle ouvre un parcours publié) ;
+ * - `access: 'reserved'` : l'en-tête **seul**. Le contenu n'est pas dans la
+ *   réponse : il ne quitte le serveur que par `getReaderEntry`.
+ *
+ * Union discriminée : le compilateur oblige à tester `access` avant de lire
+ * `bodyMdx`. Une page ne peut donc pas afficher par mégarde le contenu d'une
+ * fiche réservée, il n'existe pas dans ce type.
+ */
+export type EntryDetail = (FullEntry & { access: 'free' }) | (EntryHeader & { access: 'reserved' });
+
+/**
+ * Issue de la lecture complète : la fiche, ou le refus du serveur.
+ * `'unauthorized'` : pas de session (401). `'forbidden'` : adresse du compte
+ * non vérifiée (403). `null` : fiche introuvable ou dépubliée (404).
+ */
+export type ReaderEntryResult = FullEntry | 'unauthorized' | 'forbidden' | null;
 
 /**
  * Convertit une valeur JSON quelconque en dictionnaire de chaînes.
@@ -149,11 +190,11 @@ async function readOrNull<T>(path: string, errorMessage: string): Promise<T | nu
 }
 
 export function listStacks(): Promise<StackListItem[]> {
-  return read<StackListItem[]>('/stacks', 'Impossible de charger les stacks');
+  return read<StackListItem[]>('/stacks', 'Impossible de charger les leçons');
 }
 
 export function getStackBySlug(slug: string): Promise<StackDetail | null> {
-  return readOrNull<StackDetail>(`/stacks/${slug}`, 'Impossible de charger le stack');
+  return readOrNull<StackDetail>(`/stacks/${slug}`, 'Impossible de charger la leçon');
 }
 
 /**
@@ -171,9 +212,43 @@ export function getCategoryBySlugs(
   );
 }
 
-/** Le slug d'une fiche est unique dans tout le catalogue : il suffit seul. */
+/**
+ * Le slug d'une fiche est unique dans tout le catalogue : il suffit seul.
+ *
+ * `encodeURIComponent` : le slug peut venir d'une adresse (`/contact?fiche=`).
+ * Sans encodage, `../stacks` ferait lire une autre route de l'API que celle
+ * d'une fiche.
+ */
 export function getEntryBySlug(slug: string): Promise<EntryDetail | null> {
-  return readOrNull<EntryDetail>(`/entries/${slug}`, 'Impossible de charger la fiche');
+  return readOrNull<EntryDetail>(
+    `/entries/${encodeURIComponent(slug)}`,
+    'Impossible de charger la fiche',
+  );
+}
+
+/**
+ * Lecture **complète** d'une fiche, sous session
+ * (`GET /reader/entries/:slug`).
+ *
+ * C'est la seule porte du contenu d'une fiche réservée. Le serveur la garde
+ * par deux contrôles, dans l'ordre : une session (401 sinon), puis une adresse
+ * vérifiée (403 sinon). 401 et 403 sont des réponses normales, pas des pannes :
+ * elles reviennent comme des valeurs, et la page affiche l'invitation ou la
+ * demande de vérification. Aucun identifiant de compte ne part dans la
+ * requête : le serveur lit la session.
+ */
+export async function getReaderEntry(slug: string): Promise<ReaderEntryResult> {
+  const response = await apiFetch(`/reader/entries/${encodeURIComponent(slug)}`);
+
+  if (response.status === 401) return 'unauthorized';
+  if (response.status === 403) return 'forbidden';
+  if (response.status === 404) return null;
+
+  if (!response.ok) {
+    throw new Error('Impossible de charger la fiche');
+  }
+
+  return response.json() as Promise<FullEntry>;
 }
 
 /** Query de `GET /entries` (liste publique paginée + filtres US2/US3). */

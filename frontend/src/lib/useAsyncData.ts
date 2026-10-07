@@ -16,8 +16,8 @@ type AsyncData<T> = {
   /**
    * Remplace la donnée sans repasser par le réseau.
    *
-   * Utile quand une écriture renvoie déjà l'état suivant : `POST /reviews/:id/rate`
-   * répond avec la carte à réviser d'après, inutile de la redemander.
+   * Utile quand une écriture donne déjà l'état suivant : après `DELETE
+   * /notes/:entryId`, la liste se met à jour sans être redemandée.
    */
   setData: (data: T) => void;
 };

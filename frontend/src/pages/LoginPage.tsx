@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { Button, Form } from '@heroui/react';
 import { authClient } from '../lib/auth';
+import { registerHref, safeReturnTo } from '../lib/returnTo';
 import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -11,17 +12,26 @@ import { PageHeader } from '../components/ui/PageHeader';
  *
  * Page publique : pas de `SessionGuard`. Un échec affiche un message
  * générique — on ne dit pas si le courriel existe (énumération de comptes).
- * Déjà connecté : redirection vers l'accueil, le formulaire ne servirait à
- * rien. Ce n'est pas une garde d'accès, seulement de l'interface.
+ *
+ * `?retour=` porte la page demandée avant la connexion. Ce paramètre est
+ * lisible et modifiable par n'importe qui (un lien forgé peut l'avoir écrit) :
+ * il passe par `safeReturnTo` **au moment de naviguer**, qui ne garde qu'un
+ * chemin interne au site. Une destination externe ou mal formée mène à
+ * l'accueil.
+ *
+ * Déjà connecté : redirection vers cette même destination, le formulaire ne
+ * servirait à rien. Ce n'est pas une garde d'accès, seulement de l'interface.
  */
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const destination = safeReturnTo(searchParams.get('retour'));
   const { data: session } = authClient.useSession();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   if (session?.user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={destination} replace />;
   }
 
   async function handleSubmit(form: HTMLFormElement) {
@@ -36,18 +46,25 @@ export function LoginPage() {
     setPending(false);
 
     if (signInError) {
-      setError('Email ou mot de passe incorrect');
+      // 429 : trop de tentatives depuis cette adresse. Le dire évite de faire
+      // croire à un mot de passe faux ; cela ne révèle rien sur le compte.
+      setError(
+        signInError.status === 429
+          ? 'Trop de tentatives. Réessayer dans quelques minutes.'
+          : 'Email ou mot de passe incorrect',
+      );
       return;
     }
 
-    navigate('/');
+    // `replace` : la page de connexion ne reste pas dans l'historique.
+    void navigate(destination, { replace: true });
   }
 
   return (
     <>
       <PageHeader
         title="Connexion"
-        description="Un compte ouvre les examens et les révisions. Le catalogue se parcourt sans compte."
+        description="Un compte dont l’adresse est vérifiée ouvre tout le catalogue, les examens, le suivi des parcours, les favoris et les notes. Le premier module de chaque parcours se lit sans compte."
       />
       <Form
         className="flex flex-col gap-4"
@@ -78,8 +95,10 @@ export function LoginPage() {
       </Form>
       <p className="text-muted mt-6 text-sm">
         Pas encore de compte ?{' '}
+        {/* La destination suit vers l'inscription : elle ne se perd pas en
+            changeant d'avis. */}
         <Link
-          to="/register"
+          to={registerHref(destination)}
           className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
         >
           Créer un compte

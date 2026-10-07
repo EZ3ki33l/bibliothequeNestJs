@@ -1,35 +1,68 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { ArrowLeftIcon } from '@phosphor-icons/react';
-import { Button, Skeleton } from '@heroui/react';
-import { getEntryBySlug, jsonToStringRecord } from '../lib/stacks';
+import { Button, Skeleton, buttonVariants } from '@heroui/react';
+import { getEntryBySlug, getReaderEntry, jsonToStringRecord } from '../lib/stacks';
+import { resolveEntryReading } from '../lib/entryReading';
+import { useReservedEntryIds } from '../lib/entryAccess';
+import { useViewerAccess } from '../lib/viewerAccess';
+import { examHrefFromPath, getLearningPath } from '../lib/learningPaths';
+import { adjacentSteps } from '../lib/pathSteps';
+import { reportHref } from '../lib/errorReport';
 import { useAsyncData } from '../lib/useAsyncData';
 import { authClient } from '../lib/auth';
-import { ensureReview } from '../lib/reviews';
+import { markEntryRead } from '../lib/entryProgress';
+import { useEntryStates } from '../lib/useEntryStates';
+import { currentReturnTo, loginHref } from '../lib/returnTo';
+import { useLoginRedirect } from '../lib/useLoginRedirect';
+import { usePageTitle } from '../lib/pageTitle';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
-import { EmptyMessage } from '../components/ui/EmptyMessage';
-import { EntryMeta } from '../components/ui/EntryMeta';
+import { NotFoundState } from '../components/ui/NotFoundState';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
-import { EntryMdx } from '../components/entry/EntryMdx';
-import { Playground } from '../components/lab/Playground';
+import { EntryArticle } from '../components/entry/EntryArticle';
+import { EntryStepNav } from '../components/entry/EntryStepNav';
+import { ReservedContent } from '../components/entry/ReservedContent';
 import { HeartIcon } from '../components/ui/HeartIcon';
 import { addFavorite, listFavorites, removeFavorite } from '../lib/favorites';
-import { deleteNote, listNotes, saveNote } from '../lib/notes';
+import { deleteNote, listNotes, MAX_NOTE_LENGTH, saveNote } from '../lib/notes';
 
 /** À quelle fiche correspond le dernier état de favori chargé depuis le serveur. */
 type FavoriteState = { entryId: string; favorited: boolean };
 
+/**
+ * Page d'une fiche.
+ *
+ * Deux lectures, dans cet ordre :
+ * 1. la lecture **publique** (`GET /entries/:slug`), la même pour tous : la
+ *    fiche entière si elle est en accès libre, son en-tête seul si elle est
+ *    réservée ;
+ * 2. pour une fiche réservée ouverte par un compte, la lecture **complète**
+ *    (`GET /reader/entries/:slug`), que le serveur n'accorde qu'à une adresse
+ *    vérifiée.
+ *
+ * `resolveEntryReading` traduit ces réponses en un état d'écran. Une fiche que
+ * le lecteur ne peut pas lire affiche son en-tête, une zone floutée factice et
+ * un message ; rien d'autre : ni trace de lecture, ni favori, ni note, ni
+ * examen, ni signalement. Ces fonctions appartiennent à une fiche lue, et la
+ * compter comme lue validerait une étape de parcours sans lecture.
+ *
+ * La session du navigateur (`useViewerAccess`) ne choisit que le message et
+ * évite des requêtes vouées au refus. Elle n'ouvre aucun contenu : c'est le
+ * serveur qui transmet, ou non, le corps de la fiche.
+ */
 export function EntryPage() {
   const { slug } = useParams();
-  const navigate = useNavigate();
+  const location = useLocation();
+  const redirectToLogin = useLoginRedirect();
   /**
    * Slug du parcours d'où la fiche a été ouverte (`?parcours=`), pour le lien
-   * de retour. Simple aide à la navigation : il n'est envoyé à aucune API et
-   * n'ouvre aucun droit. Un slug inconnu mène à « parcours introuvable ».
+   * de retour et les étapes voisines. Simple aide à la navigation : il n'ouvre
+   * aucun droit, et ne sert qu'à relire le plan **public** de ce parcours. Un
+   * slug inconnu mène à « parcours introuvable ».
    */
   const [searchParams] = useSearchParams();
   const fromPath = searchParams.get('parcours');
-  const { data: session } = authClient.useSession();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
   const [favoriteState, setFavoriteState] = useState<FavoriteState | null>(null);
   // Écriture en cours (POST ou DELETE /favorites) : désactive le bouton pour éviter un double-clic.
   const [favPending, setFavPending] = useState(false);
@@ -45,11 +78,63 @@ export function EntryPage() {
   const [noteSaved, setNoteSaved] = useState(false);
 
   const userId = session?.user?.id;
+  const viewer = useViewerAccess();
 
-  const { data: entry, error } = useAsyncData(
+  // Lecture publique : sans session, identique pour tous.
+  const { data: publicEntry, error } = useAsyncData(
     () => (slug ? getEntryBySlug(slug) : Promise.resolve(null)),
     [slug],
     'Impossible de charger la fiche',
+  );
+
+  /**
+   * Lecture complète, seulement pour une fiche réservée ouverte par un compte.
+   * Un visiteur n'émet pas cette requête (elle répondrait 401), et tant que la
+   * session n'est pas connue la page attend.
+   *
+   * Un compte non vérifié l'émet aussi : c'est le serveur qui tranche (403),
+   * pas l'état de la session dans le navigateur, qui peut dater. `viewer` est
+   * dans les dépendances : une adresse tout juste vérifiée relance la lecture,
+   * et la fiche s'affiche sans reconnexion.
+   */
+  const needsReader =
+    publicEntry?.access === 'reserved' && viewer !== undefined && viewer !== 'visitor';
+  const { data: readerEntry, error: readerError } = useAsyncData(
+    () => (needsReader && slug ? getReaderEntry(slug) : Promise.resolve(null)),
+    [slug, needsReader, viewer, userId],
+    'Impossible de charger la fiche',
+  );
+
+  const reading = resolveEntryReading(publicEntry, viewer, readerEntry);
+
+  /**
+   * La fiche **lue**, ou `undefined`. Tout ce qui suit et dépend du lecteur
+   * (trace de lecture, repères, favori, note) ne part que d'elle : une fiche
+   * illisible ne déclenche aucun de ces appels.
+   */
+  const entry = reading.status === 'readable' ? reading.entry : undefined;
+  /** En-tête affichable : celui de la fiche lue, ou celui d'une fiche illisible. */
+  const header =
+    reading.status === 'readable'
+      ? reading.entry
+      : reading.status === 'locked'
+        ? reading.header
+        : undefined;
+
+  /**
+   * Plan public du parcours, pour proposer l'étape précédente et la suivante.
+   *
+   * C'est la lecture de la page du parcours : sans session, parcours publié
+   * seulement, étapes limitées aux fiches publiées. Un parcours inconnu ou en
+   * brouillon donne `null`, donc aucun lien d'étape.
+   *
+   * L'erreur est volontairement **ignorée** : si ce plan ne peut pas être
+   * obtenu, la fiche se lit normalement, avec le seul « Retour au parcours ».
+   */
+  const { data: path } = useAsyncData(
+    () => (fromPath ? getLearningPath(fromPath) : Promise.resolve(null)),
+    [fromPath],
+    'Impossible de charger le parcours',
   );
 
   /**
@@ -68,18 +153,45 @@ export function EntryPage() {
       ? favoriteState.favorited
       : undefined;
 
+  // Titre de l'onglet : celui de la fiche, une fois chargée. `getEntryBySlug`
+  // ne renvoie que des fiches publiées : pendant le chargement, ou pour une
+  // fiche introuvable ou dépubliée, l'onglet garde le titre neutre. Le titre
+  // d'une fiche réservée est public, il nomme donc l'onglet lui aussi.
+  usePageTitle(header?.title);
+
+  // `null` hors parcours, ou si la fiche n'est pas une étape de celui de l'adresse.
+  const steps = slug ? adjacentSteps(path, slug) : null;
+
+  // Accès des étapes voisines, pour annoncer « Compte requis » avant de les
+  // ouvrir. Lecture publique ; rien n'est demandé pour un compte vérifié.
+  const reservedStepIds = useReservedEntryIds(
+    [steps?.previous?.id, steps?.next?.id].filter((id): id is string => id !== undefined),
+  );
+
   /**
-   * Ouvrir une fiche l'inscrit au programme de révision.
+   * Repères du compte pour cette fiche : meilleur score et examen réussi ou
+   * non. Lecture sous session, séparée de la lecture publique de la fiche, qui
+   * reste identique pour tous. `undefined` pour un visiteur, pendant le
+   * chargement ou en cas d'échec : aucune mention de score n'apparaît alors.
+   */
+  const states = useEntryStates(entry?.id ? [entry.id] : []);
+  const state = entry?.id ? states?.byEntryId.get(entry.id) : undefined;
+
+  /**
+   * Ouvrir une fiche la compte comme lue.
    *
-   * Uniquement si l'utilisateur est connecté (une carte appartient à un
-   * compte). L'appel est volontairement « silencieux » : lire une fiche doit
-   * fonctionner même si l'enregistrement échoue, donc l'erreur est ignorée
-   * plutôt qu'affichée.
+   * Uniquement si un compte est connecté (une trace de lecture appartient à un
+   * compte) : un visiteur n'émet aucun appel. Et uniquement si la fiche est
+   * **lue** : `entry` est absent d'une fiche illisible, dont la page floutée ne
+   * compte pas comme une lecture (le serveur refuserait de toute façon).
+   * L'appel est volontairement « silencieux » : lire une fiche doit fonctionner
+   * même si l'enregistrement échoue, donc l'erreur est ignorée plutôt
+   * qu'affichée.
    */
   useEffect(() => {
     if (!entry?.id || !userId) return;
 
-    void ensureReview(entry.id).catch(() => undefined);
+    void markEntryRead(entry.id).catch(() => undefined);
   }, [entry?.id, userId]);
 
   useEffect(() => {
@@ -161,9 +273,9 @@ export function EntryPage() {
 
       if (result === 'unauthorized') {
         if (wasFavorited) {
-          navigate('/login', { replace: true });
+          redirectToLogin();
         } else {
-          setFavError('Connectez-vous pour marquer cette fiche.');
+          setFavError('Une connexion est nécessaire pour marquer cette fiche.');
         }
         return;
       }
@@ -192,7 +304,7 @@ export function EntryPage() {
       const result = await saveNote(currentEntryId, noteDraft);
 
       if (result === 'unauthorized') {
-        navigate('/login', { replace: true });
+        redirectToLogin();
         return;
       }
 
@@ -221,7 +333,7 @@ export function EntryPage() {
       const result = await deleteNote(currentEntryId);
 
       if (result === 'unauthorized') {
-        navigate('/login', { replace: true });
+        redirectToLogin();
         return;
       }
 
@@ -234,11 +346,16 @@ export function EntryPage() {
     }
   }
 
-  if (error) {
-    return <ErrorMessage>{error}</ErrorMessage>;
+  // L'échec de la lecture complète ne compte que si elle a été demandée.
+  const loadError = error ?? (needsReader ? readerError : null);
+
+  if (loadError) {
+    return <ErrorMessage>{loadError}</ErrorMessage>;
   }
 
-  if (entry === undefined) {
+  // Lecture en cours, ou lecteur encore inconnu : le squelette, jamais la zone
+  // floutée (elle annoncerait à tort un refus).
+  if (reading.status === 'loading') {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
         <Skeleton className="h-10 w-3/4 rounded-lg" />
@@ -248,23 +365,22 @@ export function EntryPage() {
     );
   }
 
-  if (entry === null) {
-    return <EmptyMessage>Fiche introuvable.</EmptyMessage>;
+  if (reading.status === 'not-found' || !header) {
+    return (
+      <NotFoundState
+        message="Fiche introuvable."
+        listLink={{ to: '/stacks', label: 'Toutes les leçons' }}
+      />
+    );
   }
 
-  const { category } = entry;
+  const { category } = header;
   const { stack } = category;
 
-  // Colonnes JSON de Prisma : validées avant d'être passées à Sandpack.
-  const files = jsonToStringRecord(entry.files);
-  const dependencies = jsonToStringRecord(entry.dependencies);
-
-  // Un concept s'explique, il ne s'exécute pas : pas de playground pour lui,
-  // ni pour une fiche sans fichier.
-  const showPlayground = entry.kind !== 'CONCEPT' && files !== undefined;
-
-  return (
-    <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
+  // Retour au parcours et fil d'Ariane : ils ne portent que des informations
+  // publiques, ils s'affichent donc aussi au-dessus d'une fiche illisible.
+  const lead = (
+    <>
       {fromPath ? (
         <Link
           to={`/parcours/${encodeURIComponent(fromPath)}`}
@@ -276,44 +392,92 @@ export function EntryPage() {
       ) : null}
       <Breadcrumbs
         items={[
-          { label: 'Stacks', to: '/stacks' },
+          { label: 'Leçons', to: '/stacks' },
           { label: stack.name, to: `/stacks/${stack.slug}` },
           { label: category.name, to: `/stacks/${stack.slug}/${category.slug}` },
-          { label: entry.title },
+          { label: header.title },
         ]}
       />
-      <header className="border-border mb-8 border-b pb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">{entry.title}</h1>
-        {entry.summary ? <p className="text-muted mt-3 text-base">{entry.summary}</p> : null}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
-        </div>
-        {entry.tags.length > 0 ? (
-          <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
-            {entry.tags.map((tag) => (
-              <li key={tag}>
-                {/* Suivre un tag ouvre la recherche déjà filtrée (US3 / FR-006).
-                    `encodeURIComponent` protège un tag qui contiendrait un
-                    espace ou un caractère spécial dans l'URL. */}
-                <Link
-                  to={`/recherche?tag=${encodeURIComponent(tag)}`}
-                  className="text-muted hover:text-foreground text-xs underline"
-                >
-                  #{tag}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {/* L'examen demande une session : le lien n'apparaît que si connecté. */}
-        {userId ? (
-          <p className="mt-4">
-            <Link to={`/entries/${entry.slug}/exam`} className="text-sm underline">
-              Examen
-            </Link>
-          </p>
-        ) : null}
-        {/*
+    </>
+  );
+
+  const stepNav =
+    steps && fromPath ? (
+      <EntryStepNav
+        steps={steps}
+        pathSlug={fromPath}
+        reservedIds={reservedStepIds}
+        viewer={viewer}
+      />
+    ) : null;
+
+  /**
+   * Fiche que ce lecteur ne peut pas lire : l'en-tête en clair, puis la zone
+   * floutée et son message à la place du contenu. Le serveur n'a transmis que
+   * l'en-tête ; il n'y a ni corps, ni fichiers, ni sources à passer.
+   *
+   * `returnTo` est l'adresse courante, `?parcours=` compris : après la
+   * création du compte ou la connexion, le lecteur revient à cette fiche, dans
+   * le même parcours.
+   */
+  if (reading.status === 'locked') {
+    return (
+      <EntryArticle
+        title={header.title}
+        summary={header.summary}
+        kind={header.kind}
+        difficulty={header.difficulty}
+        tags={header.tags}
+        lead={lead}
+        locked={
+          <ReservedContent
+            reader={reading.reader}
+            email={session?.user?.email}
+            returnTo={currentReturnTo(location)}
+          />
+        }
+        footer={stepNav}
+      />
+    );
+  }
+
+  const fullEntry = reading.entry;
+
+  // Colonnes JSON de Prisma : validées avant d'être passées à Sandpack.
+  const files = jsonToStringRecord(fullEntry.files);
+  const dependencies = jsonToStringRecord(fullEntry.dependencies);
+
+  // Un examen terminé existe pour ce compte : le bouton propose de le repasser.
+  const hasFinishedExam = state !== undefined && state.bestScore !== null;
+
+  /**
+   * La présentation (en-tête, corps, playground, sources) appartient à
+   * `EntryArticle`, partagé avec l'aperçu de l'administration. La page ne garde
+   * que ce qui dépend du lecteur et de sa navigation :
+   * - `lead` : retour au parcours et fil d'Ariane ;
+   * - `headerActions` : le favori, seule action utile avant la lecture ;
+   * - `footer` : ce qui se fait **après** avoir lu — examen, note, étape
+   *   suivante, signalement. Rien de tout cela ne s'intercale entre le titre et
+   *   le contenu : un lecteur connecté voit autant de leçon qu'un visiteur.
+   */
+  return (
+    <EntryArticle
+      title={fullEntry.title}
+      summary={fullEntry.summary}
+      kind={fullEntry.kind}
+      difficulty={fullEntry.difficulty}
+      tags={fullEntry.tags}
+      bodyMdx={fullEntry.bodyMdx}
+      template={fullEntry.template}
+      files={files}
+      dependencies={dependencies}
+      sources={fullEntry.sources}
+      verifiedOn={fullEntry.verifiedOn}
+      verifiedVersion={fullEntry.verifiedVersion}
+      lead={lead}
+      headerActions={
+        <>
+          {/*
           Le bouton n'apparaît que si `userId` est présent (visiteur : jamais
           de bouton) ET que `favorited` a fini de charger (`!== undefined`) :
           sans cette seconde condition, un connecté verrait une fraction de
@@ -324,89 +488,139 @@ export function EntryPage() {
           rouge = déjà favori (clic → retire, Phase 5). Toujours cliquable,
           seul `favPending` désactive le temps de l'aller-retour réseau.
         */}
-        {userId && favorited !== undefined ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              isIconOnly
-              isDisabled={favPending}
-              aria-label={favorited ? 'Retirer des favoris' : 'Mettre de côté'}
-              onPress={() => {
-                void onToggleFavorite();
-              }}
-            >
-              <HeartIcon
-                filled={favorited}
-                className={
-                  favorited
-                    ? 'text-danger size-5 transition-transform duration-150 hover:scale-125'
-                    : 'text-muted hover:text-danger size-5 transition-transform duration-150 hover:scale-125'
-                }
-              />
-            </Button>
-            {favError ? <span className="text-danger text-xs">{favError}</span> : null}
-          </div>
-        ) : null}
-
-        {userId && noteState?.entryId === entry.id ? (
-          <div className="mt-6 flex flex-col gap-2">
-            <label htmlFor="entry-note" className="text-sm font-medium">
-              Note personnelle
-            </label>
-            <textarea
-              id="entry-note"
-              value={noteDraft}
-              onChange={(event) => {
-                setNoteDraft(event.target.value);
-                setNoteSaved(false);
-              }}
-              maxLength={4000}
-              rows={4}
-              placeholder="Un rappel personnel sur cette fiche, visible par vous seul."
-              className="border-border bg-background w-full rounded-lg border p-3 text-sm"
-            />
-            <div className="flex items-center gap-2">
+          {userId && favorited !== undefined ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                isDisabled={notePending || noteDraft === noteState.content}
+                isIconOnly
+                isDisabled={favPending}
+                aria-label={favorited ? 'Retirer des favoris' : 'Mettre de côté'}
                 onPress={() => {
-                  void onSaveNote();
+                  void onToggleFavorite();
                 }}
               >
-                Enregistrer
+                <HeartIcon
+                  filled={favorited}
+                  className={
+                    favorited
+                      ? 'text-danger size-5 transition-transform duration-150 hover:scale-125'
+                      : 'text-muted hover:text-danger size-5 transition-transform duration-150 hover:scale-125'
+                  }
+                />
               </Button>
-              {noteState.content !== '' ? (
+              {favError ? <span className="text-danger text-xs">{favError}</span> : null}
+            </div>
+          ) : null}
+        </>
+      }
+      footer={
+        <>
+          {/* Examen. Trois cas, décidés à partir de ce que dit le serveur :
+              - la fiche n'a pas d'examen (`quizEligible` faux) : pas de bouton,
+                et un compte connecté apprend que la lecture suffit ;
+              - compte connecté : le bouton, avec le meilleur score s'il y en a
+                un. Le parcours d'origine suit jusqu'à l'examen ;
+              - visiteur : une invitation à se connecter, qui retient cette
+                page (parcours compris) pour y revenir. Elle ne vaut que pour
+                l'examen : favori et note restent absents sans session.
+              Tant que la session n'est pas connue, rien n'est affiché : un
+              compte connecté ne voit pas passer l'invitation du visiteur. */}
+          {!fullEntry.quizEligible ? (
+            userId ? (
+              <p className="text-muted text-sm">
+                Cette fiche n’a pas d’examen : sa lecture suffit à valider l’étape.
+              </p>
+            ) : null
+          ) : userId ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <Link
+                to={examHrefFromPath(fullEntry.slug, fromPath)}
+                className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+              >
+                {hasFinishedExam ? 'Repasser l’examen' : 'Passer l’examen'}
+              </Link>
+              {state && state.bestScore !== null ? (
+                <p className="text-muted text-sm">
+                  Meilleur score : {state.bestScore} / 100 ·{' '}
+                  {state.passed ? 'examen réussi' : 'examen non réussi'}
+                </p>
+              ) : null}
+            </div>
+          ) : sessionPending ? null : (
+            <div>
+              <Link
+                to={loginHref(currentReturnTo(location))}
+                className={`${buttonVariants({ variant: 'secondary' })} no-underline`}
+              >
+                Se connecter pour passer l’examen
+              </Link>
+            </div>
+          )}
+
+          {userId && noteState?.entryId === fullEntry.id ? (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="entry-note" className="text-sm font-medium">
+                Note personnelle
+              </label>
+              <textarea
+                id="entry-note"
+                value={noteDraft}
+                onChange={(event) => {
+                  setNoteDraft(event.target.value);
+                  setNoteSaved(false);
+                }}
+                maxLength={MAX_NOTE_LENGTH}
+                rows={4}
+                placeholder="Un rappel personnel sur cette fiche, visible par ce compte seulement."
+                className="border-border bg-background w-full rounded-lg border p-3 text-sm"
+              />
+              <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  isDisabled={notePending}
+                  isDisabled={notePending || noteDraft === noteState.content}
                   onPress={() => {
-                    void onDeleteNote();
+                    void onSaveNote();
                   }}
                 >
-                  Supprimer
+                  Enregistrer
                 </Button>
-              ) : null}
-              {noteSaved ? <span className="text-muted text-xs">Enregistré.</span> : null}
-              {noteError ? <span className="text-danger text-xs">{noteError}</span> : null}
+                {noteState.content !== '' ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    isDisabled={notePending}
+                    onPress={() => {
+                      void onDeleteNote();
+                    }}
+                  >
+                    Supprimer
+                  </Button>
+                ) : null}
+                {noteSaved ? <span className="text-muted text-xs">Enregistré.</span> : null}
+                {noteError ? <span className="text-danger text-xs">{noteError}</span> : null}
+              </div>
             </div>
-          </div>
-        ) : null}
-      </header>
+          ) : null}
 
-      {entry.bodyMdx ? (
-        <EntryMdx source={entry.bodyMdx} />
-      ) : (
-        <EmptyMessage>Cette fiche n’a pas encore de contenu.</EmptyMessage>
-      )}
+          {stepNav}
 
-      {showPlayground ? (
-        <Playground files={files} template={entry.template} dependencies={dependencies} />
-      ) : null}
-    </article>
+          {/* Pour tout lecteur, connecté ou non : le formulaire de contact
+              est public. Seul le slug voyage dans l'adresse. */}
+          <p className="text-muted text-xs">
+            Une erreur dans cette fiche ?{' '}
+            <Link
+              to={reportHref(fullEntry.slug)}
+              className="text-foreground rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)"
+            >
+              Signaler une erreur
+            </Link>
+          </p>
+        </>
+      }
+    />
   );
 }

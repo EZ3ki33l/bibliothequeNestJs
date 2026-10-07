@@ -1,6 +1,6 @@
 import { useState, type ComponentProps } from 'react';
 import { EyeIcon, EyeSlashIcon } from '@phosphor-icons/react';
-import { Button, FieldError, Input, Label, TextField } from '@heroui/react';
+import { Button, Description, FieldError, Input, Label, TextField } from '@heroui/react';
 
 type AuthFieldProps = {
   name: string;
@@ -9,10 +9,15 @@ type AuthFieldProps = {
   autoComplete?: string;
   isRequired?: boolean;
   minLength?: number;
+  maxLength?: number;
+  /** Valeur de départ d'un champ non contrôlé (le nom actuel, par exemple). */
+  defaultValue?: string;
+  /** Règle rappelée sous le champ (« 8 caractères au moins. »), reliée à lui pour les lecteurs d'écran. */
+  description?: string;
 };
 
 /**
- * Champ des formulaires de connexion et d'inscription.
+ * Champ des formulaires de compte : connexion, inscription, « Mon compte ».
  *
  * Même composition que les formulaires admin (`TextField` + `Label` + `Input`) :
  * HeroUI pose les attributs d'accessibilité, `FieldError` affiche les
@@ -31,6 +36,9 @@ export function AuthField({
   autoComplete,
   isRequired,
   minLength,
+  maxLength,
+  defaultValue,
+  description,
 }: AuthFieldProps) {
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === 'password';
@@ -41,6 +49,8 @@ export function AuthField({
       autoComplete={autoComplete}
       isRequired={isRequired}
       minLength={minLength}
+      maxLength={maxLength}
+      defaultValue={defaultValue}
     >
       <div className="flex items-center justify-between gap-2">
         <Label>{label}</Label>
@@ -59,6 +69,7 @@ export function AuthField({
         ) : null}
       </div>
       <Input type={isPassword && revealed ? 'text' : type} />
+      {description ? <Description>{description}</Description> : null}
       <FieldError />
     </TextField>
   );

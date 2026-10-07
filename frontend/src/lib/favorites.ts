@@ -4,7 +4,7 @@ import type { StackEntry } from './stacks';
 /**
  * Appels des favoris.
  *
- * Comme pour les révisions, le serveur ne prend jamais d'identifiant
+ * Comme pour les notes, le serveur ne prend jamais d'identifiant
  * d'utilisateur en paramètre : il le lit dans la session. L'état « de côté »
  * d'une fiche se lit via `listFavorites({ entryId })`, il n'y a pas de champ
  * `favorited` sur `GET /entries/:slug`.

@@ -11,8 +11,8 @@ const entryId = 'entry-1';
 /**
  * Fabrique une vraie erreur Prisma « violation de contrainte unique » (code
  * `P2002`), pour tester la branche `catch` de `create` sans base de données.
- * Même helper que `reviews.service.spec.ts` (`ReviewsService.ensure`),
- * puisque la méthode reproduit exactement le même patron.
+ * Même helper que `entry-progress.service.spec.ts`
+ * (`EntryProgressService.markRead`), qui suit le même patron.
  */
 function knownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {

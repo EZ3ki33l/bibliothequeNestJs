@@ -12,23 +12,24 @@ export function AdminStacksPage() {
   const { page, setPage, data, error, requestDelete } = useAdminResourceList({
     load: listAdminStacks,
     remove: deleteAdminStack,
-    loadError: 'Impossible de charger les stacks',
-    confirmMessage: 'Supprimer ce stack et toutes ses catégories / fiches ?',
-    deletedMessage: 'Stack supprimé',
-    deleteError: 'Impossible de supprimer le stack',
+    loadError: 'Impossible de charger les leçons',
+    confirmMessage: (name) =>
+      `Supprimer la leçon « ${name} », ses catégories et toutes leurs fiches ? Lectures, quiz, favoris et notes des lecteurs sur ces fiches sont supprimés aussi.`,
+    deletedMessage: 'Leçon supprimée',
+    deleteError: 'Impossible de supprimer la leçon',
   });
 
   return (
     <>
       <PageHeader
-        title="Stacks"
+        title="Leçons"
         description="Techno / contexte (React, Prisma, HeroUI…)."
         action={
           <Link
             to="/admin/stacks/new"
             className={`${buttonVariants({ variant: 'primary' })} no-underline`}
           >
-            Nouveau stack
+            Nouvelle leçon
           </Link>
         }
       />
@@ -40,7 +41,7 @@ export function AdminStacksPage() {
         <AdminListSkeleton />
       ) : data.items.length === 0 ? (
         <EmptyMessage>
-          Aucun stack pour le moment.{' '}
+          Aucune leçon pour le moment.{' '}
           <Link to="/admin/stacks/new" className="text-foreground underline">
             Créer le premier
           </Link>
@@ -57,7 +58,7 @@ export function AdminStacksPage() {
                   stack._count.categories > 1 ? 'catégories' : 'catégorie'
                 }`}
                 editTo={`/admin/stacks/${stack.id}/edit`}
-                onDelete={() => void requestDelete(stack.id)}
+                onDelete={() => void requestDelete(stack.id, stack.name)}
               />
             ))}
           </ul>

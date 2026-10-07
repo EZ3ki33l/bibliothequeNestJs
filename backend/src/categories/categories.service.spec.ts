@@ -150,7 +150,7 @@ describe('CategoriesService', () => {
       prisma.category.create.mockRejectedValue(knownRequestError('P2002'));
 
       await expect(service.create(dto)).rejects.toThrow(
-        'Une catégorie avec un nom trop proche existe déjà dans ce stack',
+        'Une catégorie avec un nom trop proche existe déjà dans cette leçon',
       );
     });
 

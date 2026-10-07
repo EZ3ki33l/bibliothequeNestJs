@@ -21,8 +21,8 @@ export function AdminStackForm({
 }: AdminStackFormProps) {
   const isEdit = mode === 'edit';
   const { error, pending, submit } = useAdminSubmit({
-    success: isEdit ? 'Stack enregistré' : 'Stack créé',
-    failure: isEdit ? 'Impossible de modifier le stack' : 'Impossible de créer le stack',
+    success: isEdit ? 'Leçon enregistrée' : 'Leçon créée',
+    failure: isEdit ? 'Impossible de modifier la leçon' : 'Impossible de créer la leçon',
     onSuccess,
   });
 
@@ -72,7 +72,7 @@ export function AdminStackForm({
             : 'Création…'
           : isEdit
             ? 'Enregistrer'
-            : 'Créer le stack'}
+            : 'Créer la leçon'}
       </Button>
     </Form>
   );

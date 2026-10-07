@@ -1,16 +1,16 @@
-import { useNavigate } from 'react-router';
+import { useReturnToList } from '../../components/admin/useReturnToList';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { AdminStackForm } from './AdminStackForm';
 
 export function AdminStackNewPage() {
-  const navigate = useNavigate();
+  const returnToList = useReturnToList('/admin/stacks');
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Stacks', to: '/admin/stacks' }, { label: 'Nouveau' }]} />
-      <PageHeader title="Nouveau stack" />
-      <AdminStackForm mode="create" onSuccess={() => navigate('/admin/stacks')} />
+      <Breadcrumbs items={[{ label: 'Leçons', to: '/admin/stacks' }, { label: 'Nouvelle' }]} />
+      <PageHeader title="Nouvelle leçon" />
+      <AdminStackForm mode="create" onSuccess={returnToList} />
     </>
   );
 }

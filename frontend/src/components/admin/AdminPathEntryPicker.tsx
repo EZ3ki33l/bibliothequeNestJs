@@ -39,7 +39,7 @@ export function AdminPathEntryPicker({
     // précédente ne doit pas écraser celle de la frappe actuelle.
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      listAdminEntries(1, RESULT_LIMIT, search)
+      listAdminEntries(1, RESULT_LIMIT, { q: search })
         .then((page) => {
           if (cancelled) return;
           setResults(page.items);

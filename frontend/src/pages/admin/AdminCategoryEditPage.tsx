@@ -1,6 +1,7 @@
-import { useNavigate, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { getAdminCategoryById } from '../../lib/admin';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useReturnToList } from '../../components/admin/useReturnToList';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -10,7 +11,7 @@ import { AdminCategoryForm } from './AdminCategoryForm';
 
 export function AdminCategoryEditPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
+  const returnToList = useReturnToList('/admin/categories');
   const { data: category, error } = useAsyncData(
     () => (id ? getAdminCategoryById(id) : Promise.resolve(null)),
     [id],
@@ -33,7 +34,7 @@ export function AdminCategoryEditPage() {
         stackName={category.stack.name}
         initialName={category.name}
         initialDescription={category.description}
-        onSuccess={() => navigate('/admin/categories')}
+        onSuccess={returnToList}
       />
     </>
   );

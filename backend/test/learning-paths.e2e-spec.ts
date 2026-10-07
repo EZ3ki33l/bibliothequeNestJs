@@ -35,6 +35,11 @@ describe('Learning paths (e2e)', () => {
     return server().get('/progress/learning-paths/maitriser-les-hooks-react').expect(401);
   });
 
+  // Parcours commencés : même règle, et aucun paramètre ne désigne un compte.
+  it('GET /progress/started-paths without cookie → 401', () => {
+    return server().get('/progress/started-paths').expect(401);
+  });
+
   describe('admin routes without cookie → 401', () => {
     const base = `/admin/learning-paths/${pathId}`;
     const cases: [string, () => request.Test][] = [

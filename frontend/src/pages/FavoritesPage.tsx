@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { Button, Skeleton } from '@heroui/react';
 import { getMe } from '../lib/auth';
 import {
@@ -8,9 +8,11 @@ import {
   type FavoritesPage as FavoritesPageData,
 } from '../lib/favorites';
 import { useAsyncData } from '../lib/useAsyncData';
+import { useLoginRedirect } from '../lib/useLoginRedirect';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EntryCard } from '../components/ui/EntryCard';
+import { useAccessMentions } from '../lib/entryAccess';
 import { HeartIcon } from '../components/ui/HeartIcon';
 import { PageHeader } from '../components/ui/PageHeader';
 
@@ -22,11 +24,12 @@ type FavoritesState = FavoritesPageData | 'unauthorized';
  * compte connecté.
  *
  * L'état « favori » vient toujours de `GET /favorites` — jamais d'un champ
- * `favorited` sur `GET /entries/:slug`, qui n'existe pas. Comme `/review`,
- * la garde est `GET /me` (401 → `/login`), pas `useSession()`.
+ * `favorited` sur `GET /entries/:slug`, qui n'existe pas. Comme `/notes`,
+ * la garde est `GET /me` (401 → connexion, en retenant cette page), pas
+ * `useSession()`.
  */
 export function FavoritesPage() {
-  const navigate = useNavigate();
+  const redirectToLogin = useLoginRedirect();
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   // `entryId` de la ligne en cours de retrait : désactive son propre bouton
@@ -45,9 +48,15 @@ export function FavoritesPage() {
 
   useEffect(() => {
     if (data === 'unauthorized') {
-      navigate('/login', { replace: true });
+      redirectToLogin();
     }
-  }, [data, navigate]);
+  }, [data, redirectToLogin]);
+
+  // Un favori posé sur une fiche en accès libre, refermée depuis, reste listé :
+  // sa carte porte alors « Adresse à vérifier » tant que le compte ne l'est pas.
+  const accessOf = useAccessMentions(
+    data && data !== 'unauthorized' ? data.items.map((favorite) => favorite.entry.id) : [],
+  );
 
   function goToPage(nextPage: number) {
     const next = new URLSearchParams(searchParams);
@@ -73,7 +82,7 @@ export function FavoritesPage() {
       const result = await removeFavorite(entryId);
 
       if (result === 'unauthorized') {
-        navigate('/login', { replace: true });
+        redirectToLogin();
         return;
       }
 
@@ -117,7 +126,7 @@ export function FavoritesPage() {
           <ul className="grid gap-4 sm:grid-cols-2">
             {data.items.map((favorite) => (
               <li key={favorite.id} className="relative">
-                <EntryCard entry={favorite.entry} />
+                <EntryCard entry={favorite.entry} access={accessOf(favorite.entry.id)} />
                 {/* Frère du `<Link>` de la carte, pas un enfant : un bouton ne
                     peut pas être imbriqué dans un lien (HTML), et un clic
                     dessus ne doit de toute façon pas naviguer vers la fiche. */}

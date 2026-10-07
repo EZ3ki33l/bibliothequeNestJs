@@ -16,10 +16,11 @@ const RECORD_NOT_FOUND = 'P2025';
 
 /**
  * Vrai si l'erreur est une violation de contrainte d'unicité (slug déjà pris,
- * carte de révision déjà créée…).
+ * trace de lecture déjà créée…).
  *
- * Utile quand le doublon n'est pas une erreur métier : `ReviewsService.ensure`
- * veut l'ignorer en silence plutôt que renvoyer 409.
+ * Utile quand le doublon n'est pas une erreur métier :
+ * `EntryProgressService.markRead` veut l'ignorer en silence plutôt que
+ * renvoyer 409.
  */
 export function isUniqueConstraintError(error: unknown): boolean {
   return (

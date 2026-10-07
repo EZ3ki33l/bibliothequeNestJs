@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
@@ -8,7 +10,10 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { scoreQuiz } from '../common/score-quiz';
-import { isQuizEligible } from '../common/quiz-eligibility';
+import { isQuizEligible, PASSING_SCORE } from '../common/quiz-eligibility';
+import { MAX_QUIZ_STARTS_PER_HOUR, QUIZ_QUOTA_WINDOW_MS, quizRetryAt } from '../common/quiz-quota';
+import type { SessionUser } from '../auth/authed-request';
+import { EntryAccessService } from '../entry-access/entry-access.service';
 import {
   parseQuizQuestions,
   toPublicQuestions,
@@ -114,25 +119,47 @@ function toRecapQuestions(questions: QuizQuestion[], answers: QuizAnswer[]) {
  * instantané au lieu de faire confiance à ce que renvoie le navigateur. Sans
  * lui, un client pourrait renvoyer ses propres questions… et son propre
  * corrigé.
+ *
+ * Un examen **révèle le contenu** de la fiche : ses questions en sont tirées,
+ * et la correction renvoie le corrigé. `start` et `submit` appliquent donc la
+ * même règle d'accès que la lecture (`EntryAccessService.assertReadable`) :
+ * sans elle, un compte non vérifié lirait une fiche réservée sous forme de QCM.
+ * C'est pourquoi les deux méthodes reçoivent l'utilisateur de la session, et
+ * plus seulement son identifiant.
  */
 @Injectable()
 export class QuizzesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(QUIZ_GENERATOR) private readonly generator: QuizGenerator,
+    private readonly entryAccess: EntryAccessService,
   ) {}
 
   /**
    * Démarre une épreuve, ou reprend celle qui est en cours.
    *
-   * Trois issues possibles :
+   * Cinq issues possibles :
+   * - 403 si le compte n'a pas le droit de lire la fiche (réservée, adresse
+   *   non vérifiée) : rien n'est repris, généré ni créé ;
    * - une tentative (nouvelle ou reprise) avec les questions **sans** les
    *   bonnes réponses ;
    * - `attempt: null` si la fiche est trop courte pour un QCM ;
+   * - 429 si le compte a déjà démarré trop d'examens dans l'heure — rien n'est
+   *   généré ni créé, la réponse dit quand réessayer ;
    * - 503 si la génération échoue — aucune tentative n'est créée, l'utilisateur
    *   peut réessayer.
+   *
+   * L'ordre des contrôles compte : le droit de lecture passe **avant** la
+   * reprise (un examen commencé sur une fiche en accès libre, refermée depuis,
+   * afficherait sinon des questions tirées d'un contenu devenu réservé) ; la
+   * reprise passe **avant** le plafond (elle ne coûte aucune génération, la
+   * bloquer priverait l'apprenant d'un examen déjà payé) ; et le plafond passe
+   * **avant** le générateur (sinon l'appel payant aurait déjà eu lieu au moment
+   * du refus).
    */
-  async start(userId: string, slug: string) {
+  async start(user: SessionUser, slug: string) {
+    const userId = user.id;
+
     const entry = await this.prisma.entry.findFirst({
       // `published: true` : pas d'examen sur un brouillon.
       where: { slug, published: true },
@@ -148,6 +175,9 @@ export class QuizzesService {
     if (!entry) {
       throw new NotFoundException();
     }
+
+    // Après le 404 (un brouillon reste introuvable), avant tout le reste.
+    await this.entryAccess.assertReadable(entry.id, user.emailVerified);
 
     const entryPublic = toEntryPublic(entry);
 
@@ -194,6 +224,8 @@ export class QuizzesService {
       return { attempt: null, entry: entryPublic };
     }
 
+    await this.assertUnderQuota(userId);
+
     let generated: QuizQuestion[] | null;
     try {
       generated = await this.generator.generate({
@@ -239,18 +271,24 @@ export class QuizzesService {
    * score : on ne corrige que sa propre tentative, et une seule fois. Une
    * tentative appartenant à un autre compte donne 404, pas 403 — inutile de
    * confirmer son existence.
+   *
+   * Le droit de lecture est recontrôlé ici, sur la fiche de la tentative : la
+   * réponse contient le corrigé, donc du contenu. 403 si la fiche a été
+   * refermée depuis le démarrage et que l'adresse n'est pas vérifiée ; la
+   * tentative reste en cours, elle se corrigera une fois l'adresse vérifiée.
    */
-  async submit(userId: string, attemptId: string, answers: QuizAnswer[]) {
+  async submit(user: SessionUser, attemptId: string, answers: QuizAnswer[]) {
     const attempt = await this.prisma.quizAttempt.findFirst({
       where: {
         id: attemptId,
-        userId,
+        userId: user.id,
         answers: { equals: Prisma.DbNull },
         score: null,
         entry: { published: true },
       },
       select: {
         id: true,
+        entryId: true,
         questions: true,
         entry: {
           select: {
@@ -265,6 +303,10 @@ export class QuizzesService {
     if (!attempt) {
       throw new NotFoundException();
     }
+
+    // Après le 404 (tentative d'un autre compte, déjà corrigée, brouillon),
+    // avant la correction : aucun corrigé ne sort, aucune note n'est écrite.
+    await this.entryAccess.assertReadable(attempt.entryId, user.emailVerified);
 
     const questions = parseQuizQuestions(attempt.questions);
     if (!questions) {
@@ -291,10 +333,55 @@ export class QuizzesService {
     return {
       id: attempt.id,
       score: scored.score,
+      // Le verdict et le seuil partent avec le score : l'écran n'a pas à
+      // connaître la règle, il ne peut donc pas annoncer « réussi » pour un
+      // examen qui ne valide pas l'étape d'un parcours.
+      passed: scored.score >= PASSING_SCORE,
+      passingScore: PASSING_SCORE,
       correctCount: scored.correctCount,
       total: scored.total,
       questions: toRecapQuestions(questions, answers),
       entry: toEntryPublic(attempt.entry),
     };
+  }
+
+  /**
+   * Refuse (429) si le compte a atteint le plafond d'examens de l'heure.
+   *
+   * Le compteur est le nombre de tentatives du compte créées dans la fenêtre :
+   * la base le connaît déjà, rien n'est stocké en plus et il survit à un
+   * redémarrage. `@Throttle` ne conviendrait pas ici, il compte par adresse IP.
+   *
+   * `take` borne la lecture au plafond : les dix plus récentes suffisent à
+   * décider et à calculer l'heure du prochain essai (`quizRetryAt`).
+   *
+   * `HttpException` avec un corps explicite : Nest n'a pas d'exception dédiée
+   * au 429, et la réponse doit porter `retryAt` en plus du message.
+   */
+  private async assertUnderQuota(userId: string): Promise<void> {
+    const now = new Date();
+
+    const recent = await this.prisma.quizAttempt.findMany({
+      where: { userId, createdAt: { gt: new Date(now.getTime() - QUIZ_QUOTA_WINDOW_MS) } },
+      orderBy: { createdAt: 'desc' },
+      take: MAX_QUIZ_STARTS_PER_HOUR,
+      select: { createdAt: true },
+    });
+
+    const retryAt = quizRetryAt(
+      recent.map((attempt) => attempt.createdAt),
+      now,
+    );
+
+    if (retryAt) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: 'Trop d’examens démarrés. Un nouvel essai sera possible plus tard.',
+          retryAt: retryAt.toISOString(),
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 }

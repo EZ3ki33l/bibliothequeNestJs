@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import type { EntrySource, EntrySourceInput } from './entrySources';
 
 /**
  * Couche d'accès à l'API d'administration.
@@ -32,22 +33,31 @@ export type AdminListPage<T> = {
 /**
  * Résultat d'une écriture.
  *
- * Les erreurs *attendues* (saisie invalide, conflit de slug, ressource
- * supprimée entre-temps) sont des valeurs de retour : le formulaire les affiche
+ * Les erreurs *attendues* (saisie invalide, droits insuffisants, conflit de
+ * slug, ressource supprimée entre-temps) sont des valeurs de retour : le formulaire les affiche
  * à côté du champ. Les erreurs *inattendues* (réseau coupé, 500) sont levées,
  * car le formulaire n'a rien à en dire d'utile. Mélanger les deux obligerait
  * chaque appelant à deviner lequel est lequel.
  */
 export type AdminWriteResult =
-  { ok: true } | { ok: false; status: 400 | 404 | 409; message: string };
+  { ok: true } | { ok: false; status: 400 | 403 | 404 | 409; message: string };
+
+/**
+ * Suppression refusée par le serveur faute de droits (403).
+ *
+ * Un rôle `ADMIN` ne supprime que des brouillons : le serveur explique le refus
+ * et ce message mérite d'être affiché tel quel, contrairement à une panne
+ * réseau. Une classe dédiée permet à l'appelant de faire la différence.
+ */
+export class AdminRefusedError extends Error {}
 
 /** Libellés d'une ressource, pour composer des messages d'erreur en français. */
 type ResourceLabels = {
   /** Segment d'URL sous `/admin`. */
   path: string;
-  /** « le stack », « la catégorie »… */
+  /** « la leçon », « la catégorie »… */
   singular: string;
-  /** « les stacks », « les catégories »… */
+  /** « les leçons », « les catégories »… */
   plural: string;
   /** Message de 404 sur une écriture. */
   gone: string;
@@ -55,9 +65,9 @@ type ResourceLabels = {
 
 const STACKS: ResourceLabels = {
   path: 'stacks',
-  singular: 'le stack',
-  plural: 'les stacks',
-  gone: 'Ce stack n’existe plus.',
+  singular: 'la leçon',
+  plural: 'les leçons',
+  gone: 'Cette leçon n’existe plus.',
 };
 
 const CATEGORIES: ResourceLabels = {
@@ -157,6 +167,33 @@ async function readPage<T>(
   return response.json() as Promise<AdminListPage<T>>;
 }
 
+/** Plafond de `limit` imposé par le serveur (`PaginationQueryDto`). */
+const MAX_PAGE_SIZE = 50;
+
+/**
+ * Tous les éléments d'une ressource, quel que soit leur nombre.
+ *
+ * Le serveur plafonne une page à 50 lignes (protection contre une requête qui
+ * viderait la table). Une liste déroulante alimentée par une seule page perdrait
+ * donc en silence le 51ᵉ élément : impossible alors de choisir la catégorie
+ * d'une nouvelle fiche. La première page donne le total, les suivantes partent
+ * en parallèle.
+ *
+ * Réservé aux listes de choix (stacks, catégories, parcours), dont la taille
+ * reste modeste. Une liste affichée à l'écran reste paginée.
+ */
+async function readAll<T>(resource: ResourceLabels): Promise<T[]> {
+  const first = await readPage<T>(resource, 1, MAX_PAGE_SIZE);
+  const pageCount = Math.ceil(first.total / MAX_PAGE_SIZE);
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      readPage<T>(resource, index + 2, MAX_PAGE_SIZE),
+    ),
+  );
+
+  return [first, ...rest].flatMap((page) => page.items);
+}
+
 /**
  * Lecture d'une ressource par id.
  *
@@ -196,6 +233,9 @@ async function write(
     // Saisie refusée par le DTO côté serveur.
     case 400:
       return { ok: false, status: 400, message: await messageFromNest(response) };
+    // Rôle `ADMIN` : publication, ou écriture sur un contenu publié.
+    case 403:
+      return { ok: false, status: 403, message: await messageFromNest(response) };
     // Ressource (ou parent) disparue entre le chargement et l'envoi.
     case 404:
       return { ok: false, status: 404, message: resource.gone };
@@ -239,6 +279,10 @@ async function remove(resource: ResourceLabels, id: string): Promise<void> {
   // 204 No Content : succès sans corps de réponse.
   if (response.status === 204) {
     return;
+  }
+
+  if (response.status === 403) {
+    throw new AdminRefusedError(await messageFromNest(response));
   }
 
   throw new Error(
@@ -300,6 +344,11 @@ export type AdminStacksListPage = AdminListPage<AdminStackListItem>;
 
 export function listAdminStacks(page?: number, limit?: number): Promise<AdminStacksListPage> {
   return readPage<AdminStackListItem>(STACKS, page, limit);
+}
+
+/** Tous les stacks, pour une liste de choix (voir `readAll`). */
+export function listAllAdminStacks(): Promise<AdminStackListItem[]> {
+  return readAll<AdminStackListItem>(STACKS);
 }
 
 export function getAdminStackById(id: string): Promise<AdminStackDetail | null> {
@@ -368,6 +417,11 @@ export function listAdminCategories(
   return readPage<AdminCategoryListItem>(CATEGORIES, page, limit);
 }
 
+/** Toutes les catégories, pour une liste de choix (voir `readAll`). */
+export function listAllAdminCategories(): Promise<AdminCategoryListItem[]> {
+  return readAll<AdminCategoryListItem>(CATEGORIES);
+}
+
 export function getAdminCategoryById(id: string): Promise<AdminCategoryDetail | null> {
   return readById<AdminCategoryDetail>(CATEGORIES, id);
 }
@@ -429,6 +483,10 @@ export type AdminEntryDetail = {
    */
   files: unknown;
   dependencies: unknown;
+  sources: EntrySource[];
+  /** `AAAA-MM-JJ`, ou `null` si la fiche n'a pas de date de vérification. */
+  verifiedOn: string | null;
+  verifiedVersion: string;
   category: {
     id: string;
     name: string;
@@ -453,6 +511,11 @@ export type CreateAdminEntryInput = {
   template?: string;
   files?: Record<string, string>;
   dependencies?: Record<string, string>;
+  /** Présent : remplace la liste entière. Absent d'un `PATCH` : liste inchangée. */
+  sources?: EntrySourceInput[];
+  /** `null` efface la date. Absent d'un `PATCH` : date inchangée. */
+  verifiedOn?: string | null;
+  verifiedVersion?: string;
 };
 
 /** Même contrat sans `categoryId` : une fiche ne change pas de catégorie. */
@@ -460,13 +523,33 @@ export type UpdateAdminEntryInput = Omit<CreateAdminEntryInput, 'categoryId'>;
 
 export type AdminEntriesListPage = AdminListPage<AdminEntryListItem>;
 
-/** `q` filtre par titre (brouillons compris) : sert au choix d'une fiche dans un parcours. */
+/**
+ * Filtres de `GET /admin/entries`, combinés en ET par le serveur.
+ *
+ * `stackId`, `categoryId` et `pathId` sont des identifiants, pas des slugs :
+ * l'administration manipule aussi des brouillons, dont le slug peut encore
+ * changer avec le titre.
+ */
+export type AdminEntriesFilters = {
+  /** Titre, casse ignorée. */
+  q?: string;
+  status?: 'draft' | 'published';
+  stackId?: string;
+  categoryId?: string;
+  /** Fiches qui sont une étape de ce parcours. */
+  pathId?: string;
+};
+
+/** Liste des fiches, brouillons compris. Un filtre vide n'est pas envoyé. */
 export function listAdminEntries(
   page?: number,
   limit?: number,
-  q?: string,
+  filters: AdminEntriesFilters = {},
 ): Promise<AdminEntriesListPage> {
-  return readPage<AdminEntryListItem>(ENTRIES, page, limit, { q: q?.trim() });
+  return readPage<AdminEntryListItem>(ENTRIES, page, limit, {
+    ...filters,
+    q: filters.q?.trim(),
+  });
 }
 
 export function getAdminEntryById(id: string): Promise<AdminEntryDetail | null> {
@@ -482,6 +565,18 @@ export function updateAdminEntry(
   payload: UpdateAdminEntryInput,
 ): Promise<AdminWriteResult> {
   return update(ENTRIES, id, payload);
+}
+
+/**
+ * Publie ou dépublie une fiche sans passer par son formulaire.
+ *
+ * Le `PATCH` est partiel : seul `published` est envoyé, donc aucun autre champ
+ * n'est réécrit (ni le titre, ni le slug qui en dépend). Le serveur applique les
+ * mêmes droits que pour le formulaire : un rôle `ADMIN` reçoit un 403, renvoyé
+ * ici comme une valeur avec le message à afficher.
+ */
+export function setAdminEntryPublished(id: string, published: boolean): Promise<AdminWriteResult> {
+  return update(ENTRIES, id, { published });
 }
 
 export function deleteAdminEntry(id: string): Promise<void> {
@@ -554,7 +649,8 @@ export type AdminPathsListPage = AdminListPage<AdminPathListItem>;
  * restent des valeurs, comme `AdminWriteResult`.
  */
 export type AdminPathWriteResult =
-  { ok: true; path: AdminPathDetail } | { ok: false; status: 400 | 404 | 409; message: string };
+  | { ok: true; path: AdminPathDetail }
+  | { ok: false; status: 400 | 403 | 404 | 409; message: string };
 
 async function writePath(
   method: 'POST' | 'PATCH' | 'PUT',
@@ -571,6 +667,9 @@ async function writePath(
   switch (response.status) {
     case 400:
       return { ok: false, status: 400, message: await messageFromNest(response) };
+    // Rôle `ADMIN` : publication, ou écriture sur un parcours publié.
+    case 403:
+      return { ok: false, status: 403, message: await messageFromNest(response) };
     // Parcours, module, étape ou fiche disparu entre le chargement et l'envoi.
     case 404:
       return {
@@ -594,6 +693,10 @@ async function removePathPart(path: string, failure: string): Promise<void> {
     return;
   }
 
+  if (response.status === 403) {
+    throw new AdminRefusedError(await messageFromNest(response));
+  }
+
   throw new Error(response.status === 404 ? 'Cet élément n’existe plus.' : failure);
 }
 
@@ -601,6 +704,11 @@ const pathUrl = (id: string) => `/admin/learning-paths/${id}`;
 
 export function listAdminPaths(page?: number, limit?: number): Promise<AdminPathsListPage> {
   return readPage<AdminPathListItem>(PATHS, page, limit);
+}
+
+/** Tous les parcours, pour une liste de choix (voir `readAll`). */
+export function listAllAdminPaths(): Promise<AdminPathListItem[]> {
+  return readAll<AdminPathListItem>(PATHS);
 }
 
 export function getAdminPath(id: string): Promise<AdminPathDetail | null> {
@@ -726,16 +834,27 @@ export function reorderAdminPathSteps(
 /**
  * Compteurs du dashboard.
  *
- * On ne demande qu'une page de chaque ressource et on ne garde que `total` :
- * les trois requêtes partent en parallèle (`Promise.all`), donc l'attente est
- * celle de la plus lente, pas leur somme.
+ * Seul `total` sert : chaque requête demande donc une seule ligne (`limit` 1)
+ * plutôt qu'une page entière. Elles partent en parallèle (`Promise.all`), donc
+ * l'attente est celle de la plus lente, pas leur somme.
+ *
+ * `drafts` réutilise le filtre d'état de la liste des fiches : le compteur et
+ * la liste vers laquelle il mène ne peuvent pas diverger.
  */
 export async function getAdminDashboardCounts() {
-  const [stacks, categories, entries] = await Promise.all([
-    listAdminStacks(),
-    listAdminCategories(),
-    listAdminEntries(),
+  const [stacks, categories, entries, drafts, paths] = await Promise.all([
+    listAdminStacks(1, 1),
+    listAdminCategories(1, 1),
+    listAdminEntries(1, 1),
+    listAdminEntries(1, 1, { status: 'draft' }),
+    listAdminPaths(1, 1),
   ]);
 
-  return { stacks: stacks.total, categories: categories.total, entries: entries.total };
+  return {
+    stacks: stacks.total,
+    categories: categories.total,
+    entries: entries.total,
+    drafts: drafts.total,
+    paths: paths.total,
+  };
 }

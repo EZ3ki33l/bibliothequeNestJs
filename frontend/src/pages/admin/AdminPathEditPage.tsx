@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
+  Alert,
   Button,
   Checkbox,
   Chip,
@@ -12,10 +13,11 @@ import {
   TextField,
   toast,
 } from '@heroui/react';
-import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from '@phosphor-icons/react';
+import { ArrowDownIcon, ArrowUpIcon, LockOpenIcon, TrashIcon } from '@phosphor-icons/react';
 import {
   addAdminPathModule,
   addAdminPathStep,
+  AdminRefusedError,
   deleteAdminPath,
   deleteAdminPathModule,
   deleteAdminPathStep,
@@ -29,6 +31,7 @@ import {
   type AdminPathModule,
   type AdminPathWriteResult,
 } from '../../lib/admin';
+import { freeModuleId, pathPublicationGaps, pathPublicationQuestion } from '../../lib/pathChecks';
 import { useAsyncData } from '../../lib/useAsyncData';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { AdminPathEntryPicker } from '../../components/admin/AdminPathEntryPicker';
@@ -123,7 +126,7 @@ export function AdminPathEditPage() {
   async function onDeletePath(current: AdminPathDetail) {
     if (
       !window.confirm(
-        'Supprimer ce parcours, ses modules et ses étapes ? Les fiches sont conservées.',
+        `Supprimer le parcours « ${current.name} », ses modules et ses étapes ? Les fiches sont conservées.`,
       )
     ) {
       return;
@@ -133,8 +136,12 @@ export function AdminPathEditPage() {
       await deleteAdminPath(current.id);
       toast.success('Parcours supprimé');
       navigate('/admin/parcours');
-    } catch {
-      toast.danger('Impossible de supprimer le parcours');
+    } catch (caught) {
+      toast.danger(
+        caught instanceof AdminRefusedError
+          ? caught.message
+          : 'Impossible de supprimer le parcours',
+      );
     }
   }
 
@@ -147,6 +154,9 @@ export function AdminPathEditPage() {
   const usedEntryIds = new Set(
     path.modules.flatMap((module) => module.steps.map((step) => step.entry.id)),
   );
+  // Ce qu'un lecteur ne verra pas : calculé depuis le parcours affiché, donc
+  // toujours à jour après un ajout, un retrait ou un réordonnancement.
+  const gaps = pathPublicationGaps(path);
 
   return (
     <>
@@ -171,12 +181,48 @@ export function AdminPathEditPage() {
         </div>
       ) : null}
 
+      {/* Rappel permanent, brouillon ou publié : la même liste que celle de la
+          confirmation ci-dessous. Sur un parcours déjà en ligne, elle dit ce
+          que les lecteurs ne voient pas. */}
+      {gaps.length > 0 ? (
+        <Alert status="warning" className="mb-6 max-w-2xl">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Title>
+              {path.published ? 'En ligne avec des manques' : 'Avant publication'}
+            </Alert.Title>
+            {/* Liste placée à côté du titre, pas dans `Alert.Description` :
+                celui-ci rend un `<span>`, qui ne peut pas contenir de `<ul>`. */}
+            <ul className="mt-1 list-disc pl-5 text-sm">
+              {gaps.map((gap) => (
+                <li key={gap}>{gap}</li>
+              ))}
+            </ul>
+          </Alert.Content>
+        </Alert>
+      ) : null}
+
       <PathMetaForm
         // Remonté à chaque version enregistrée : les champs repartent des valeurs du serveur.
         key={`${path.name}|${path.description}|${path.published}`}
         path={path}
         busy={busy}
-        onSave={(payload) => apply(() => updateAdminPath(path.id, payload), 'Parcours enregistré')}
+        onSave={(payload) => {
+          // La question n'est posée qu'au **passage** en ligne, comme pour une
+          // fiche : un parcours déjà publié s'enregistre sans redemander. Refus :
+          // rien n'est envoyé, la saisie reste telle quelle. C'est un rappel,
+          // pas un contrôle : le serveur décide seul qui publie.
+          if (
+            payload.published &&
+            !path.published &&
+            gaps.length > 0 &&
+            !window.confirm(pathPublicationQuestion(gaps))
+          ) {
+            return Promise.resolve(false);
+          }
+
+          return apply(() => updateAdminPath(path.id, payload), 'Parcours enregistré');
+        }}
       />
 
       <section aria-labelledby="path-modules" className="mt-12">
@@ -193,6 +239,13 @@ export function AdminPathEditPage() {
                 <ModuleCard
                   module={module}
                   index={index}
+                  freeAccess={
+                    module.id === freeModuleId(path)
+                      ? path.published
+                        ? 'published'
+                        : 'draft'
+                      : null
+                  }
                   isFirst={index === 0}
                   isLast={index === path.modules.length - 1}
                   busy={busy}
@@ -322,6 +375,11 @@ function PathMetaForm({ path, busy, onSave }: PathMetaFormProps) {
 type ModuleCardProps = {
   module: AdminPathModule;
   index: number;
+  /**
+   * Ce module est celui dont les fiches se lisent sans compte : dès maintenant
+   * (`published`) ou une fois le parcours publié (`draft`). `null` sinon.
+   */
+  freeAccess: 'published' | 'draft' | null;
   isFirst: boolean;
   isLast: boolean;
   busy: boolean;
@@ -338,6 +396,7 @@ type ModuleCardProps = {
 function ModuleCard({
   module,
   index,
+  freeAccess,
   isFirst,
   isLast,
   busy,
@@ -378,6 +437,19 @@ function ModuleCard({
           <TrashIcon className="size-4" />
         </Button>
       </div>
+
+      {/* Le premier module visible d'un parcours publié ouvre ses fiches à
+          tout le monde. L'éditeur le dit là où le module se compose : y
+          placer une fiche, c'est la rendre lisible sans compte. Pictogramme
+          et libellé, pour que l'indication ne repose pas sur la couleur. */}
+      {freeAccess ? (
+        <p className="text-muted flex items-start gap-2 text-sm">
+          <LockOpenIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {freeAccess === 'published'
+            ? 'Les fiches de ce module se lisent sans compte.'
+            : 'Les fiches de ce module se liront sans compte une fois le parcours publié.'}
+        </p>
+      ) : null}
 
       <div className="flex max-w-md flex-col gap-3">
         <TextField value={title} onChange={setTitle} maxLength={120} autoComplete="off">

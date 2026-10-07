@@ -18,8 +18,8 @@ export function AdminPathsPage() {
     remove: deleteAdminPath,
     loadError: 'Impossible de charger les parcours',
     // La suppression n'emporte que la composition : les fiches restent.
-    confirmMessage:
-      'Supprimer ce parcours, ses modules et ses étapes ? Les fiches sont conservées.',
+    confirmMessage: (name) =>
+      `Supprimer le parcours « ${name} », ses modules et ses étapes ? Les fiches sont conservées.`,
     deletedMessage: 'Parcours supprimé',
     deleteError: 'Impossible de supprimer le parcours',
   });
@@ -64,7 +64,7 @@ export function AdminPathsPage() {
                   plural(path.stepCount, 'étape', 'étapes'),
                 ].join(' · ')}
                 editTo={`/admin/parcours/${path.id}/edit`}
-                onDelete={() => void requestDelete(path.id)}
+                onDelete={() => void requestDelete(path.id, path.name)}
               />
             ))}
           </ul>

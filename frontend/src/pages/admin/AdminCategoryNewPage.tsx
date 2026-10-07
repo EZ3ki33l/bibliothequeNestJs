@@ -1,6 +1,7 @@
-import { Link, useNavigate } from 'react-router';
-import { listAdminStacks } from '../../lib/admin';
+import { Link } from 'react-router';
+import { listAllAdminStacks } from '../../lib/admin';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useReturnToList } from '../../components/admin/useReturnToList';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
@@ -9,15 +10,11 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { AdminCategoryForm } from './AdminCategoryForm';
 
 export function AdminCategoryNewPage() {
-  const navigate = useNavigate();
+  const returnToList = useReturnToList('/admin/categories');
 
-  // Une catégorie doit choisir son stack parent : on charge la liste pour
-  // alimenter le select du formulaire.
-  const { data, error } = useAsyncData(
-    () => listAdminStacks(1, 50),
-    [],
-    'Impossible de charger les stacks',
-  );
+  // Une catégorie doit choisir son stack parent : la liste **entière** alimente
+  // le select du formulaire (une seule page en cacherait une partie).
+  const { data, error } = useAsyncData(listAllAdminStacks, [], 'Impossible de charger les leçons');
 
   return (
     <>
@@ -30,19 +27,15 @@ export function AdminCategoryNewPage() {
         <ErrorMessage>{error}</ErrorMessage>
       ) : data === undefined ? (
         <AdminFormSkeleton />
-      ) : data.total === 0 ? (
+      ) : data.length === 0 ? (
         <EmptyMessage>
-          Crée d’abord un stack.{' '}
+          Une catégorie appartient à une leçon : aucune n’existe encore.{' '}
           <Link to="/admin/stacks/new" className="text-foreground underline">
-            Nouveau stack
+            Nouvelle leçon
           </Link>
         </EmptyMessage>
       ) : (
-        <AdminCategoryForm
-          mode="create"
-          stacks={data.items}
-          onSuccess={() => navigate('/admin/categories')}
-        />
+        <AdminCategoryForm mode="create" stacks={data} onSuccess={returnToList} />
       )}
     </>
   );

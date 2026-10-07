@@ -8,11 +8,11 @@ import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
 
 export function StacksPage() {
-  const { data: stacks, error } = useAsyncData(listStacks, [], 'Impossible de charger les stacks');
+  const { data: stacks, error } = useAsyncData(listStacks, [], 'Impossible de charger les leçons');
 
   return (
     <>
-      <PageHeader title="Stacks" description="Les stacks et leurs fiches publiées." />
+      <PageHeader title="Leçons" description="Les leçons et leurs fiches publiées." />
 
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
@@ -23,7 +23,7 @@ export function StacksPage() {
           ))}
         </div>
       ) : stacks.length === 0 ? (
-        <EmptyMessage>Aucun stack pour le moment.</EmptyMessage>
+        <EmptyMessage>Aucune leçon pour le moment.</EmptyMessage>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
           {stacks.map((stack) => (

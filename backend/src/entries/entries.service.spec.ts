@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { EntriesService } from './entries.service';
 import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
+import { EntryAccessService } from '../entry-access/entry-access.service';
 
 function knownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {
@@ -29,11 +30,16 @@ describe('EntriesService', () => {
       count: jest.fn(),
     },
   };
+  const entryAccess = { isFree: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [EntriesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        EntriesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EntryAccessService, useValue: entryAccess },
+      ],
     }).compile();
     service = module.get(EntriesService);
   });
@@ -101,6 +107,18 @@ describe('EntriesService', () => {
       });
       expect(ENTRY_CARD_SELECT).not.toHaveProperty('bodyMdx');
       expect(ENTRY_CARD_SELECT).not.toHaveProperty('quizQuestions');
+    });
+
+    it('never searches nor selects the body, reserved or not', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findPublished({ page: 1, limit: 50, q: 'secret' });
+
+      const { where, select } = prisma.entry.findMany.mock.calls[0][0];
+      expect(JSON.stringify(where)).not.toContain('bodyMdx');
+      expect(select).toBe(ENTRY_CARD_SELECT);
+      expect(entryAccess.isFree).not.toHaveBeenCalled();
     });
 
     it('trims q and treats whitespace-only q as absent', async () => {
@@ -212,19 +230,239 @@ describe('EntriesService', () => {
   });
 
   describe('findPublishedBySlug', () => {
-    it('returns the published entry', async () => {
-      const entry = { id: 'e1', slug: 'use-state', published: true };
-      prisma.entry.findFirst.mockResolvedValue(entry);
+    const header = {
+      id: 'e1',
+      title: 'useRef',
+      slug: 'use-ref',
+      summary: 'Garder une valeur entre deux rendus.',
+      kind: 'FUNCTION',
+      difficulty: 'BEGINNER',
+      tags: ['hooks'],
+      category: {
+        id: 'c1',
+        name: 'Hooks',
+        slug: 'hooks',
+        stack: { id: 's1', name: 'React', slug: 'react' },
+      },
+    };
+    const content = {
+      bodyMdx: `${'x'.repeat(80)} NE DOIT PAS FUITER`,
+      template: 'react-ts',
+      files: { '/App.tsx': 'export default function App() {}' },
+      dependencies: { zod: '4.0.0' },
+      verifiedOn: new Date('2026-10-06T00:00:00.000Z'),
+      verifiedVersion: 'React 19',
+      sources: [{ title: 'useRef', consultedOn: null }],
+    };
 
-      await expect(service.findPublishedBySlug('use-state')).resolves.toBe(entry);
+    /**
+     * Faux Prisma qui **respecte le `select`** : il ne rend le contenu que si
+     * la requête le demande (pas de `select` = toute la ligne). Un simulacre
+     * qui renverrait toujours tout cacherait justement la fuite à détecter.
+     */
+    function findFirstHonouringSelect() {
+      prisma.entry.findFirst.mockImplementation((args: { select?: object }) =>
+        Promise.resolve(args.select ? header : { ...header, ...content }),
+      );
+    }
+
+    it('answers the header alone for a reserved entry, in a single query', async () => {
+      findFirstHonouringSelect();
+      entryAccess.isFree.mockResolvedValue(false);
+
+      await expect(service.findPublishedBySlug('use-ref')).resolves.toEqual({
+        ...header,
+        access: 'reserved',
+      });
+
+      // Une seule lecture : le contenu n'est jamais chargé depuis la base.
+      expect(prisma.entry.findFirst).toHaveBeenCalledTimes(1);
+      expect(prisma.entry.findFirst).toHaveBeenCalledWith({
+        where: { slug: 'use-ref', published: true },
+        select: ENTRY_CARD_SELECT,
+      });
+      expect(entryAccess.isFree).toHaveBeenCalledWith('e1');
     });
 
-    it('throws NotFoundException when missing or unpublished', async () => {
+    it('selects none of the reserved columns for the header', () => {
+      for (const column of [
+        'bodyMdx',
+        'template',
+        'files',
+        'dependencies',
+        'sources',
+        'verifiedOn',
+        'verifiedVersion',
+        'quizQuestions',
+      ]) {
+        expect(ENTRY_CARD_SELECT).not.toHaveProperty(column);
+      }
+    });
+
+    it('leaks nothing of the content of a reserved entry, quizEligible included', async () => {
+      findFirstHonouringSelect();
+      entryAccess.isFree.mockResolvedValue(false);
+
+      const response = await service.findPublishedBySlug('use-ref');
+
+      for (const key of [
+        'bodyMdx',
+        'template',
+        'files',
+        'dependencies',
+        'sources',
+        'verifiedOn',
+        'verifiedVersion',
+        'quizEligible',
+      ]) {
+        expect(response).not.toHaveProperty(key);
+      }
+      expect(JSON.stringify(response)).not.toContain('NE DOIT PAS FUITER');
+    });
+
+    it('answers the whole entry for a free one, marked access free', async () => {
+      findFirstHonouringSelect();
+      entryAccess.isFree.mockResolvedValue(true);
+
+      await expect(service.findPublishedBySlug('use-reducer')).resolves.toEqual({
+        ...header,
+        ...content,
+        verifiedOn: '2026-10-06',
+        quizEligible: true,
+        access: 'free',
+      });
+
+      // En-tête d'abord, fiche entière ensuite : la seconde lecture n'a lieu
+      // qu'une fois la fiche établie comme libre.
+      expect(prisma.entry.findFirst).toHaveBeenCalledTimes(2);
+      expect(prisma.entry.findFirst.mock.calls[1][0]).toMatchObject({
+        where: { slug: 'use-reducer', published: true },
+        omit: { quizQuestions: true },
+      });
+    });
+
+    it('throws NotFoundException for a draft or an unknown slug, before the access rule', async () => {
       prisma.entry.findFirst.mockResolvedValue(null);
 
       await expect(service.findPublishedBySlug('missing')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+      expect(entryAccess.isFree).not.toHaveBeenCalled();
+      expect(prisma.entry.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets the access rule fail : nothing is answered, nothing more is read', async () => {
+      findFirstHonouringSelect();
+      entryAccess.isFree.mockRejectedValue(new Error('connexion perdue'));
+
+      await expect(service.findPublishedBySlug('use-ref')).rejects.toThrow('connexion perdue');
+      expect(prisma.entry.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it('answers 404 when the entry is unpublished between the two reads', async () => {
+      prisma.entry.findFirst.mockResolvedValueOnce(header).mockResolvedValueOnce(null);
+      entryAccess.isFree.mockResolvedValue(true);
+
+      await expect(service.findPublishedBySlug('use-ref')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('findReadableBySlug', () => {
+    it('returns the published entry with its sources, in order', async () => {
+      prisma.entry.findFirst.mockResolvedValue({
+        id: 'e1',
+        slug: 'use-state',
+        published: true,
+        bodyMdx: '',
+        verifiedOn: null,
+        sources: [],
+      });
+
+      await expect(service.findReadableBySlug('use-state')).resolves.toEqual({
+        id: 'e1',
+        slug: 'use-state',
+        published: true,
+        bodyMdx: '',
+        verifiedOn: null,
+        sources: [],
+        quizEligible: false,
+      });
+      expect(prisma.entry.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { slug: 'use-state', published: true },
+          omit: { quizQuestions: true },
+        }),
+      );
+
+      const { include } = prisma.entry.findFirst.mock.calls[0][0];
+      expect(include.sources.orderBy).toEqual({ position: 'asc' });
+      // Ni identifiant ni rang : l'ordre du tableau suffit au client.
+      expect(include.sources.select).not.toHaveProperty('id');
+      expect(include.sources.select).not.toHaveProperty('entryId');
+      expect(include.sources.select).not.toHaveProperty('position');
+    });
+
+    it('answers calendar days (AAAA-MM-JJ), never timestamps', async () => {
+      prisma.entry.findFirst.mockResolvedValue({
+        id: 'e1',
+        bodyMdx: '',
+        verifiedOn: new Date('2026-10-06T00:00:00.000Z'),
+        sources: [
+          { title: 'useState', consultedOn: new Date('2026-09-30T00:00:00.000Z') },
+          { title: 'Hooks', consultedOn: null },
+        ],
+      });
+
+      await expect(service.findReadableBySlug('use-state')).resolves.toEqual({
+        id: 'e1',
+        bodyMdx: '',
+        verifiedOn: '2026-10-06',
+        sources: [
+          { title: 'useState', consultedOn: '2026-09-30' },
+          { title: 'Hooks', consultedOn: null },
+        ],
+        quizEligible: false,
+      });
+    });
+
+    it('says whether a quiz exists for the entry, with the shared eligibility rule', async () => {
+      const entry = { id: 'e1', verifiedOn: null, sources: [] };
+
+      prisma.entry.findFirst.mockResolvedValue({ ...entry, bodyMdx: 'x'.repeat(79) });
+      await expect(service.findReadableBySlug('courte')).resolves.toMatchObject({
+        quizEligible: false,
+      });
+
+      // Les espaces de bord ne comptent pas : 80 caractères utiles, pas 80 octets.
+      prisma.entry.findFirst.mockResolvedValue({ ...entry, bodyMdx: `  ${'x'.repeat(79)}  ` });
+      await expect(service.findReadableBySlug('courte')).resolves.toMatchObject({
+        quizEligible: false,
+      });
+
+      prisma.entry.findFirst.mockResolvedValue({ ...entry, bodyMdx: 'x'.repeat(80) });
+      await expect(service.findReadableBySlug('longue')).resolves.toMatchObject({
+        quizEligible: true,
+      });
+    });
+
+    it('throws NotFoundException when missing or unpublished', async () => {
+      prisma.entry.findFirst.mockResolvedValue(null);
+
+      await expect(service.findReadableBySlug('missing')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('never consults the access rule : the guard of the route decides', async () => {
+      prisma.entry.findFirst.mockResolvedValue({
+        id: 'e1',
+        bodyMdx: '',
+        verifiedOn: null,
+        sources: [],
+      });
+
+      await expect(service.findReadableBySlug('use-ref')).resolves.not.toHaveProperty('access');
+      expect(entryAccess.isFree).not.toHaveBeenCalled();
     });
   });
 
@@ -307,6 +545,61 @@ describe('EntriesService', () => {
       });
     });
 
+    it('creates the sources with the entry, ranked by their index', async () => {
+      prisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      prisma.entry.aggregate.mockResolvedValue({ _max: { position: null } });
+      prisma.entry.create.mockResolvedValue({ id: 'e1' });
+
+      await service.create(
+        {
+          ...dto,
+          verifiedOn: '2026-10-06',
+          verifiedVersion: 'React 19',
+          sources: [
+            {
+              title: 'useState',
+              url: 'https://react.dev/reference/react/useState',
+              publisher: 'react.dev',
+              consultedOn: '2026-09-30',
+              licenseName: 'CC BY 4.0',
+              licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+              adapted: true,
+            },
+            { title: 'Hooks', url: 'https://react.dev/reference/react/hooks' },
+          ],
+        },
+        'SUPER_ADMIN',
+      );
+
+      const { data } = prisma.entry.create.mock.calls[0][0];
+      expect(data.verifiedOn).toEqual(new Date('2026-10-06T00:00:00.000Z'));
+      expect(data.verifiedVersion).toBe('React 19');
+      expect(data.sources).toEqual({
+        create: [
+          {
+            position: 0,
+            title: 'useState',
+            url: 'https://react.dev/reference/react/useState',
+            publisher: 'react.dev',
+            consultedOn: new Date('2026-09-30T00:00:00.000Z'),
+            licenseName: 'CC BY 4.0',
+            licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+            adapted: true,
+          },
+          {
+            position: 1,
+            title: 'Hooks',
+            url: 'https://react.dev/reference/react/hooks',
+            publisher: '',
+            consultedOn: null,
+            licenseName: '',
+            licenseUrl: '',
+            adapted: false,
+          },
+        ],
+      });
+    });
+
     it('maps Prisma P2002 to ConflictException', async () => {
       prisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
       prisma.entry.aggregate.mockResolvedValue({ _max: { position: null } });
@@ -382,6 +675,79 @@ describe('EntriesService', () => {
       });
     });
 
+    it('replaces the whole source list in the same write', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+      await service.update(
+        'e1',
+        { sources: [{ title: 'useState', url: 'https://react.dev/reference/react/useState' }] },
+        'SUPER_ADMIN',
+      );
+
+      expect(prisma.entry.update).toHaveBeenCalledWith({
+        where: { id: 'e1' },
+        data: {
+          sources: {
+            deleteMany: {},
+            create: [
+              {
+                position: 0,
+                title: 'useState',
+                url: 'https://react.dev/reference/react/useState',
+                publisher: '',
+                consultedOn: null,
+                licenseName: '',
+                licenseUrl: '',
+                adapted: false,
+              },
+            ],
+          },
+        },
+      });
+    });
+
+    it('removes every source when the list is empty', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+      await service.update('e1', { sources: [] }, 'SUPER_ADMIN');
+
+      expect(prisma.entry.update).toHaveBeenCalledWith({
+        where: { id: 'e1' },
+        data: { sources: { deleteMany: {}, create: [] } },
+      });
+    });
+
+    it('leaves sources and verification untouched when they are not sent', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+      await service.update('e1', { published: true }, 'SUPER_ADMIN');
+
+      const { data } = prisma.entry.update.mock.calls[0][0];
+      expect(data).not.toHaveProperty('sources');
+      expect(data).not.toHaveProperty('verifiedOn');
+      expect(data).not.toHaveProperty('verifiedVersion');
+    });
+
+    it('writes the verification day and version, and clears the day on null', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+      await service.update(
+        'e1',
+        { verifiedOn: '2026-10-06', verifiedVersion: 'React 19' },
+        'SUPER_ADMIN',
+      );
+      await service.update('e1', { verifiedOn: null, verifiedVersion: '' }, 'SUPER_ADMIN');
+
+      expect(prisma.entry.update).toHaveBeenNthCalledWith(1, {
+        where: { id: 'e1' },
+        data: { verifiedOn: new Date('2026-10-06T00:00:00.000Z'), verifiedVersion: 'React 19' },
+      });
+      expect(prisma.entry.update).toHaveBeenNthCalledWith(2, {
+        where: { id: 'e1' },
+        data: { verifiedOn: null, verifiedVersion: '' },
+      });
+    });
+
     it('maps Prisma P2025 to NotFoundException', async () => {
       prisma.entry.update.mockRejectedValue(knownRequestError('P2025'));
 
@@ -443,16 +809,16 @@ describe('EntriesService', () => {
       expect(prisma.entry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 50, take: 50 }),
       );
-      expect(prisma.entry.findMany).not.toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.anything() }),
-      );
+      // Aucun filtre : `where` vide, donc aucune contrainte.
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where: {} });
     });
 
     it('filters by title (case-insensitive) on both list and count when q is set', async () => {
       prisma.entry.findMany.mockResolvedValue([]);
       prisma.entry.count.mockResolvedValue(0);
 
-      await service.findAllAdmin(1, 50, '  useSt  ');
+      await service.findAllAdmin(1, 50, { q: '  useSt  ' });
 
       const where = { title: { contains: 'useSt', mode: 'insensitive' } };
       expect(prisma.entry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
@@ -463,21 +829,68 @@ describe('EntriesService', () => {
       prisma.entry.findMany.mockResolvedValue([]);
       prisma.entry.count.mockResolvedValue(0);
 
-      await service.findAllAdmin(1, 50, '   ');
+      await service.findAllAdmin(1, 50, { q: '   ' });
 
-      expect(prisma.entry.findMany).not.toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.anything() }),
-      );
-      expect(prisma.entry.count).toHaveBeenCalledWith({});
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it.each([
+      ['draft', false],
+      ['published', true],
+    ] as const)('filters by status %s', async (status, published) => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findAllAdmin(1, 50, { status });
+
+      const where = { published };
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where });
+    });
+
+    it('combines stack, category and path filters on both list and count', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+
+      await service.findAllAdmin(1, 50, {
+        status: 'draft',
+        stackId: 's1',
+        categoryId: 'c1',
+        pathId: 'p1',
+      });
+
+      const where = {
+        published: false,
+        categoryId: 'c1',
+        category: { stackId: 's1' },
+        pathSteps: { some: { pathId: 'p1' } },
+      };
+      expect(prisma.entry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+      expect(prisma.entry.count).toHaveBeenCalledWith({ where });
     });
   });
 
   describe('findById', () => {
-    it('returns the entry', async () => {
-      const entry = { id: 'e1', title: 'useState' };
-      prisma.entry.findUnique.mockResolvedValue(entry);
+    it('returns the entry, drafts included, with sources and calendar days', async () => {
+      prisma.entry.findUnique.mockResolvedValue({
+        id: 'e1',
+        title: 'useState',
+        verifiedOn: new Date('2026-10-06T00:00:00.000Z'),
+        sources: [{ title: 'useState', consultedOn: null }],
+      });
 
-      await expect(service.findById('e1')).resolves.toBe(entry);
+      await expect(service.findById('e1')).resolves.toEqual({
+        id: 'e1',
+        title: 'useState',
+        verifiedOn: '2026-10-06',
+        sources: [{ title: 'useState', consultedOn: null }],
+      });
+
+      const { select } = prisma.entry.findUnique.mock.calls[0][0];
+      expect(select.verifiedOn).toBe(true);
+      expect(select.verifiedVersion).toBe(true);
+      expect(select.sources.orderBy).toEqual({ position: 'asc' });
     });
 
     it('throws NotFoundException when missing', async () => {
@@ -539,6 +952,31 @@ describe('EntriesService', () => {
         where: { id: 'e1' },
         data: { summary: 'x', published: false },
       });
+    });
+
+    it('refuses to change the sources or the verification of a published entry', async () => {
+      prisma.entry.findUnique.mockResolvedValue({ published: true });
+
+      await expect(
+        service.update(
+          'e1',
+          { sources: [{ title: 'useState', url: 'https://react.dev' }] },
+          'ADMIN',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        service.update('e1', { verifiedOn: '2026-10-06', verifiedVersion: 'React 19' }, 'ADMIN'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.entry.update).not.toHaveBeenCalled();
+    });
+
+    it('edits the sources of a draft', async () => {
+      prisma.entry.findUnique.mockResolvedValue({ published: false });
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+      await service.update('e1', { sources: [] }, 'ADMIN');
+
+      expect(prisma.entry.update).toHaveBeenCalledTimes(1);
     });
 
     it('refuses to delete a published entry', async () => {

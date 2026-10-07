@@ -33,8 +33,8 @@ function publicPath() {
 describe('PathProgressService', () => {
   let service: PathProgressService;
   const prisma = {
-    quizAttempt: { findMany: jest.fn() },
-    reviewCard: { findMany: jest.fn() },
+    quizAttempt: { findMany: jest.fn(), groupBy: jest.fn() },
+    entryRead: { findMany: jest.fn() },
     entry: { findMany: jest.fn() },
     learningPath: { findMany: jest.fn(), count: jest.fn() },
   };
@@ -43,7 +43,8 @@ describe('PathProgressService', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
     prisma.quizAttempt.findMany.mockResolvedValue([]);
-    prisma.reviewCard.findMany.mockResolvedValue([]);
+    prisma.quizAttempt.groupBy.mockResolvedValue([]);
+    prisma.entryRead.findMany.mockResolvedValue([]);
     prisma.entry.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -76,27 +77,27 @@ describe('PathProgressService', () => {
       });
     });
 
-    it('only checks review cards for entries without a passed quiz', async () => {
+    it('only checks reads for entries without a passed quiz', async () => {
       prisma.quizAttempt.findMany.mockResolvedValue([{ entryId: 'e1' }]);
 
       await service.validatedEntryIds(userId, ['e1', 'e2']);
 
-      expect(prisma.reviewCard.findMany).toHaveBeenCalledWith({
+      expect(prisma.entryRead.findMany).toHaveBeenCalledWith({
         where: { userId, entryId: { in: ['e2'] } },
         select: { entryId: true },
       });
     });
 
-    it('skips the card lookup when everything is already validated', async () => {
+    it('skips the read lookup when everything is already validated', async () => {
       prisma.quizAttempt.findMany.mockResolvedValue([{ entryId: 'e1' }]);
 
       await service.validatedEntryIds(userId, ['e1']);
 
-      expect(prisma.reviewCard.findMany).not.toHaveBeenCalled();
+      expect(prisma.entryRead.findMany).not.toHaveBeenCalled();
     });
 
-    it('validates a short entry once opened, but not a long one', async () => {
-      prisma.reviewCard.findMany.mockResolvedValue([{ entryId: 'short' }, { entryId: 'long' }]);
+    it('validates a short entry once read, but not a long one', async () => {
+      prisma.entryRead.findMany.mockResolvedValue([{ entryId: 'short' }, { entryId: 'long' }]);
       prisma.entry.findMany.mockResolvedValue([
         { id: 'short', bodyMdx: shortBody },
         { id: 'long', bodyMdx: longBody },
@@ -107,8 +108,8 @@ describe('PathProgressService', () => {
       expect(result).toEqual(new Set(['short']));
     });
 
-    it('reads bodies only for candidates (card present, no passed quiz)', async () => {
-      prisma.reviewCard.findMany.mockResolvedValue([{ entryId: 'e2' }]);
+    it('reads bodies only for candidates (read present, no passed quiz)', async () => {
+      prisma.entryRead.findMany.mockResolvedValue([{ entryId: 'e2' }]);
 
       await service.validatedEntryIds(userId, ['e1', 'e2', 'e3']);
 
@@ -118,7 +119,7 @@ describe('PathProgressService', () => {
       });
     });
 
-    it('does not read bodies when no card exists', async () => {
+    it('does not read bodies when no read exists', async () => {
       await service.validatedEntryIds(userId, ['e1']);
 
       expect(prisma.entry.findMany).not.toHaveBeenCalled();
@@ -135,6 +136,8 @@ describe('PathProgressService', () => {
       expect(learningPaths.findPublishedBySlug).toHaveBeenCalledWith('web');
       expect(result).toEqual({
         pathId: 'path-1',
+        // Le seuil vient du serveur : la page ne le recopie pas.
+        passingScore: PASSING_SCORE,
         validatedStepIds: ['s2', 's3'],
         required: 2,
         validatedRequired: 1,
@@ -207,6 +210,200 @@ describe('PathProgressService', () => {
         page: 1,
         limit: 50,
       });
+    });
+  });
+
+  describe('findStarted', () => {
+    /** Parcours tel que le renvoie la requête : modules, étapes visibles, fiche de chaque étape. */
+    function startedPath(id: string, entryIds: string[]) {
+      return {
+        id,
+        name: `Parcours ${id}`,
+        slug: id,
+        modules: [
+          {
+            id: `${id}-m1`,
+            steps: entryIds.map((entryId) => ({
+              id: `${id}-${entryId}`,
+              entryId,
+              optional: false,
+              entry: { slug: `slug-${entryId}`, title: `Titre ${entryId}` },
+            })),
+          },
+        ],
+      };
+    }
+
+    function day(value: number): Date {
+      return new Date(Date.UTC(2026, 9, value));
+    }
+
+    it('returns nothing, without reading account data, when no path is started', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([]);
+
+      await expect(service.findStarted(userId)).resolves.toEqual({ items: [], total: 0 });
+      expect(prisma.entryRead.findMany).not.toHaveBeenCalled();
+      expect(prisma.quizAttempt.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('asks only for published paths the account started, on visible entries', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([]);
+
+      await service.findStarted(userId);
+
+      const call = prisma.learningPath.findMany.mock.calls[0][0];
+      expect(call.where).toEqual({
+        published: true,
+        steps: {
+          some: {
+            entry: {
+              published: true,
+              OR: [
+                { reads: { some: { userId } } },
+                // Un examen en cours (`score: null`) ne fait pas commencer un parcours.
+                { quizAttempts: { some: { userId, score: { not: null } } } },
+              ],
+            },
+          },
+        },
+      });
+      // Une étape dont la fiche est dépubliée ne sort pas.
+      expect(call.select.modules.select.steps.where).toEqual({ entry: { published: true } });
+    });
+
+    it('describes a path started by a read alone, with its next step', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([startedPath('hooks', ['e1', 'e2'])]);
+      prisma.entryRead.findMany.mockImplementation(({ select }: { select: object }) =>
+        // Même simulacre pour `findStarted` (dates) et `validatedEntryIds`.
+        Promise.resolve('lastReadAt' in select ? [{ entryId: 'e1', lastReadAt: day(3) }] : []),
+      );
+
+      await expect(service.findStarted(userId)).resolves.toEqual({
+        items: [
+          {
+            pathId: 'hooks',
+            slug: 'hooks',
+            name: 'Parcours hooks',
+            required: 2,
+            validatedRequired: 0,
+            completed: false,
+            nextStep: { entrySlug: 'slug-e1', title: 'Titre e1' },
+            lastActivityAt: day(3),
+          },
+        ],
+        total: 1,
+      });
+    });
+
+    it('reports a completed path without a next step', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([startedPath('court', ['e1'])]);
+      prisma.quizAttempt.findMany.mockResolvedValue([{ entryId: 'e1' }]);
+      prisma.quizAttempt.groupBy.mockResolvedValue([
+        { entryId: 'e1', _max: { createdAt: day(4) } },
+      ]);
+
+      const { items } = await service.findStarted(userId);
+
+      expect(items[0]).toMatchObject({
+        required: 1,
+        validatedRequired: 1,
+        completed: true,
+        nextStep: null,
+        lastActivityAt: day(4),
+      });
+    });
+
+    it('keeps the most recent of the read and the finished quiz of an entry', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([startedPath('hooks', ['e1'])]);
+      prisma.entryRead.findMany.mockImplementation(({ select }: { select: object }) =>
+        Promise.resolve('lastReadAt' in select ? [{ entryId: 'e1', lastReadAt: day(2) }] : []),
+      );
+      prisma.quizAttempt.groupBy.mockResolvedValue([
+        { entryId: 'e1', _max: { createdAt: day(7) } },
+      ]);
+
+      const { items } = await service.findStarted(userId);
+
+      expect(items[0].lastActivityAt).toEqual(day(7));
+    });
+
+    it('returns three of four started paths, most recent first, with the real total', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([
+        startedPath('a', ['ea']),
+        startedPath('b', ['eb']),
+        startedPath('c', ['ec']),
+        startedPath('d', ['ed']),
+      ]);
+      prisma.entryRead.findMany.mockImplementation(({ select }: { select: object }) =>
+        Promise.resolve(
+          'lastReadAt' in select
+            ? [
+                { entryId: 'ea', lastReadAt: day(1) },
+                { entryId: 'eb', lastReadAt: day(4) },
+                { entryId: 'ec', lastReadAt: day(2) },
+                { entryId: 'ed', lastReadAt: day(3) },
+              ]
+            : [],
+        ),
+      );
+
+      const result = await service.findStarted(userId);
+
+      expect(result.items.map((item) => item.pathId)).toEqual(['b', 'd', 'c']);
+      expect(result.total).toBe(4);
+    });
+
+    it('honours a custom limit', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([
+        startedPath('a', ['ea']),
+        startedPath('b', ['eb']),
+      ]);
+      prisma.entryRead.findMany.mockImplementation(({ select }: { select: object }) =>
+        Promise.resolve(
+          'lastReadAt' in select
+            ? [
+                { entryId: 'ea', lastReadAt: day(1) },
+                { entryId: 'eb', lastReadAt: day(2) },
+              ]
+            : [],
+        ),
+      );
+
+      const result = await service.findStarted(userId, 1);
+
+      expect(result.items.map((item) => item.pathId)).toEqual(['b']);
+      expect(result.total).toBe(2);
+    });
+
+    it('drops an empty module and a path whose only activity was on an unpublished entry', async () => {
+      // La requête ne renvoie que les étapes visibles : la fiche dépubliée
+      // n'apparaît plus, le parcours n'a donc aucune activité à montrer.
+      prisma.learningPath.findMany.mockResolvedValue([
+        {
+          ...startedPath('vide', []),
+          modules: [{ id: 'vide-m1', steps: [] }],
+        },
+      ]);
+
+      await expect(service.findStarted(userId)).resolves.toEqual({ items: [], total: 0 });
+    });
+
+    it('scopes every account read to the caller', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([startedPath('hooks', ['e1', 'e1b'])]);
+
+      await service.findStarted(userId);
+
+      expect(prisma.entryRead.findMany).toHaveBeenCalledWith({
+        where: { userId, entryId: { in: ['e1', 'e1b'] } },
+        select: { entryId: true, lastReadAt: true },
+      });
+      expect(prisma.quizAttempt.groupBy).toHaveBeenCalledWith({
+        by: ['entryId'],
+        where: { userId, entryId: { in: ['e1', 'e1b'] }, score: { not: null } },
+        _max: { createdAt: true },
+      });
+      // `validatedEntryIds` : examens réussis du même compte.
+      expect(prisma.quizAttempt.findMany.mock.calls[0][0].where.userId).toBe(userId);
     });
   });
 });

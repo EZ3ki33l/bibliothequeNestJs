@@ -30,13 +30,6 @@ enum Difficulty {
   ADVANCED
 }
 
-enum ReviewRating {
-  AGAIN
-  HARD
-  GOOD
-  EASY
-}
-
 model User {
   id            String        @id @default(uuid())
   name          String
@@ -48,7 +41,7 @@ model User {
   admin         Admin?
   sessions      Session[]
   accounts      Account[]
-  reviewCards   ReviewCard[]
+  reads         EntryRead[]
   quizAttempts  QuizAttempt[]
   favorites     Favorite[]
   notes         Note[]
@@ -142,32 +135,60 @@ model Category {
 }
 
 model Entry {
-  id            String        @id @default(uuid())
-  categoryId    String
-  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  title         String
-  slug          String        @unique
-  summary       String        @default("")
-  bodyMdx       String        @default("")
-  kind          EntryKind
-  difficulty    Difficulty    @default(BEGINNER)
-  tags          String[]      @default([])
-  published     Boolean       @default(false)
-  position      Int           @default(0)
-  template      String        @default("react-ts")
-  files         Json
-  dependencies  Json?
-  quizQuestions Json          @default("[]")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  reviewCards   ReviewCard[]
-  quizAttempts  QuizAttempt[]
-  favorites     Favorite[]
-  notes         Note[]
-  pathSteps     PathStep[]
+  id              String        @id @default(uuid())
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title           String
+  slug            String        @unique
+  summary         String        @default("")
+  bodyMdx         String        @default("")
+  kind            EntryKind
+  difficulty      Difficulty    @default(BEGINNER)
+  tags            String[]      @default([])
+  published       Boolean       @default(false)
+  position        Int           @default(0)
+  template        String        @default("react-ts")
+  files           Json
+  dependencies    Json?
+  quizQuestions   Json          @default("[]")
+  // Jour où le contenu a été relu face à sa source. Saisi par l'administrateur,
+  // jamais déduit de `updatedAt` : une correction de virgule ne le fait pas avancer.
+  verifiedOn      DateTime?     @db.Date
+  // Version de la technologie pour laquelle la fiche a été vérifiée (« React 19 »).
+  verifiedVersion String        @default("")
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  reads           EntryRead[]
+  quizAttempts    QuizAttempt[]
+  favorites       Favorite[]
+  notes           Note[]
+  pathSteps       PathStep[]
+  sources         EntrySource[]
 
   @@index([categoryId])
   @@index([published, kind])
+}
+
+// Document d'origine d'une fiche (documentation officielle, article…). Chaque
+// fiche porte sa propre liste, ordonnée par `position` : rien n'est mis en
+// commun entre fiches. `url` et `licenseUrl` sont validés en `https://` par le
+// DTO avant d'arriver ici.
+model EntrySource {
+  id          String    @id @default(uuid())
+  entryId     String
+  entry       Entry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  position    Int       @default(0)
+  title       String
+  url         String
+  publisher   String    @default("")
+  // Jour de consultation, sans heure.
+  consultedOn DateTime? @db.Date
+  licenseName String    @default("")
+  licenseUrl  String    @default("")
+  // true : la fiche est une adaptation de ce document (« Adapté de »).
+  adapted     Boolean   @default(false)
+
+  @@index([entryId])
 }
 
 // Parcours guidé orienté métier (« Développement web »…). Il ne possède pas
@@ -222,33 +243,23 @@ model PathStep {
   @@index([entryId])
 }
 
-model ReviewCard {
-  id             String      @id @default(uuid())
-  userId         String
-  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entryId        String
-  entry          Entry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  easeFactor     Float       @default(2.5)
-  intervalDays   Int         @default(0)
-  repetitions    Int         @default(0)
-  nextReviewAt   DateTime    @default(now())
-  lastReviewedAt DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  logs           ReviewLog[]
+// Trace de lecture : le fait qu'un compte a ouvert une fiche publiée. Une ligne
+// par compte et par fiche ; rouvrir la fiche n'avance que `lastReadAt`. Donnée
+// personnelle : elle part avec le compte (cascade depuis `User`) et avec la
+// fiche. Elle valide les étapes de parcours dont la fiche n'a pas d'examen.
+model EntryRead {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entryId    String
+  entry      Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  // Première lecture.
+  createdAt  DateTime @default(now())
+  // Dernière lecture : sert à ordonner les parcours commencés.
+  lastReadAt DateTime @default(now())
 
   @@unique([userId, entryId])
-  @@index([userId, nextReviewAt])
-}
-
-model ReviewLog {
-  id        String       @id @default(uuid())
-  cardId    String
-  card      ReviewCard   @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  rating    ReviewRating
-  createdAt DateTime     @default(now())
-
-  @@index([cardId])
+  @@index([userId, lastReadAt])
 }
 
 model Favorite {

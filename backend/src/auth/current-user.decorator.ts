@@ -49,7 +49,7 @@ export const CurrentUser = createParamDecorator((_data: unknown, context: Execut
  *
  * À passer aux services : c'est cet `userId` — jamais un id envoyé par le
  * client — qui filtre les lectures et écritures. Sans ça, un utilisateur
- * pourrait noter les révisions d'un autre (faille IDOR).
+ * pourrait lire les notes ou la progression d'un autre (faille IDOR).
  */
 export const CurrentUserId = createParamDecorator(
   (_data: unknown, context: ExecutionContext): string => readSessionUser(context).id,

@@ -5,6 +5,8 @@ import { listStacks, searchEntries } from '../lib/stacks';
 import { DIFFICULTY_LABEL, KIND_LABEL } from '../lib/labels';
 import { AdminSelect } from '../components/admin/AdminSelect';
 import { useAsyncData } from '../lib/useAsyncData';
+import { useEntryStates } from '../lib/useEntryStates';
+import { useAccessMentions } from '../lib/entryAccess';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryCard } from '../components/ui/EntryCard';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
@@ -45,6 +47,13 @@ export function SearchPage() {
     [q, kind, difficulty, stack, tag, page],
     'Impossible de charger les fiches',
   );
+
+  // Repères du compte connecté pour la page de résultats affichée.
+  const entryIds = data?.items.map((entry) => entry.id) ?? [];
+  const states = useEntryStates(entryIds);
+  // Mention des fiches réservées. La recherche porte sur le titre, le résumé et
+  // les étiquettes, qui sont publics : toutes les fiches publiées y figurent.
+  const accessOf = useAccessMentions(entryIds);
 
   function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,7 +106,7 @@ export function SearchPage() {
     <>
       <PageHeader
         title="Recherche"
-        description="Recherche de fiches publiées par mots, niveau, format ou leçon. Sans compte."
+        description="Recherche de fiches publiées par mots (titre, résumé, étiquette), niveau, format ou leçon. La recherche se fait sans compte."
       />
 
       <form onSubmit={onSubmit} className="mb-8 flex flex-wrap items-end gap-3">
@@ -156,7 +165,7 @@ export function SearchPage() {
           ))}
         </div>
       ) : data === null ? (
-        <EmptyMessage>Saisis un mot ou choisis un filtre pour trouver une fiche.</EmptyMessage>
+        <EmptyMessage>Un mot ou un filtre lance la recherche.</EmptyMessage>
       ) : data.items.length === 0 ? (
         <EmptyMessage>Aucune fiche publiée ne correspond à ces critères.</EmptyMessage>
       ) : (
@@ -164,7 +173,11 @@ export function SearchPage() {
           <ul className="grid gap-4 sm:grid-cols-2">
             {data.items.map((entry) => (
               <li key={entry.id}>
-                <EntryCard entry={entry} />
+                <EntryCard
+                  entry={entry}
+                  state={states?.byEntryId.get(entry.id)}
+                  access={accessOf(entry.id)}
+                />
               </li>
             ))}
           </ul>
