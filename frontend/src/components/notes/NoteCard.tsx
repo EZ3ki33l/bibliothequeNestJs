@@ -3,6 +3,7 @@ import { Button } from '@heroui/react';
 import { MAX_NOTE_LENGTH, type NoteItem } from '../../lib/notes';
 import { EntryCard } from '../ui/EntryCard';
 import { ErrorMessage } from '../ui/ErrorMessage';
+import { Typo } from '../ui/Typo';
 
 type NoteCardProps = {
   note: NoteItem;
@@ -77,14 +78,15 @@ export function NoteCard({
         />
       ) : (
         <>
-          <p
+          <Typo
+            variant="p"
             id={contentId}
-            className={`text-sm wrap-break-word whitespace-pre-wrap ${
+            className={`wrap-break-word whitespace-pre-wrap ${
               long && !expanded ? 'line-clamp-5' : ''
             }`}
           >
             {note.content}
-          </p>
+          </Typo>
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
           <div className="flex flex-wrap items-center gap-2">
             {long ? (
@@ -163,10 +165,10 @@ function NoteEditor({
         aria-describedby={`${fieldId}-count`}
         className="border-border bg-background w-full rounded-lg border p-3 text-sm"
       />
-      <p id={`${fieldId}-count`} className="text-muted text-xs">
+      <Typo variant="caption" id={`${fieldId}-count`}>
         {draft.length} / {MAX_NOTE_LENGTH} caractères
         {draft.trim() === '' ? ' · une note vide est supprimée à l’enregistrement' : ''}
-      </p>
+      </Typo>
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button

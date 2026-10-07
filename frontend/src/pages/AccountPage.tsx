@@ -18,6 +18,7 @@ import { VerifyEmailReminder } from '../components/account/VerifyEmailReminder';
 import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
 /** Message affiché pour chaque refus du serveur ; `deleted` ne passe jamais ici. */
 const REFUSAL_MESSAGES: Record<Exclude<DeleteAccountResult, 'deleted' | 'unauthorized'>, string> = {
@@ -219,14 +220,14 @@ export function AccountPage() {
     <>
       <PageHeader title="Mon compte" description="Identité du compte et gestion des données." />
 
-      <div className="flex max-w-2xl flex-col gap-8">
+      <div className="card-grid grid items-start gap-8 [--card-min:26rem]">
         <section aria-labelledby="account-name-title" className={SECTION_CLASS}>
-          <h2 id="account-name-title" className="text-lg font-semibold">
+          <Typo variant="h3" as="h2" id="account-name-title">
             Nom affiché
-          </h2>
-          <p className="text-muted mt-2 text-sm">
+          </Typo>
+          <Typo variant="small" as="p" className="mt-2">
             Le nom apparaît dans le menu. Il n’est visible que de son titulaire.
-          </p>
+          </Typo>
           {/* `key` : après un enregistrement, le champ repart du nom en vigueur. */}
           <Form
             key={user.name}
@@ -258,11 +259,13 @@ export function AccountPage() {
         </section>
 
         <section aria-labelledby="account-email-title" className={SECTION_CLASS}>
-          <h2 id="account-email-title" className="text-lg font-semibold">
+          <Typo variant="h3" as="h2" id="account-email-title">
             Adresse électronique
-          </h2>
+          </Typo>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <p className="min-w-0 text-sm wrap-break-word">{user.email}</p>
+            <Typo variant="small" as="p" className="text-foreground min-w-0 wrap-break-word">
+              {user.email}
+            </Typo>
             {emailVerified ? (
               <Chip size="sm" variant="soft" color="success">
                 <span className="inline-flex items-center gap-1">
@@ -279,31 +282,31 @@ export function AccountPage() {
               </Chip>
             )}
           </div>
-          <p className="text-muted mt-2 text-sm">
+          <Typo variant="small" as="p" className="mt-2">
             L’adresse identifie le compte et ne peut pas être modifiée.
             {emailVerified
               ? ' Vérifiée, elle ouvre tout le catalogue.'
               : ' Une adresse mal saisie se corrige en supprimant ce compte, puis en en créant un autre.'}
-          </p>
+          </Typo>
           {emailVerified ? null : (
             <div className="border-border mt-4 border-t pt-4">
-              <p className="text-muted mb-3 text-sm">
+              <Typo variant="small" as="p" className="mb-3">
                 Tant qu’elle n’est pas vérifiée, seul le premier module de chaque parcours se lit.
                 Le lien reçu par message ouvre tout le catalogue.
-              </p>
+              </Typo>
               <VerifyEmailReminder email={user.email} returnTo="/compte" />
             </div>
           )}
         </section>
 
         <section aria-labelledby="account-password-title" className={SECTION_CLASS}>
-          <h2 id="account-password-title" className="text-lg font-semibold">
+          <Typo variant="h3" as="h2" id="account-password-title">
             Mot de passe
-          </h2>
-          <p className="text-muted mt-2 text-sm">
+          </Typo>
+          <Typo variant="small" as="p" className="mt-2">
             Le mot de passe actuel est demandé pour confirmer le changement. Les autres sessions du
             compte sont alors fermées ; celle-ci reste ouverte.
-          </p>
+          </Typo>
           <Form
             key={passwordFormKey}
             className="mt-5 flex max-w-sm flex-col gap-4"
@@ -355,14 +358,14 @@ export function AccountPage() {
           aria-labelledby="delete-account-title"
           className="border-danger/40 rounded-xl border p-5"
         >
-          <h2 id="delete-account-title" className="text-danger text-lg font-semibold">
+          <Typo variant="h3" as="h2" id="delete-account-title" className="text-cherry-light">
             Supprimer le compte
-          </h2>
-          <p className="text-muted mt-2 text-sm">
+          </Typo>
+          <Typo variant="small" as="p" className="mt-2">
             La suppression est immédiate et définitive. Le compte et toutes ses données sont effacés
             : sessions de connexion, favoris, notes, fiches lues et résultats d’examen. Aucune
             récupération n’est possible.
-          </p>
+          </Typo>
 
           {confirming ? (
             <Form

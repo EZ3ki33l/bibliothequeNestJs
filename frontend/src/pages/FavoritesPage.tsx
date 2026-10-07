@@ -105,7 +105,7 @@ export function FavoritesPage() {
   // Chargement, ou redirection déjà lancée.
   if (data === undefined || data === 'unauthorized') {
     return (
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="card-grid grid gap-4">
         {[0, 1, 2, 3].map((index) => (
           <Skeleton key={index} className="h-32 rounded-xl" />
         ))}
@@ -123,7 +123,7 @@ export function FavoritesPage() {
         <EmptyMessage>Aucun favori pour le moment.</EmptyMessage>
       ) : (
         <>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="card-grid grid gap-4">
             {data.items.map((favorite) => (
               <li key={favorite.id} className="relative">
                 <EntryCard entry={favorite.entry} access={accessOf(favorite.entry.id)} />
@@ -142,7 +142,7 @@ export function FavoritesPage() {
                     void onRemove(favorite.entry.id);
                   }}
                 >
-                  <HeartIcon filled className="text-danger size-4" />
+                  <HeartIcon filled className="text-blueberry-light size-4" />
                 </Button>
               </li>
             ))}

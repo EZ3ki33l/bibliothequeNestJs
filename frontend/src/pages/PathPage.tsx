@@ -20,6 +20,7 @@ import { EntryMeta } from '../components/ui/EntryMeta';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { NotFoundState } from '../components/ui/NotFoundState';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
 /**
  * Progression telle que la page l'affiche :
@@ -122,41 +123,58 @@ export function PathPage() {
           Ce parcours est en préparation : aucune étape n’est encore publiée.
         </EmptyMessage>
       ) : (
-        <>
-          {progress ? (
-            <ProgressSummary path={path} progress={progress} />
-          ) : progress === null ? (
-            <p className="border-border text-muted mb-8 rounded-xl border border-dashed px-4 py-3 text-sm">
-              Le premier module se lit sans compte. Un compte dont l’adresse est vérifiée ouvre les
-              modules suivants et le suivi de la progression.{' '}
-              {/* L'inscription et la connexion ramènent à ce parcours, pas à
-                  l'accueil. */}
-              <Link
-                to={registerHref(currentReturnTo(location))}
-                className="text-foreground underline"
+        // Sur un écran large, la progression et les mentions passent à droite
+        // des étapes et restent visibles au défilement (`.rail-layout`). Elles
+        // gardent leur place avant les étapes dans la page : sur un téléphone,
+        // elles se lisent d'abord.
+        <div className="rail-layout">
+          <div className="rail empty:hidden">
+            {progress ? (
+              <ProgressSummary path={path} progress={progress} />
+            ) : progress === null ? (
+              <Typo
+                variant="small"
+                as="p"
+                className="border-border mb-8 rounded-xl border border-dashed px-4 py-3"
               >
-                Créer un compte
-              </Link>{' '}
-              ou{' '}
-              <Link to={loginHref(currentReturnTo(location))} className="text-foreground underline">
-                se connecter
-              </Link>
-              .
-            </p>
-          ) : null}
+                Le premier module se lit sans compte. Un compte dont l’adresse est vérifiée ouvre
+                les modules suivants et le suivi de la progression.{' '}
+                {/* L'inscription et la connexion ramènent à ce parcours, pas à
+                  l'accueil. */}
+                <Link
+                  to={registerHref(currentReturnTo(location))}
+                  className="text-blueberry-light underline underline-offset-2"
+                >
+                  Créer un compte
+                </Link>{' '}
+                ou{' '}
+                <Link
+                  to={loginHref(currentReturnTo(location))}
+                  className="text-blueberry-light underline underline-offset-2"
+                >
+                  se connecter
+                </Link>
+                .
+              </Typo>
+            ) : null}
 
-          {/* Compte connecté dont l'adresse reste à vérifier : dire pourquoi
+            {/* Compte connecté dont l'adresse reste à vérifier : dire pourquoi
               les modules suivants portent une mention, et où agir. */}
-          {viewer === 'unverified' && progress !== null ? (
-            <p className="border-border text-muted mb-8 rounded-xl border border-dashed px-4 py-3 text-sm">
-              L’adresse du compte reste à vérifier : seul le premier module se lit pour le moment.
-              Le message de vérification se demande depuis{' '}
-              <Link to="/compte" className="text-foreground underline">
-                Mon compte
-              </Link>
-              .
-            </p>
-          ) : null}
+            {viewer === 'unverified' && progress !== null ? (
+              <Typo
+                variant="small"
+                as="p"
+                className="border-border mb-8 rounded-xl border border-dashed px-4 py-3"
+              >
+                L’adresse du compte reste à vérifier : seul le premier module se lit pour le moment.
+                Le message de vérification se demande depuis{' '}
+                <Link to="/compte" className="text-blueberry-light underline underline-offset-2">
+                  Mon compte
+                </Link>
+                .
+              </Typo>
+            ) : null}
+          </div>
 
           <ol className="flex flex-col gap-10">
             {path.modules.map((module, moduleIndex) => {
@@ -166,20 +184,25 @@ export function PathPage() {
                 <li key={module.id}>
                   <section aria-labelledby={`module-${module.id}`}>
                     <header className="mb-4">
-                      <p className="text-muted text-xs tracking-wide uppercase">
+                      <Typo variant="caption" className="text-blueberry-light font-medium">
                         Module {moduleIndex + 1}
                         {moduleProgress && moduleProgress.required > 0
                           ? ` · ${moduleProgress.validatedRequired}/${moduleProgress.required} validées`
                           : null}
-                      </p>
-                      <h2 id={`module-${module.id}`} className="text-lg font-semibold">
+                      </Typo>
+                      <Typo variant="h3" as="h2" id={`module-${module.id}`}>
                         {module.title}
-                      </h2>
+                      </Typo>
                       {module.description ? (
-                        <p className="text-muted mt-1 text-sm">{module.description}</p>
+                        <Typo variant="small" as="p" className="mt-1">
+                          {module.description}
+                        </Typo>
                       ) : null}
                     </header>
-                    <ol className="flex flex-col gap-3">
+                    {/* Une colonne jusqu'au 1080p ; deux à partir du 2K, où une
+                        étape étirée sur toute la largeur serait trop longue à
+                        lire. Le numéro de chaque étape porte l'ordre. */}
+                    <ol className="card-grid grid gap-3 [--card-min:40rem]">
                       {module.steps.map((step, stepIndex) => (
                         <li key={step.id}>
                           <StepRow
@@ -198,7 +221,7 @@ export function PathPage() {
               );
             })}
           </ol>
-        </>
+        </div>
       )}
     </>
   );
@@ -225,11 +248,11 @@ function ProgressSummary({ path, progress }: { path: PathDetail; progress: PathP
       className="border-border bg-surface mb-10 flex flex-col gap-4 rounded-xl border p-5"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium">
+        <Typo variant="small" as="p" className="text-foreground font-medium">
           {progress.validatedRequired}{' '}
           {progress.validatedRequired > 1 ? 'étapes validées' : 'étape validée'} sur{' '}
           {progress.required}
-        </p>
+        </Typo>
         {progress.completed ? (
           <Chip size="sm" variant="soft" color="success">
             Parcours terminé
@@ -247,14 +270,14 @@ function ProgressSummary({ path, progress }: { path: PathDetail; progress: PathP
         aria-valuenow={progress.validatedRequired}
         className="bg-background h-2 overflow-hidden rounded-full"
       >
-        <div className="bg-brand h-full rounded-full" style={{ width: `${percent}%` }} />
+        <div className="bg-blueberry h-full rounded-full" style={{ width: `${percent}%` }} />
       </div>
 
       {nextStep ? (
         <div className="flex flex-wrap items-center gap-3">
           <Link
             to={entryHrefFromPath(nextStep.entry.slug, path.slug)}
-            className={`${buttonVariants({ variant: 'primary', size: 'sm' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary', size: 'sm' })} cta no-underline`}
           >
             Continuer : {nextStep.entry.title}
           </Link>
@@ -294,8 +317,8 @@ function StepRow({ step, number, pathSlug, isValidated, isNext, access }: StepRo
     <Link
       to={entryHrefFromPath(entry.slug, pathSlug)}
       aria-current={isNext ? 'step' : undefined}
-      className={`hover:bg-surface-hover flex items-start gap-4 rounded-xl border p-4 no-underline transition-colors duration-150 ${
-        isNext ? 'border-brand' : 'border-border'
+      className={`hover:border-blueberry-light hover:bg-surface-hover flex h-full items-start gap-4 rounded-xl border p-4 no-underline transition-[border-color,background-color,box-shadow] duration-150 hover:shadow-[0_14px_28px_-18px_var(--color-blacksea-dark)] motion-reduce:transition-none ${
+        isNext ? 'border-blueberry bg-blueberry/10' : 'border-border'
       }`}
     >
       {isValidated ? (
@@ -307,7 +330,9 @@ function StepRow({ step, number, pathSlug, isValidated, isNext, access }: StepRo
       ) : (
         <span
           aria-hidden="true"
-          className="bg-surface text-muted flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium"
+          className={`font-heading flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
+            isNext ? 'bg-blueberry text-blacksea-dark' : 'bg-surface text-muted'
+          }`}
         >
           {number}
         </span>

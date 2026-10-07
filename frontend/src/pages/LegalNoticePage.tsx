@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SITE_LEGAL } from '../lib/site-legal';
+import { Typo } from '../components/ui/Typo';
 
 /**
  * Mentions légales.
@@ -18,34 +19,37 @@ export function LegalNoticePage() {
         <div>
           <dt className="text-sm font-medium">Éditeur</dt>
           <dd>
-            <p className="mt-1 text-sm">{SITE_LEGAL.publisherName}</p>
-            <p className="text-muted mt-1 text-sm">
+            <Typo variant="small" as="p" className="text-foreground mt-1">
+              {SITE_LEGAL.publisherName}
+            </Typo>
+            <Typo variant="small" as="p" className="mt-1">
               Site personnel, non professionnel et sans contrepartie financière. Conformément à
               l’article 1-1, II de la loi n° 2004-575 du 21 juin 2004 (LCEN), les éléments
               d’identification de l’éditeur sont communiqués à l’hébergeur.
-            </p>
+            </Typo>
           </dd>
         </div>
 
         <div>
           <dt className="text-sm font-medium">Hébergeur</dt>
           <dd>
-            <p className="mt-1 text-sm">{SITE_LEGAL.hostName}</p>
-            <p className="mt-1 text-sm">{SITE_LEGAL.hostAddress}</p>
+            <Typo variant="small" as="p" className="text-foreground mt-1">
+              {SITE_LEGAL.hostName}
+            </Typo>
+            <Typo variant="small" as="p" className="text-foreground mt-1">
+              {SITE_LEGAL.hostAddress}
+            </Typo>
           </dd>
         </div>
 
         <div>
           <dt className="text-sm font-medium">Contact</dt>
           <dd>
-            <p className="mt-1 text-sm">
-              <Link
-                to="/contact"
-                className="text-muted hover:text-foreground no-underline transition-colors duration-150"
-              >
+            <Typo variant="small" as="p" className="text-foreground mt-1">
+              <Link to="/contact" className="text-blueberry-light underline underline-offset-2">
                 Page contact
               </Link>
-            </p>
+            </Typo>
           </dd>
         </div>
       </dl>

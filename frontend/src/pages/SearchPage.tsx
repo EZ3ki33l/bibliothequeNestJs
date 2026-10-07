@@ -3,6 +3,7 @@ import { type SubmitEvent } from 'react';
 import { Button, Input, Label, Skeleton, TextField } from '@heroui/react';
 import { listStacks, searchEntries } from '../lib/stacks';
 import { DIFFICULTY_LABEL, KIND_LABEL } from '../lib/labels';
+import { MAX_SEARCH_LENGTH } from '../lib/headerSearch';
 import { AdminSelect } from '../components/admin/AdminSelect';
 import { useAsyncData } from '../lib/useAsyncData';
 import { useEntryStates } from '../lib/useEntryStates';
@@ -115,7 +116,7 @@ export function SearchPage() {
           className="w-full sm:w-auto sm:min-w-64 sm:flex-1"
           defaultValue={q}
           key={q}
-          maxLength={100}
+          maxLength={MAX_SEARCH_LENGTH}
         >
           <Label>Mots</Label>
           <Input placeholder="ex. useState, hooks…" />
@@ -159,7 +160,7 @@ export function SearchPage() {
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
       ) : data === undefined ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="card-grid grid gap-4">
           {[0, 1, 2, 3].map((index) => (
             <Skeleton key={index} className="h-32 rounded-xl" />
           ))}
@@ -170,7 +171,7 @@ export function SearchPage() {
         <EmptyMessage>Aucune fiche publiée ne correspond à ces critères.</EmptyMessage>
       ) : (
         <>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="card-grid grid gap-4">
             {data.items.map((entry) => (
               <li key={entry.id}>
                 <EntryCard

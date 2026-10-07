@@ -5,9 +5,9 @@ import { requestPasswordReset, type PasswordResetResult } from '../lib/auth';
 import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
-const LINK_CLASS =
-  'text-foreground hover:text-foreground no-underline transition-colors duration-150';
+const LINK_CLASS = 'text-blueberry-light underline underline-offset-2';
 
 /** Refus affichables ; `ok` ouvre l'écran de confirmation, jamais un message d'erreur. */
 const REFUSAL_MESSAGES: Record<Exclude<PasswordResetResult, 'ok'>, string> = {
@@ -59,7 +59,7 @@ export function ForgotPasswordPage() {
           title="Courriel envoyé"
           description="Si un compte existe pour cette adresse, un courriel contenant un lien de réinitialisation vient d’être envoyé. Le lien est valable une heure."
         />
-        <p className="text-muted text-sm">
+        <Typo variant="small" as="p">
           Rien reçu ? Vérifier les courriers indésirables, puis{' '}
           <button
             type="button"
@@ -69,7 +69,7 @@ export function ForgotPasswordPage() {
             recommencer
           </button>
           .
-        </p>
+        </Typo>
       </>
     );
   }
@@ -94,11 +94,11 @@ export function ForgotPasswordPage() {
           {pending ? 'Envoi…' : 'Envoyer le lien'}
         </Button>
       </Form>
-      <p className="text-muted mt-6 text-sm">
+      <Typo variant="small" as="p" className="mt-6">
         <Link to="/login" className={LINK_CLASS}>
           Retour à la connexion
         </Link>
-      </p>
+      </Typo>
     </>
   );
 }

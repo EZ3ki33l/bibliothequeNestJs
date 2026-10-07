@@ -17,7 +17,7 @@ export function StacksPage() {
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
       ) : stacks === undefined ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="card-grid grid gap-4">
           {[0, 1, 2, 3].map((index) => (
             <Skeleton key={index} className="h-32 rounded-xl" />
           ))}
@@ -25,14 +25,14 @@ export function StacksPage() {
       ) : stacks.length === 0 ? (
         <EmptyMessage>Aucune leçon pour le moment.</EmptyMessage>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="card-grid grid gap-4">
           {stacks.map((stack) => (
             <li key={stack.id}>
               <Link to={`/stacks/${stack.slug}`} className="block h-full no-underline">
-                <Card className="hover:bg-surface-hover h-full transition-colors duration-150">
+                <Card className="card-interactive h-full">
                   <Card.Header>
                     <Card.Title className="flex items-center gap-2">
-                      <StackIcon className="text-muted size-4" />
+                      <StackIcon className="text-blueberry-light size-4" />
                       {stack.name}
                     </Card.Title>
                     {stack.description ? (

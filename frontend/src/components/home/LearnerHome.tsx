@@ -13,6 +13,7 @@ import { useAsyncData } from '../../lib/useAsyncData';
 import { viewerAccess } from '../../lib/viewerAccess';
 import { VerifyEmailReminder } from '../account/VerifyEmailReminder';
 import { HeartIcon } from '../ui/HeartIcon';
+import { Typo } from '../ui/Typo';
 
 /** Nombre de parcours proposés à un compte qui n'en a commencé aucun. */
 const SUGGESTED_PATHS = 3;
@@ -27,7 +28,7 @@ type LearnerHomeData =
   { kind: 'resume'; started: StartedPaths } | { kind: 'start'; paths: PathListItem[] } | null;
 
 const SHORTCUT_CLASS =
-  'border-border hover:bg-surface-hover text-foreground flex items-center gap-2 rounded-lg border px-3 py-2 text-sm no-underline transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)';
+  'border-border hover:border-blueberry-light hover:bg-surface text-foreground flex items-center gap-2 rounded-lg border px-3 py-2 text-sm no-underline transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)';
 
 /**
  * Bloc personnel de l'accueil d'un compte connecté : « Reprendre » un parcours
@@ -127,15 +128,18 @@ function Resume({ started }: { started: StartedPaths }) {
   return (
     <>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="learner-home-heading" className="text-lg font-semibold tracking-tight">
+        <Typo variant="h3" as="h2" id="learner-home-heading">
           Reprendre
-        </h2>
-        <Link to="/parcours" className="text-muted hover:text-foreground text-sm underline">
+        </Typo>
+        <Link
+          to="/parcours"
+          className="text-blueberry-light text-sm underline-offset-4 hover:underline"
+        >
           Tous les parcours
           {started.total > started.items.length ? ` (${started.total} commencés)` : ''}
         </Link>
       </div>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="card-grid grid gap-4">
         {started.items.map((path) => (
           <li key={path.pathId}>
             <Card className="h-full">
@@ -143,7 +147,7 @@ function Resume({ started }: { started: StartedPaths }) {
                 <Card.Title className="text-base">
                   <Link
                     to={`/parcours/${encodeURIComponent(path.slug)}`}
-                    className="text-foreground hover:text-muted no-underline transition-colors duration-150"
+                    className="text-foreground hover:text-blueberry-light no-underline transition-colors duration-150"
                   >
                     {path.name}
                   </Link>
@@ -167,7 +171,7 @@ function Resume({ started }: { started: StartedPaths }) {
                     className="bg-background h-1.5 w-full overflow-hidden rounded-full"
                   >
                     <div
-                      className="bg-brand h-full rounded-full"
+                      className="bg-blueberry h-full rounded-full"
                       style={{
                         width: `${Math.round((path.validatedRequired / path.required) * 100)}%`,
                       }}
@@ -206,25 +210,28 @@ function Resume({ started }: { started: StartedPaths }) {
 function GetStarted({ paths }: { paths: PathListItem[] }) {
   return (
     <>
-      <h2 id="learner-home-heading" className="text-lg font-semibold tracking-tight">
+      <Typo variant="h3" as="h2" id="learner-home-heading">
         Par où commencer
-      </h2>
+      </Typo>
       {paths.length === 0 ? (
-        <p className="text-muted text-sm">
+        <Typo variant="small" as="p">
           Aucun parcours n’est encore publié : les fiches se trouvent par leçon, dans le catalogue.
-        </p>
+        </Typo>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="card-grid grid gap-4">
           {paths.map((path) => (
             <li key={path.id}>
               <Link
                 to={`/parcours/${encodeURIComponent(path.slug)}`}
                 className="block h-full no-underline"
               >
-                <Card className="hover:bg-surface-hover h-full transition-colors duration-150">
+                <Card className="card-interactive h-full">
                   <Card.Header>
                     <Card.Title className="flex items-center gap-2 text-base">
-                      <PathIcon aria-hidden="true" className="text-muted size-4 shrink-0" />
+                      <PathIcon
+                        aria-hidden="true"
+                        className="text-blueberry-light size-4 shrink-0"
+                      />
                       {path.name}
                     </Card.Title>
                     {path.description ? (

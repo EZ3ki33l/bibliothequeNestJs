@@ -46,7 +46,10 @@ export function AdminPathsPage() {
       ) : data.items.length === 0 ? (
         <EmptyMessage>
           Aucun parcours pour le moment.{' '}
-          <Link to="/admin/parcours/new" className="text-foreground underline">
+          <Link
+            to="/admin/parcours/new"
+            className="text-blueberry-light underline underline-offset-2"
+          >
             Créer le premier
           </Link>
         </EmptyMessage>

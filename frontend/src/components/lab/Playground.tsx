@@ -1,5 +1,5 @@
 import { Sandpack } from '@codesandbox/sandpack-react';
-import { resolveSandpackTemplate } from '../../lib/sandpack';
+import { SANDPACK_THEME, resolveSandpackTemplate } from '../../lib/sandpack';
 import type { SandpackFiles } from '../../lib/stacks';
 
 type PlaygroundProps = {
@@ -22,15 +22,17 @@ type PlaygroundProps = {
  */
 export function Playground({ files, template = 'react-ts', dependencies }: PlaygroundProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/8">
+    <div className="border-border overflow-hidden rounded-xl border">
       <Sandpack
         template={resolveSandpackTemplate(template)}
         files={files}
-        theme="dark"
+        theme={SANDPACK_THEME}
         customSetup={dependencies ? { dependencies } : undefined}
         options={{
           showLineNumbers: true,
-          editorHeight: 360,
+          // En `rem` : l'atelier grandit avec le reste de l'interface sur un
+          // très grand écran.
+          editorHeight: '22.5rem',
           wrapContent: true,
         }}
       />

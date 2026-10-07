@@ -66,7 +66,7 @@ export function CategoryPage() {
       {category.entries.length === 0 ? (
         <EmptyMessage>Aucune fiche publiée.</EmptyMessage>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="card-grid grid gap-4">
           {category.entries.map((entry) => (
             <li key={entry.id}>
               <EntryCard

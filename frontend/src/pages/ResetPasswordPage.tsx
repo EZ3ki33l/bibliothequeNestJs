@@ -6,8 +6,7 @@ import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
 
-const LINK_CLASS =
-  'text-foreground hover:text-foreground no-underline transition-colors duration-150';
+const LINK_CLASS = 'text-blueberry-light underline underline-offset-2';
 
 /** Refus affichables ; `ok` bascule sur l'écran de succès. */
 const REFUSAL_MESSAGES: Record<Exclude<PasswordResetResult, 'ok' | 'invalid-token'>, string> = {

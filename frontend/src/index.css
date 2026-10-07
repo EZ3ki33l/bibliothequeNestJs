@@ -1,48 +1,323 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
-@import '@fontsource-variable/geist';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/inter';
 @import '@fontsource-variable/geist-mono';
 
-/* Seule couleur propre au projet : tout le reste vient des tokens HeroUI. */
-:root {
-  --brand: oklch(76.9% 0.188 70.08);
-  --brand-foreground: oklch(100% 0 0);
+/* Charte graphique. Tailwind 4 n'a pas de `tailwind.config.js` : la palette et
+   les polices sont déclarées ici, et chaque variable `--color-*` donne ses
+   classes (`bg-blacksea-dark`, `text-blueberry-light`, `border-cherry`…).
+
+   Règle des 60-30-10 :
+   - Black Sea (60 %) : fonds et structure ;
+   - Blueberry (30 %) : navigation, liens, boutons, focus ;
+   - Cherry (10 %) : action principale d'un écran, alertes, suppression.
+
+   Les polices sont servies par le site (`@fontsource-variable`) : aucune
+   requête ne part vers un tiers. */
+@theme {
+  --color-blacksea-light: #3d4551;
+  --color-blacksea: #1e242b;
+  --color-blacksea-dark: #0f1216;
+
+  --color-blueberry-light: #8f9af0;
+  --color-blueberry: #6b78d6;
+  --color-blueberry-dark: #4854ad;
+
+  --color-cherry-light: #f27269;
+  --color-cherry: #eb3f33;
+  --color-cherry-dark: #ba261b;
+
+  --color-ui-success-light: #34d399;
+  --color-ui-success: #10b981;
+  --color-ui-success-dark: #059669;
+  --color-ui-warning-light: #fbbf24;
+  --color-ui-warning: #f59e0b;
+  --color-ui-warning-dark: #d97706;
+  --color-ui-info-light: #38bdf8;
+  --color-ui-info: #0ea5e9;
+  --color-ui-info-dark: #0284c7;
+
+  /* Texte courant et chapô : entre le blanc des titres et le gris secondaire. */
+  --color-body: #d1d5db;
+  --color-lead: #e5e7eb;
+
+  --font-heading: 'Space Grotesk Variable', system-ui, sans-serif;
+  --font-body: 'Inter Variable', system-ui, sans-serif;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  /* Au-delà de `2xl` (1536 px) : écran 1080p plein cadre, puis 2K et plus. */
+  --breakpoint-3xl: 120rem;
+  --breakpoint-4xl: 160rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-brand: var(--brand);
-  --color-brand-foreground: var(--brand-foreground);
-  --font-sans: 'Geist Variable', system-ui, sans-serif;
-  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --color-info: var(--info);
 }
 
-html,
-body,
-#root {
-  height: 100%;
+/* La charte s'applique en redéfinissant les tokens de HeroUI : tous ses
+   composants (boutons, cartes, champs, puces, alertes) et toutes les classes
+   `text-muted`, `bg-surface`, `border-border` de l'app suivent sans être
+   réécrits. La règle vit dans une couche, après l'import de HeroUI : elle
+   remplace ses valeurs par défaut sans passer au-dessus de ses composants.
+
+   Trois écarts voulus avec la charte, pour le contraste (WCAG AA, 4,5:1) :
+   - le libellé d'un bouton plein est sombre : du blanc sur Blueberry ou sur
+     Cherry ne donne que 3,98:1 ;
+   - un lien ou un texte coloré prend la teinte claire (`blueberry-light`,
+     `cherry-light`) : la teinte de base ne donne que 3,94:1 sur le fond ;
+   - une carte est un cran au-dessus du fond, pas `blacksea-light` plein, sur
+     lequel le texte secondaire tomberait à 3,8:1. */
+@layer base {
+  .dark {
+    --background: var(--color-blacksea);
+    --foreground: #f5f7fa;
+    --muted: #9ca3af;
+
+    /* Barre latérale, en-tête, barre basse : la zone la plus profonde. */
+    --background-secondary: var(--color-blacksea-dark);
+
+    --surface: color-mix(in oklab, var(--color-blacksea) 72%, var(--color-blacksea-light));
+    --surface-secondary: color-mix(
+      in oklab,
+      var(--color-blacksea) 56%,
+      var(--color-blacksea-light)
+    );
+    --surface-tertiary: color-mix(in oklab, var(--color-blacksea) 40%, var(--color-blacksea-light));
+    --overlay: color-mix(in oklab, var(--color-blacksea) 64%, var(--color-blacksea-light));
+
+    --default: color-mix(in oklab, var(--color-blacksea) 45%, var(--color-blacksea-light));
+    --default-foreground: var(--foreground);
+    --segment: var(--color-blacksea-light);
+
+    --accent: var(--color-blueberry);
+    --accent-foreground: var(--color-blacksea-dark);
+    --accent-hover: var(--color-blueberry-light);
+
+    --danger: var(--color-cherry);
+    --danger-foreground: var(--color-blacksea-dark);
+    --danger-hover: var(--color-cherry-light);
+
+    --success: var(--color-ui-success);
+    --success-foreground: var(--color-blacksea-dark);
+    --warning: var(--color-ui-warning);
+    --warning-foreground: var(--color-blacksea-dark);
+    --info: var(--color-ui-info);
+
+    /* Un champ est creusé dans la page ; son contour reste visible (3:1). */
+    --field-background: var(--color-blacksea-dark);
+    --field-border-width: 1px;
+    --field-border: color-mix(in oklab, var(--color-blacksea-light) 45%, var(--muted));
+
+    --border: var(--color-blacksea-light);
+    --separator: color-mix(in oklab, var(--color-blacksea) 45%, var(--color-blacksea-light));
+    --focus: var(--color-blueberry-light);
+    --link: var(--color-blueberry-light);
+    --backdrop: rgb(15 18 22 / 70%);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /* Très grands écrans : toute l'interface est en `rem`, agrandir la taille de
+     base agrandit donc texte, espacements et colonnes ensemble, au lieu de
+     laisser une interface minuscule au milieu d'un écran immense.
+     La hauteur compte aussi : un écran ultra-large peu haut (2560 × 1080,
+     5120 × 1440) a la densité d'un écran ordinaire et garde la taille d'en
+     dessous. */
+  @media (min-width: 2560px) and (min-height: 1200px) {
+    html {
+      font-size: 112.5%;
+    }
+  }
+
+  @media (min-width: 3840px) and (min-height: 1600px) {
+    html {
+      font-size: 137.5%;
+    }
+  }
+
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+  }
+
+  /* Navigation au clavier : un lien actif se voit toujours. */
+  a:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  /* Le lien qui enveloppe une carte laisse la carte porter l'anneau de focus :
+     elle a des coins arrondis, le lien non. */
+  a:has(> .card-interactive):focus-visible {
+    outline: none;
+  }
 }
 
-body {
-  margin: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+@layer components {
+  .card {
+    border-radius: var(--radius-2xl);
+  }
+
+  .card__title {
+    font-family: var(--font-heading);
+  }
+
+  /* Page à colonne latérale (fiche, parcours). Sur un écran large, le contenu
+     garde une largeur de lecture et ce qui l'accompagne (examen et note d'une
+     fiche, progression d'un parcours) passe à sa droite et reste visible au
+     défilement, au lieu de laisser cette place vide.
+
+     `.rail-layout` a deux enfants : le contenu et `.rail`. L'ordre dans la
+     page ne change pas : seul le placement change, donc la lecture au clavier
+     et au lecteur d'écran reste la même. Une colonne latérale vide (rien à y
+     mettre pour ce lecteur) ne réserve aucune place : `:has(:not(:empty))`. */
+  @media (min-width: 96rem) {
+    .rail-layout:has(> .rail:not(:empty)) {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 22rem;
+      column-gap: 3rem;
+      align-items: start;
+    }
+
+    .rail-layout:has(> .rail:not(:empty)) > :not(.rail) {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .rail-layout > .rail {
+      grid-column: 2;
+      grid-row: 1;
+      position: sticky;
+      top: 2rem;
+    }
+  }
 }
 
+/* Cadre du contenu, partagé par l'en-tête, les pages et l'écran d'incident :
+   il occupe toute la largeur jusqu'à un écran 2K, puis se centre. Au-delà,
+   une ligne ou une rangée de cartes deviendrait trop longue à parcourir. */
+@utility page-container {
+  width: 100%;
+  max-width: 144rem;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+
+  @media (min-width: 96rem) {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* Grille de cartes : autant de colonnes que la largeur en accueille, sans
+   liste de points de rupture. Une carte ne descend pas sous `--card-min`
+   (20rem par défaut, réglable par page : `[--card-min:28rem]`) ; sur un
+   téléphone plus étroit que cette largeur, elle prend toute la ligne.
+   S'emploie avec `grid` et un `gap-*`. */
+@utility card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min, 20rem)), 1fr));
+}
+
+/* Action principale d'un écran : Cherry. Posée sur un bouton `primary`
+   (`Button` ou `buttonVariants`), elle ne change que les variables de couleur
+   lues par le bouton HeroUI. Un seul bouton `cta` par écran : c'est ce qui
+   garde le rouge à 10 %. */
+@utility cta {
+  --button-bg: var(--color-cherry);
+  --button-bg-hover: var(--color-cherry-light);
+  --button-bg-pressed: var(--color-cherry-light);
+  --button-fg: var(--color-blacksea-dark);
+}
+
+/* Carte cliquable (fiche, leçon, parcours, étape) : au survol comme au focus
+   clavier du lien, la bordure passe en Blueberry clair et une ombre la détache
+   du fond. Aucun déplacement : rien à neutraliser pour `prefers-reduced-motion`
+   en dehors de la transition. */
+@utility card-interactive {
+  border: 1px solid transparent;
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    background-color 150ms ease-out;
+
+  &:hover,
+  a:hover > &,
+  a:focus-visible > & {
+    border-color: var(--color-blueberry-light);
+    background-color: var(--surface-hover);
+    box-shadow: 0 14px 28px -18px var(--color-blacksea-dark);
+  }
+
+  &:focus-visible,
+  a:focus-visible > & {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* Corps d'une fiche. Le HTML vient du Markdown : il ne passe pas par le
+   composant `Typo`, ces règles appliquent donc les mêmes choix (Inter pour le
+   texte, Space Grotesk pour les titres, mêmes couleurs). Elles valent pour la
+   page publique comme pour l'aperçu de l'administration, qui rendent le même
+   `.entry-mdx`. */
 .entry-mdx {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  font-size: 0.875rem;
-  line-height: 1.625;
-  color: #a1a1aa;
+  gap: 1.125rem;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--color-body);
+}
+
+/* Longueur de ligne confortable pour une longue lecture ; les blocs de code
+   gardent toute la largeur. */
+.entry-mdx > :is(p, ul, ol, blockquote) {
+  max-width: 66ch;
+}
+
+.entry-mdx :is(h2, h3) {
+  margin-top: 0.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+
+/* Le corps suit l'en-tête de la fiche sans vide supplémentaire. */
+.entry-mdx > :first-child {
+  margin-top: 0;
 }
 
 .entry-mdx h2 {
-  font-size: 0.95rem;
-  font-weight: 500;
+  font-size: 1.375rem;
+}
+
+.entry-mdx h3 {
+  font-size: 1.125rem;
+}
+
+.entry-mdx strong {
+  font-weight: 600;
   color: var(--foreground);
 }
 
@@ -51,15 +326,21 @@ body {
   padding-left: 1.25rem;
 }
 
+.entry-mdx ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+
+.entry-mdx li::marker {
+  color: var(--color-blueberry-light);
+}
+
 /* Un lien du corps se reconnaît sans survol, et pas par la couleur seule : le
-   soulignement est permanent. La couleur du texte principal ajoute le
-   contraste sur le gris du corps. La règle vit ici, pas dans le pipeline
-   Markdown : elle vaut pour la page publique comme pour l'aperçu de
-   l'administration, qui rendent le même `.entry-mdx`. */
+   soulignement est permanent. */
 .entry-mdx a {
-  color: var(--foreground);
+  color: var(--link);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
   border-radius: 0.125rem;
 }
 
@@ -67,25 +348,21 @@ body {
   text-decoration-thickness: 2px;
 }
 
-/* Navigation au clavier : l'élément actif reste visible. */
-.entry-mdx a:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
 .entry-mdx :not(pre) > code {
   border-radius: 0.25rem;
-  background: rgb(255 255 255 / 8%);
+  background: var(--color-blacksea-dark);
   padding: 0.1rem 0.35rem;
-  font-size: 0.8125rem;
-  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+  font-family: var(--font-mono);
+  color: var(--color-blueberry-light);
 }
 
 .entry-mdx figure[data-rehype-pretty-code-figure] {
   margin: 0;
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid var(--border);
+  background: var(--color-blacksea-dark);
 }
 
 .entry-mdx pre {
@@ -93,7 +370,14 @@ body {
   overflow-x: auto;
   padding: 1rem 0;
   font-size: 0.8125rem;
-  font-family: var(--font-mono), ui-monospace, monospace;
+  line-height: 1.65;
+  font-family: var(--font-mono);
+}
+
+/* La marge intérieure est portée par chaque ligne, pas par `pre` : une ligne
+   plus longue que le bloc garde ainsi sa marge de droite au défilement. */
+.entry-mdx pre [data-line] {
+  padding: 0 1rem;
 }
 
 /* Sandpack (Playground.tsx) place éditeur et aperçu côte à côte par défaut :

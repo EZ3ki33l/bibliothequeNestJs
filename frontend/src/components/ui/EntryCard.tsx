@@ -24,7 +24,7 @@ type EntryCardProps = {
 export function EntryCard({ entry, state, access }: EntryCardProps) {
   return (
     <Link to={`/entries/${entry.slug}`} className="block h-full no-underline">
-      <Card className="hover:bg-surface-hover h-full transition-colors duration-150">
+      <Card className="card-interactive h-full">
         <Card.Header>
           <Card.Title className="text-base">{entry.title}</Card.Title>
           {entry.summary ? (

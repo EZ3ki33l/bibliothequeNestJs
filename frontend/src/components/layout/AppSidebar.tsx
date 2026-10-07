@@ -4,7 +4,13 @@ import { AccountBlock } from './AccountBlock';
 import { NavSection } from './NavSection';
 import { ADMIN_NAV, LIBRARY_NAV, LIBRARY_NAV_SIGNED_IN, type NavItem } from './navItems';
 
-/** Sidebar statique — visible uniquement à partir de `lg:` ; en dessous, {@link AppBottomNav} prend le relais. */
+/**
+ * Sidebar statique — visible uniquement à partir de `lg:` ; en dessous, {@link AppBottomNav} prend le relais.
+ *
+ * Pas de trait à droite : son fond, plus sombre que celui du contenu, suffit à
+ * la détacher. Le bloc du compte est posé sur le fond du contenu, un cran plus
+ * clair, plutôt que séparé par une ligne.
+ */
 export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   const { pathname } = useLocation();
   const { data: session } = authClient.useSession();
@@ -14,9 +20,21 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
     : LIBRARY_NAV;
 
   return (
-    <aside className="border-border bg-background-secondary hidden h-full w-64 shrink-0 flex-col border-r px-3 py-4 lg:flex">
-      <Link to="/" className="mb-6 px-2 text-sm font-medium tracking-tight">
-        Bibliothèque
+    <aside className="bg-background-secondary hidden h-full w-64 shrink-0 flex-col px-3 py-4 lg:flex">
+      <Link
+        to="/"
+        className="font-heading text-foreground mb-6 flex items-center gap-2 px-2.5 text-lg font-bold tracking-tight no-underline"
+      >
+        {/* `alt` vide : le nom est écrit juste à côté, un lecteur d'écran ne
+            doit pas l'entendre deux fois. */}
+        <img
+          src="/ez3learn-logo-fond-transparent.svg"
+          alt=""
+          width={700}
+          height={730}
+          className="h-7 w-auto"
+        />
+        EZ3Learn
       </Link>
 
       <nav className="flex flex-1 flex-col gap-5">
@@ -26,7 +44,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
         ) : null}
       </nav>
 
-      <div className="border-border mt-auto border-t pt-3">
+      <div className="bg-background mt-auto rounded-xl p-2">
         <AccountBlock />
       </div>
     </aside>

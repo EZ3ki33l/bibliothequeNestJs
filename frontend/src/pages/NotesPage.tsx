@@ -164,7 +164,7 @@ export function NotesPage() {
 
   if (data === undefined || data === 'unauthorized') {
     return (
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="card-grid grid gap-6 [--card-min:28rem]">
         {[0, 1, 2, 3].map((index) => (
           <Skeleton key={index} className="h-40 rounded-xl" />
         ))}
@@ -182,7 +182,7 @@ export function NotesPage() {
         </EmptyMessage>
       ) : (
         <>
-          <ul className="grid items-start gap-8 lg:grid-cols-2">
+          <ul className="card-grid grid items-start gap-8 [--card-min:28rem]">
             {data.items.map((note) => (
               <li key={note.id}>
                 <NoteCard

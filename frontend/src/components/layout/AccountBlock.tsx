@@ -4,6 +4,7 @@ import { Button, Skeleton } from '@heroui/react';
 import { authClient } from '../../lib/auth';
 import Avatar from '../ui/Avatar';
 import AuthGroupButton from '../ui/GroupButton';
+import { Typo } from '../ui/Typo';
 
 /** Bloc compte (avatar + déconnexion, ou CTA connexion/inscription) — partagé entre la sidebar desktop et le panneau « Plus » mobile. */
 export function AccountBlock() {
@@ -24,8 +25,12 @@ export function AccountBlock() {
       <div className="flex items-center gap-3 px-2 py-1">
         <Avatar name={currentUser.name} email={currentUser.email} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{currentUser.name}</p>
-          <p className="text-muted truncate text-xs">{currentUser.email}</p>
+          <Typo variant="small" as="p" className="text-foreground truncate font-medium">
+            {currentUser.name}
+          </Typo>
+          <Typo variant="caption" className="truncate">
+            {currentUser.email}
+          </Typo>
         </div>
       </div>
       <Button

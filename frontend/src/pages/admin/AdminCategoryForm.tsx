@@ -3,6 +3,7 @@ import { createAdminCategory, updateAdminCategory, type AdminStackListItem } fro
 import { useAdminSubmit } from '../../components/admin/useAdminSubmit';
 import { AdminSelect } from '../../components/admin/AdminSelect';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Typo } from '../../components/ui/Typo';
 
 /**
  * Les deux modes n'ont pas les mêmes champs, d'où une union de types plutôt
@@ -69,7 +70,9 @@ export function AdminCategoryForm(props: AdminCategoryFormProps) {
           items={props.stacks.map((stack) => ({ id: stack.id, label: stack.name }))}
         />
       ) : (
-        <p className="text-muted text-sm">Leçon parente : {props.stackName}</p>
+        <Typo variant="small" as="p">
+          Leçon parente : {props.stackName}
+        </Typo>
       )}
       <TextField
         isRequired

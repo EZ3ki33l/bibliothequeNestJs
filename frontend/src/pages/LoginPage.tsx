@@ -6,6 +6,7 @@ import { registerHref, safeReturnTo } from '../lib/returnTo';
 import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
 /**
  * Connexion par courriel (better-auth).
@@ -89,21 +90,21 @@ export function LoginPage() {
           Mot de passe oublié ?
         </Link>
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-        <Button type="submit" variant="primary" isDisabled={pending}>
+        <Button type="submit" variant="primary" className="cta" isDisabled={pending}>
           {pending ? 'Connexion…' : 'Se connecter'}
         </Button>
       </Form>
-      <p className="text-muted mt-6 text-sm">
+      <Typo variant="small" as="p" className="mt-6">
         Pas encore de compte ?{' '}
         {/* La destination suit vers l'inscription : elle ne se perd pas en
             changeant d'avis. */}
         <Link
           to={registerHref(destination)}
-          className="text-foreground hover:text-foreground no-underline transition-colors duration-150"
+          className="text-blueberry-light underline underline-offset-2"
         >
           Créer un compte
         </Link>
-      </p>
+      </Typo>
     </>
   );
 }

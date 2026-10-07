@@ -7,6 +7,7 @@ import {
   type VerificationRequestResult,
 } from '../../lib/auth';
 import { useLoginRedirect } from '../../lib/useLoginRedirect';
+import { Typo } from '../ui/Typo';
 
 type VerifyEmailReminderProps = {
   /** Adresse du compte connecté, nommée dans le rappel. */
@@ -62,13 +63,16 @@ export function VerifyEmailReminder({ email, returnTo }: VerifyEmailReminderProp
 
   return (
     <div className="flex flex-col items-start gap-3">
-      <p className="text-sm">
+      <Typo variant="small" as="p" className="text-foreground">
         L’adresse <strong className="font-medium wrap-break-word">{email}</strong> reste à vérifier.
-      </p>
+      </Typo>
       <Button
         type="button"
         variant="secondary"
         size="sm"
+        // Sur un téléphone étroit, le libellé passe à la ligne au lieu de
+        // pousser le bouton hors de son cadre.
+        className="h-auto min-h-8 max-w-full py-1.5 text-left whitespace-normal"
         isDisabled={pending}
         onPress={() => {
           void request();
@@ -82,12 +86,16 @@ export function VerifyEmailReminder({ email, returnTo }: VerifyEmailReminderProp
       </Button>
       {/* Vide, la zone reste dans la page (`sr-only` et non `hidden`) : un
           lecteur d'écran n'annonce que les changements d'une zone déjà là. */}
-      <p
+      <Typo
+        variant="small"
+        as="p"
         role="status"
         className={
           outcome === null
             ? 'sr-only'
-            : `text-sm ${outcome === 'unavailable' || outcome === 'rate-limited' ? 'text-danger' : 'text-muted'}`
+            : outcome === 'unavailable' || outcome === 'rate-limited'
+              ? 'text-cherry-light'
+              : undefined
         }
       >
         {outcome === 'sent' ? (
@@ -102,7 +110,7 @@ export function VerifyEmailReminder({ email, returnTo }: VerifyEmailReminderProp
         ) : outcome === 'already-verified' ? (
           'Cette adresse est déjà vérifiée.'
         ) : null}
-      </p>
+      </Typo>
     </div>
   );
 }

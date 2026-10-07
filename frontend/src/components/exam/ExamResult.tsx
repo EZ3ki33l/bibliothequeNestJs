@@ -5,6 +5,7 @@ import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react';
 import type { SubmitQuizResponse } from '../../lib/quizzes';
 import type { ExamExit } from '../../lib/examResult';
 import { ErrorMessage } from '../ui/ErrorMessage';
+import { Typo } from '../ui/Typo';
 
 type ExamResultProps = {
   result: SubmitQuizResponse;
@@ -50,19 +51,21 @@ export function ExamResult({ result, exits, onRetry, retryPending, retryError }:
           result.passed ? 'border-success/50' : 'border-border'
         }`}
       >
-        <p className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+        <Typo variant="h4" as="p" className="text-foreground flex items-center gap-2">
           <VerdictIcon
             aria-hidden="true"
             weight="fill"
             className={`size-6 shrink-0 ${result.passed ? 'text-success' : 'text-muted'}`}
           />
           {result.passed ? 'Examen réussi' : 'Examen non réussi'}
-        </p>
-        <p className="text-3xl font-semibold tracking-tight">{result.score} / 100</p>
-        <p className="text-muted text-sm">
+        </Typo>
+        <Typo variant="h2" as="p">
+          {result.score} / 100
+        </Typo>
+        <Typo variant="small" as="p">
           Seuil de réussite : {result.passingScore} / 100 · {result.correctCount} / {result.total}{' '}
           {result.correctCount > 1 ? 'bonnes réponses' : 'bonne réponse'}
-        </p>
+        </Typo>
       </div>
 
       <nav aria-label="Suite de l’examen" className="flex flex-wrap items-center gap-3">
@@ -91,9 +94,9 @@ export function ExamResult({ result, exits, onRetry, retryPending, retryError }:
       {retryError ? <ErrorMessage>{retryError}</ErrorMessage> : null}
 
       <section aria-labelledby="exam-recap-heading" className="flex flex-col gap-4">
-        <h2 id="exam-recap-heading" className="text-lg font-semibold tracking-tight">
+        <Typo variant="h3" as="h2" id="exam-recap-heading">
           Récapitulatif
-        </h2>
+        </Typo>
         <ol className="flex flex-col gap-4">
           {result.questions.map((question, index) => {
             const isCorrect = question.selectedIndex === question.correctIndex;
@@ -104,34 +107,35 @@ export function ExamResult({ result, exits, onRetry, retryPending, retryError }:
                 key={question.id}
                 className="border-border flex flex-col gap-2 rounded-lg border px-4 py-3"
               >
-                <p
-                  className={`flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase ${
-                    isCorrect ? 'text-success' : 'text-danger'
+                <Typo
+                  variant="caption"
+                  className={`flex items-center gap-1.5 font-semibold ${
+                    isCorrect ? 'text-success' : 'text-cherry-light'
                   }`}
                 >
                   <MarkIcon aria-hidden="true" weight="fill" className="size-4 shrink-0" />
                   {isCorrect ? 'Juste' : 'À revoir'}
-                </p>
-                <p className="font-medium wrap-break-word">
+                </Typo>
+                <Typo variant="p" className="text-foreground font-medium wrap-break-word">
                   {index + 1}. {question.prompt}
-                </p>
+                </Typo>
                 {isCorrect ? (
                   // Une question juste : la réponse choisie **est** la bonne,
                   // l'afficher deux fois n'apprendrait rien.
-                  <p className="text-sm wrap-break-word">
+                  <Typo variant="small" as="p" className="text-foreground wrap-break-word">
                     <span className="text-muted">Réponse : </span>
                     {question.correctChoice}
-                  </p>
+                  </Typo>
                 ) : (
                   <>
-                    <p className="text-sm wrap-break-word">
+                    <Typo variant="small" as="p" className="text-foreground wrap-break-word">
                       <span className="text-muted">Réponse choisie : </span>
                       {question.selectedChoice}
-                    </p>
-                    <p className="text-sm wrap-break-word">
+                    </Typo>
+                    <Typo variant="small" as="p" className="text-foreground wrap-break-word">
                       <span className="text-muted">Bonne réponse : </span>
                       {question.correctChoice}
-                    </p>
+                    </Typo>
                   </>
                 )}
               </li>

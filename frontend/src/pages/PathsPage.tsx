@@ -56,7 +56,7 @@ export function PathsPage() {
       {error ? (
         <ErrorMessage>{error}</ErrorMessage>
       ) : data === undefined ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="card-grid grid gap-4">
           {[0, 1, 2, 3].map((index) => (
             <Skeleton key={index} className="h-32 rounded-xl" />
           ))}
@@ -65,14 +65,14 @@ export function PathsPage() {
         <EmptyMessage>Aucun parcours publié pour le moment.</EmptyMessage>
       ) : (
         <>
-          <ul className="grid gap-4 sm:grid-cols-2">
+          <ul className="card-grid grid gap-4">
             {data.items.map((path) => (
               <li key={path.id}>
                 <Link to={`/parcours/${path.slug}`} className="block h-full no-underline">
-                  <Card className="hover:bg-surface-hover h-full transition-colors duration-150">
+                  <Card className="card-interactive h-full">
                     <Card.Header>
                       <Card.Title className="flex items-center gap-2">
-                        <PathIcon className="text-muted size-4" />
+                        <PathIcon className="text-blueberry-light size-4" />
                         {path.name}
                       </Card.Title>
                       {path.description ? (

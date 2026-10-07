@@ -31,6 +31,7 @@ import { readEntryFields, type EntryFormFields } from '../../components/admin/en
 import { recordToPairs, type KeyValuePair } from '../../components/admin/keyValuePairs';
 import { sourcesToRows, type SourceRow } from '../../components/admin/sourceRows';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { Typo } from '../../components/ui/Typo';
 
 /**
  * Fiche dont la saisie est reprise pour en créer une autre (duplication).
@@ -348,7 +349,9 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
             }))}
           />
         ) : (
-          <p className="text-muted text-sm">Catégorie parente : {props.categoryLabel}</p>
+          <Typo variant="small" as="p">
+            Catégorie parente : {props.categoryLabel}
+          </Typo>
         )}
         <TextField
           isRequired

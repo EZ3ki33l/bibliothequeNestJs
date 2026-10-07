@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Button, Skeleton } from '@heroui/react';
+import { Typo } from '../ui/Typo';
 
 type AdminListRowProps = {
   icon: ComponentType<{ className?: string }>;
@@ -26,8 +27,10 @@ export function AdminListRow({
     <li className="border-border flex flex-wrap items-center gap-3 rounded-xl border p-4">
       <Icon className="text-muted size-4 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="font-medium">{title}</p>
-        <p className="text-muted text-xs">{subtitle}</p>
+        <Typo variant="p" className="font-medium">
+          {title}
+        </Typo>
+        <Typo variant="caption">{subtitle}</Typo>
       </div>
       {actions}
       <Link

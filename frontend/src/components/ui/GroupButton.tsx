@@ -2,6 +2,7 @@ import { buttonVariants } from '@heroui/react';
 import { SignInIcon, UserCircleIcon } from '@phosphor-icons/react';
 import { Link, useLocation } from 'react-router';
 import { currentReturnTo, loginHref, registerHref } from '../../lib/returnTo';
+import { Typo } from './Typo';
 
 /**
  * Bloc « Invité » du menu : liens de connexion et d'inscription.
@@ -16,12 +17,14 @@ export default function AuthGroupButton() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 px-2 py-1">
-        <span className="bg-surface ring-border flex size-8 items-center justify-center rounded-full ring-1">
+        <span className="bg-surface flex size-8 shrink-0 items-center justify-center rounded-full">
           <UserCircleIcon className="text-muted size-4" />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-medium">Invité</p>
-          <p className="text-muted text-xs">Non connecté</p>
+          <Typo variant="small" as="p" className="text-foreground font-medium">
+            Invité
+          </Typo>
+          <Typo variant="caption">Non connecté</Typo>
         </div>
       </div>
       <Link

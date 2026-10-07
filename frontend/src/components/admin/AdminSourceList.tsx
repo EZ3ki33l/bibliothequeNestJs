@@ -2,6 +2,7 @@ import { Button, Checkbox, Input, Label, TextField } from '@heroui/react';
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from '@phosphor-icons/react';
 import { todayAsDay } from '../../lib/entrySources';
 import { emptySourceRow, MAX_SOURCES, type SourceRow } from './sourceRows';
+import { Typo } from '../ui/Typo';
 
 type AdminSourceListProps = {
   rows: SourceRow[];
@@ -42,11 +43,13 @@ export function AdminSourceList({ rows, onChange }: AdminSourceListProps) {
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium">Sources</p>
-          <p className="text-muted mt-0.5 text-xs">
+          <Typo variant="small" as="p" className="text-foreground font-medium">
+            Sources
+          </Typo>
+          <Typo variant="caption" className="mt-0.5">
             Documents d’origine, affichés au bas de la fiche dans cet ordre. Les liens commencent
             par https://.
-          </p>
+          </Typo>
         </div>
         <Button
           type="button"
@@ -61,9 +64,9 @@ export function AdminSourceList({ rows, onChange }: AdminSourceListProps) {
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-muted text-sm">
+        <Typo variant="small" as="p">
           Aucune source. Le bloc « Sources » n’apparaîtra pas sur la fiche.
-        </p>
+        </Typo>
       ) : (
         <ul className="flex flex-col gap-3">
           {rows.map((row, index) => {
@@ -72,7 +75,7 @@ export function AdminSourceList({ rows, onChange }: AdminSourceListProps) {
             return (
               <li key={row.id} className="border-border flex flex-col gap-3 rounded-xl border p-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-muted text-xs">Source {index + 1}</p>
+                  <Typo variant="caption">Source {index + 1}</Typo>
                   <div className="flex gap-1">
                     <Button
                       type="button"

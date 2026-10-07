@@ -1,4 +1,5 @@
 import { formatLongDay, isHttpsUrl, type EntrySource } from '../../lib/entrySources';
+import { Typo } from '../ui/Typo';
 
 type EntrySourcesProps = { sources: EntrySource[] };
 
@@ -7,7 +8,7 @@ type EntrySourcesProps = { sources: EntrySource[] };
  * soulignement permanent, pas la couleur seule, et un contour au clavier.
  */
 const LINK_CLASS =
-  'text-foreground rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)';
+  'text-blueberry-light rounded-sm underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus)';
 
 /**
  * Bloc « Sources » d'une fiche : d'où vient le contenu, et sous quelle licence.
@@ -29,9 +30,9 @@ export function EntrySources({ sources }: EntrySourcesProps) {
 
   return (
     <section aria-labelledby="entry-sources-title" className="border-border border-t pt-6">
-      <h2 id="entry-sources-title" className="text-foreground text-sm font-medium">
+      <Typo variant="h4" as="h2" id="entry-sources-title">
         Sources
-      </h2>
+      </Typo>
       {/* `wrap-break-word` : un titre ou une adresse sans espace passe à la ligne
           au lieu d'élargir la page sur un écran étroit. */}
       <ul className="text-muted mt-3 flex flex-col gap-3 text-sm wrap-break-word">

@@ -1,5 +1,6 @@
 import { buttonVariants } from '@heroui/react';
 import { PageHeader } from '../components/ui/PageHeader';
+import { Typo } from '../components/ui/Typo';
 
 /**
  * Écran d’incident d’affichage (FR-005).
@@ -14,16 +15,16 @@ import { PageHeader } from '../components/ui/PageHeader';
  */
 export function ErrorPage() {
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-6 py-8">
+    <div className="page-container flex min-h-full flex-col py-8">
       <PageHeader
         title="Impossible d’afficher cette page"
         description="Un problème d’affichage s’est produit. L’accueil permet de reprendre."
       />
-      <p>
+      <Typo variant="p">
         <a href="/" className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
           Retour à l’accueil
         </a>
-      </p>
+      </Typo>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { EmptyMessage } from '../ui/EmptyMessage';
 import { EntryMeta } from '../ui/EntryMeta';
 import { EntryMdx } from './EntryMdx';
 import { EntrySources } from './EntrySources';
+import { Typo } from '../ui/Typo';
 
 /** Ce qui décrit la fiche pour tout le monde, et les emplacements du lecteur. */
 type EntryHeaderProps = {
@@ -91,6 +92,10 @@ type EntryArticleProps = EntryHeaderProps &
  *
  * La balise `<article>` et ses classes sont rendues ici : largeur et
  * espacements font partie du rendu partagé, aucun appelant ne les recopie.
+ *
+ * Deux blocs dans l'article : le contenu (`lead`, en-tête, corps), puis
+ * `footer`. Sur un écran large, `.rail-layout` (`index.css`) place le second à
+ * droite du premier ; l'ordre dans la page, lui, ne change jamais.
  */
 export function EntryArticle(props: EntryArticleProps) {
   const {
@@ -110,54 +115,70 @@ export function EntryArticle(props: EntryArticleProps) {
     props.locked === undefined ? verificationLabel(props.verifiedOn, props.verifiedVersion) : null;
 
   return (
-    <article className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-      {lead}
-      <header className="border-border mb-8 border-b pb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        {summary ? <p className="text-muted mt-3 text-base">{summary}</p> : null}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <EntryMeta kind={kind} difficulty={difficulty} />
-        </div>
-        {verification ? <p className="text-muted mt-3 text-xs">{verification}</p> : null}
-        {tags.length > 0 ? (
-          <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
-            {tags.map((tag) => (
-              <li key={tag}>
-                {linkTags ? (
-                  /* Suivre un tag ouvre la recherche déjà filtrée (US3 / FR-006).
+    <article className="rail-layout mx-auto w-full max-w-4xl 2xl:has-[>.rail:not(:empty)]:max-w-[76rem]">
+      <div className="flex min-w-0 flex-col gap-8">
+        {lead}
+        <header className="border-border border-b pb-6">
+          <Typo variant="h1">{title}</Typo>
+          {summary ? (
+            <Typo variant="lead" className="mt-4 max-w-[60ch]">
+              {summary}
+            </Typo>
+          ) : null}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <EntryMeta kind={kind} difficulty={difficulty} />
+          </div>
+          {verification ? (
+            <Typo variant="caption" className="mt-3">
+              {verification}
+            </Typo>
+          ) : null}
+          {tags.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-x-3 gap-y-1">
+              {tags.map((tag) => (
+                <li key={tag}>
+                  {linkTags ? (
+                    /* Suivre un tag ouvre la recherche déjà filtrée (US3 / FR-006).
                      `encodeURIComponent` protège un tag qui contiendrait un
                      espace ou un caractère spécial dans l'URL. */
-                  <Link
-                    to={`/recherche?tag=${encodeURIComponent(tag)}`}
-                    className="text-muted hover:text-foreground text-xs underline"
-                  >
-                    #{tag}
-                  </Link>
-                ) : (
-                  // Même apparence, sans l'effet de survol : rien ne suggère un clic.
-                  <span className="text-muted text-xs underline">#{tag}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {headerActions}
-      </header>
+                    <Link
+                      to={`/recherche?tag=${encodeURIComponent(tag)}`}
+                      className="text-blueberry-light text-xs underline-offset-2 hover:underline"
+                    >
+                      #{tag}
+                    </Link>
+                  ) : (
+                    // Même apparence, sans l'effet de survol : rien ne suggère un clic.
+                    <span className="text-blueberry-light text-xs">#{tag}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {headerActions}
+        </header>
 
-      {props.locked === undefined ? (
-        <EntryContent
-          bodyMdx={props.bodyMdx}
-          kind={kind}
-          template={props.template}
-          files={props.files}
-          dependencies={props.dependencies}
-          sources={props.sources}
-        />
-      ) : (
-        props.locked
-      )}
+        {props.locked === undefined ? (
+          <EntryContent
+            bodyMdx={props.bodyMdx}
+            kind={kind}
+            template={props.template}
+            files={props.files}
+            dependencies={props.dependencies}
+            sources={props.sources}
+          />
+        ) : (
+          props.locked
+        )}
+      </div>
 
-      {footer}
+      {/* Ce qui suit la lecture. Sous la fiche sur un écran ordinaire ; à sa
+          droite, et toujours visible, sur un écran large (`.rail-layout`).
+          Sans `footer` (aperçu de l'administration), le bloc reste vide et la
+          fiche garde une seule colonne. */}
+      <div className="rail 2xl:bg-surface mt-8 flex min-w-0 flex-col gap-8 empty:hidden 2xl:mt-0 2xl:gap-6 2xl:rounded-2xl 2xl:p-5">
+        {footer}
+      </div>
     </article>
   );
 }

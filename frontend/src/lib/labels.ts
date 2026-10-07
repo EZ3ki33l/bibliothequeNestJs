@@ -23,9 +23,14 @@ export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   ADVANCED: 'Avancé',
 };
 
-/** Couleur de la puce de difficulté : vert, orange, rouge. */
-export const DIFFICULTY_COLOR: Record<Difficulty, 'success' | 'warning' | 'danger'> = {
+/**
+ * Couleur de la puce de difficulté : vert, ambre, Blueberry.
+ *
+ * Pas de rouge pour « Avancé » : le Cherry est réservé à l'action principale
+ * d'un écran et aux alertes, et une difficulté n'est ni l'une ni l'autre.
+ */
+export const DIFFICULTY_COLOR: Record<Difficulty, 'success' | 'warning' | 'accent'> = {
   BEGINNER: 'success',
   INTERMEDIATE: 'warning',
-  ADVANCED: 'danger',
+  ADVANCED: 'accent',
 };

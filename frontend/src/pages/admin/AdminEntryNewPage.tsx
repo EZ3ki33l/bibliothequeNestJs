@@ -87,14 +87,20 @@ export function AdminEntryNewPage() {
       ) : data.categories.length === 0 ? (
         <EmptyMessage>
           Une fiche appartient à une catégorie : aucune n’existe encore.{' '}
-          <Link to="/admin/categories/new" className="text-foreground underline">
+          <Link
+            to="/admin/categories/new"
+            className="text-blueberry-light underline underline-offset-2"
+          >
             Nouvelle catégorie
           </Link>
         </EmptyMessage>
       ) : source === null ? (
         <EmptyMessage>
           La fiche à dupliquer n’existe plus.{' '}
-          <Link to="/admin/entries/new" className="text-foreground underline">
+          <Link
+            to="/admin/entries/new"
+            className="text-blueberry-light underline underline-offset-2"
+          >
             Créer une fiche vierge
           </Link>
         </EmptyMessage>

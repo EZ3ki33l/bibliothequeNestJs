@@ -1,10 +1,13 @@
 import { MarkdownHooks, type HooksOptions } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypePrettyCode, { type Options as RehypePrettyCodeOptions } from 'rehype-pretty-code';
+import { Typo } from '../ui/Typo';
 
 const prettyCodeOptions: RehypePrettyCodeOptions = {
   theme: 'github-dark',
-  keepBackground: true,
+  // Le fond des blocs de code vient de `.entry-mdx` (index.css), aux couleurs de
+  // la charte : celui du thème de coloration n'est pas repris.
+  keepBackground: false,
   defaultLang: { block: 'ts', inline: 'plaintext' },
 };
 
@@ -20,7 +23,11 @@ export function EntryMdx({ source }: EntryMdxProps) {
       <MarkdownHooks
         remarkPlugins={REMARK_PLUGINS}
         rehypePlugins={REHYPE_PLUGINS}
-        fallback={<p className="text-muted text-sm">Chargement du contenu…</p>}
+        fallback={
+          <Typo variant="small" as="p">
+            Chargement du contenu…
+          </Typo>
+        }
       >
         {source}
       </MarkdownHooks>
