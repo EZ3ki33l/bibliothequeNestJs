@@ -1,4 +1,4 @@
-import type { Difficulty, EntryKind } from './stacks';
+import type { Difficulty, EntryKind, LabHost, LabTool } from './stacks';
 
 /**
  * Traductions des valeurs stockées en base.
@@ -33,4 +33,19 @@ export const DIFFICULTY_COLOR: Record<Difficulty, 'success' | 'warning' | 'accen
   BEGINNER: 'success',
   INTERMEDIATE: 'warning',
   ADVANCED: 'accent',
+};
+
+/** Outils de laboratoire (spec 018), tels qu'affichés. */
+export const LAB_TOOL_LABEL: Record<LabTool, string> = {
+  VAGRANT: 'Vagrant',
+  DOCKER_COMPOSE: 'Docker Compose',
+  CONTAINERLAB: 'Containerlab',
+  GNS3: 'GNS3',
+  OTHER: 'Autre',
+};
+
+export const LAB_HOST_LABEL: Record<LabHost, string> = {
+  LINUX: 'Linux',
+  WINDOWS: 'Windows',
+  MACOS: 'macOS',
 };

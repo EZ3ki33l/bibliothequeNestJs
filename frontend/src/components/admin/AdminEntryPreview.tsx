@@ -195,6 +195,9 @@ export function AdminEntryPreview({ fields, images }: AdminEntryPreviewProps) {
         playgroundInput={fields.playgroundInput}
         playgroundExpectedOutput={fields.playgroundExpectedOutput}
         sources={sources}
+        lab={fields.lab}
+        // Une fiche en cours de saisie n'a pas de slug fixe : nom d'archive d'aperçu.
+        slug="apercu"
         verifiedOn={fields.verifiedOn}
         verifiedVersion={fields.verifiedVersion}
         images={images}

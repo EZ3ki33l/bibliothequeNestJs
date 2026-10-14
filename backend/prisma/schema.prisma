@@ -173,6 +173,7 @@ model Entry {
   pathSteps                PathStep[]
   sources                  EntrySource[]
   images                   EntryImage[]
+  lab                      EntryLab?
 
   @@index([categoryId])
   @@index([published, kind])
@@ -344,4 +345,39 @@ model EntryImage {
 
   @@index([entryId, createdAt])
   @@index([uploadedById, createdAt])
+}
+
+enum LabTool {
+  VAGRANT
+  DOCKER_COMPOSE
+  CONTAINERLAB
+  GNS3
+  OTHER
+}
+
+enum LabHost {
+  LINUX
+  WINDOWS
+  MACOS
+}
+
+/// Laboratoire à télécharger d'une fiche (spec 018) : au plus un par fiche.
+/// Rien n'est exécuté ni hébergé par le site ; l'archive est produite dans le navigateur.
+model EntryLab {
+  entryId     String    @id
+  entry       Entry     @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  tool        LabTool
+  /// Ajoute à l'avertissement fixe le complément « isolé du réseau, cadre légal ».
+  securityLab Boolean   @default(false)
+  software    String    @default("")
+  ramGb       Int
+  diskGb      Int
+  hosts       LabHost[]
+  setupMd     String    @default("")
+  teardownMd  String    @default("")
+  /// Chemin relatif → contenu texte. Règles : common/lab-files.ts.
+  files       Json
+
+  updatedAt   DateTime  @updatedAt
 }

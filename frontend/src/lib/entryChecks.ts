@@ -1,7 +1,8 @@
 import { illustrationGaps } from './illustrations';
+import { labGaps } from './labFiles';
 import { isPythonTemplate } from './playgroundEnvironments';
 import { pythonPlaygroundGaps } from './pythonCheck';
-import type { EntryKind, SandpackFiles } from './stacks';
+import type { EntryKind, EntryLab, SandpackFiles } from './stacks';
 
 /**
  * Règles d'affichage d'une fiche et manques signalés, écrits une seule fois.
@@ -72,6 +73,8 @@ export function publicationGaps(fields: {
   sourceCount: number;
   /** Identifiants des images enregistrées pour la fiche. */
   imageIds: readonly string[];
+  /** Laboratoire (spec 018) : ses manques s'ajoutent à la fin. `null` : aucun. */
+  lab?: EntryLab | null;
 }): string[] {
   const gaps: string[] = [];
 
@@ -97,23 +100,48 @@ export function publicationGaps(fields: {
   }
 
   gaps.push(...illustrationGaps(fields.bodyMdx, fields.imageIds));
+  gaps.push(...labGaps(fields.lab ?? null));
 
   return gaps;
 }
 
+/** Rappel posé à chaque mise en ligne d'une fiche qui porte un laboratoire (spec 018, FR-017). */
+const LAB_REVIEW_REMINDER = 'Relire les fichiers du laboratoire avant de publier.';
+
 /**
- * Question posée avant de mettre en ligne une fiche qui a des manques.
+ * La question est-elle à poser ? Oui s'il y a des manques, ou si la fiche porte
+ * un laboratoire : son contenu s'exécute chez l'apprenant, une relecture est
+ * rappelée à **chaque** mise en ligne, même sans autre manque.
+ */
+export function needsPublicationQuestion(gaps: string[], hasLab: boolean): boolean {
+  return gaps.length > 0 || hasLab;
+}
+
+/**
+ * Question posée avant de mettre en ligne une fiche qui a des manques ou un
+ * laboratoire.
  *
  * Le formulaire et la liste des fiches publient tous les deux : le texte est
  * écrit ici pour que la question soit la même aux deux endroits. `gaps` vient de
- * `publicationGaps` et n'est pas vide (sans manque, aucune question n'est posée).
+ * `publicationGaps` ; sans manque ni laboratoire, aucune question n'est posée
+ * (`needsPublicationQuestion`).
  */
-export function publicationQuestion(gaps: string[]): string {
-  return [
-    'Cette fiche va être mise en ligne avec des manques :',
-    '',
-    ...gaps.map((gap) => `- ${gap}`),
-    '',
-    'Publier quand même ?',
-  ].join('\n');
+export function publicationQuestion(gaps: string[], hasLab = false): string {
+  const lines: string[] = [];
+
+  if (gaps.length > 0) {
+    lines.push(
+      'Cette fiche va être mise en ligne avec des manques :',
+      '',
+      ...gaps.map((gap) => `- ${gap}`),
+    );
+  } else {
+    lines.push('Cette fiche va être mise en ligne.');
+  }
+  if (hasLab) {
+    lines.push('', LAB_REVIEW_REMINDER);
+  }
+
+  lines.push('', gaps.length > 0 ? 'Publier quand même ?' : 'Publier ?');
+  return lines.join('\n');
 }

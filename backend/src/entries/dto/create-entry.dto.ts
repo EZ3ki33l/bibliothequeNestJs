@@ -14,6 +14,7 @@ import {
 } from 'class-validator';
 import { IsPastOrPresentDay } from '../../common/calendar-day';
 import { Difficulty, EntryKind } from '../../generated/prisma/enums';
+import { EntryLabDto } from './entry-lab.dto';
 import { EntrySourceDto, MAX_ENTRY_SOURCES } from './entry-source.dto';
 import {
   IsStringRecord,
@@ -121,4 +122,10 @@ export class CreateEntryDto {
   @IsString()
   @MaxLength(60)
   verifiedVersion?: string;
+
+  /** Absent : pas de laboratoire. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => EntryLabDto)
+  lab?: EntryLabDto;
 }

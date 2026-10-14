@@ -28,6 +28,20 @@ export const DRAFT_ENTRY = {
   title: 'Brouillon',
 };
 
+/** Laboratoire complet d'une fiche réservée : seul `tool` doit sortir (spec 018). */
+export const RESERVED_LAB_FILE_MARKER = 'contenu-du-laboratoire-reserve';
+const RESERVED_LAB = {
+  tool: 'VAGRANT',
+  securityLab: false,
+  software: 'VirtualBox',
+  ramGb: 4,
+  diskGb: 10,
+  hosts: ['LINUX'],
+  setupMd: 'vagrant up',
+  teardownMd: 'vagrant destroy -f',
+  files: { Vagrantfile: RESERVED_LAB_FILE_MARKER },
+};
+
 type EntryRow = Record<string, unknown> & { id: string; slug: string; published: boolean };
 
 function entryRow(entry: typeof FREE_ENTRY, published: boolean, bodyMdx: string): EntryRow {
@@ -57,7 +71,7 @@ function entryRow(entry: typeof FREE_ENTRY, published: boolean, bodyMdx: string)
 
 const ENTRIES: EntryRow[] = [
   entryRow(FREE_ENTRY, true, 'Contenu en accès libre.'),
-  entryRow(RESERVED_ENTRY, true, RESERVED_BODY_MARKER),
+  { ...entryRow(RESERVED_ENTRY, true, RESERVED_BODY_MARKER), lab: RESERVED_LAB },
   entryRow(DRAFT_ENTRY, false, 'Brouillon.'),
 ];
 
@@ -93,7 +107,18 @@ function pick(row: EntryRow, select?: Record<string, unknown>): Record<string, u
     return row;
   }
 
-  return Object.fromEntries(Object.keys(select).map((column) => [column, row[column]]));
+  return Object.fromEntries(
+    Object.entries(select).map(([column, wanted]) => [column, pickNested(row[column], wanted)]),
+  );
+}
+
+/** `select` imbriqué (`lab: { select: { tool: true } }`) : même règle, en profondeur. */
+function pickNested(value: unknown, wanted: unknown): unknown {
+  const nested = (wanted as { select?: Record<string, unknown> } | null)?.select;
+  if (!nested || typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return value;
+  }
+  return pick(value as EntryRow, nested);
 }
 
 type EntryArgs = { where?: EntryWhere; select?: Record<string, unknown> };
@@ -128,6 +153,8 @@ export async function createAdminE2eApp(): Promise<INestApplication<App>> {
               pick(entry, args.select),
             ),
           ),
+        count: (args: EntryArgs = {}) =>
+          Promise.resolve(ENTRIES.filter((entry) => matches(entry, args.where)).length),
       },
     })
     // Jamais de réseau en e2e : le prestataire des images est remplacé par un

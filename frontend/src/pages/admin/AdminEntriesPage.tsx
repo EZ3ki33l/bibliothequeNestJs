@@ -1,3 +1,4 @@
+import { LabMention } from '../../components/ui/LabMention';
 import { useState, type SubmitEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Button, Chip, Input, Label, TextField, buttonVariants, toast } from '@heroui/react';
@@ -13,7 +14,11 @@ import {
   type AdminEntriesFilters,
   type AdminEntryListItem,
 } from '../../lib/admin';
-import { publicationGaps, publicationQuestion } from '../../lib/entryChecks';
+import {
+  needsPublicationQuestion,
+  publicationGaps,
+  publicationQuestion,
+} from '../../lib/entryChecks';
 import { KIND_LABEL } from '../../lib/labels';
 import { jsonToStringRecord } from '../../lib/stacks';
 import { useAsyncData } from '../../lib/useAsyncData';
@@ -154,10 +159,12 @@ export function AdminEntriesPage() {
           sourceCount: detail.sources.length,
           // Images enregistrées pour la fiche : seules elles s'afficheront.
           imageIds: detail.images.map((image) => image.id),
+          lab: detail.lab,
         });
+        const hasLab = detail.lab !== null;
         if (
-          gaps.length > 0 &&
-          !window.confirm(`« ${entry.title} »\n\n${publicationQuestion(gaps)}`)
+          needsPublicationQuestion(gaps, hasLab) &&
+          !window.confirm(`« ${entry.title} »\n\n${publicationQuestion(gaps, hasLab)}`)
         ) {
           return;
         }
@@ -302,6 +309,7 @@ export function AdminEntriesPage() {
                 subtitle={`${entry.category.stack.name} · ${entry.category.name} · ${KIND_LABEL[entry.kind]}`}
                 actions={
                   <>
+                    <LabMention lab={entry.lab} />
                     <Chip size="sm" variant="soft" color={entry.published ? 'success' : 'warning'}>
                       {entry.published ? 'Publiée' : 'Brouillon'}
                     </Chip>

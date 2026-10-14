@@ -103,6 +103,21 @@ function toSourceRows(sources: EntrySourceDto[]): Prisma.EntrySourceCreateWithou
   }));
 }
 
+/** Laboratoire complet, sans `entryId` ni `updatedAt` (spec 018). */
+const LAB_PUBLIC_SELECT = {
+  select: {
+    tool: true,
+    securityLab: true,
+    software: true,
+    ramGb: true,
+    diskGb: true,
+    hosts: true,
+    setupMd: true,
+    teardownMd: true,
+    files: true,
+  },
+} satisfies Prisma.Entry$labArgs;
+
 /**
  * Règles métier des fiches, le contenu final du catalogue (un hook, un
  * composant, un concept).
@@ -169,6 +184,10 @@ export class EntriesService {
       // Slug inconnu → aucune fiche ne matche, la liste est simplement vide
       // (pas d'erreur : ce n'est pas une panne, juste zéro résultat).
       where.category = { stack: { slug: dto.stack } };
+    }
+
+    if (dto.lab) {
+      where.lab = { isNot: null };
     }
 
     if (dto.tag) {
@@ -258,7 +277,12 @@ export class EntriesService {
     const entry = await this.prisma.entry.findFirst({
       where: { slug, published: true },
       omit: { quizQuestions: true },
-      include: { ...withTaxonomy, sources: SOURCES_IN_ORDER, images: ENTRY_IMAGES_IN_ORDER },
+      include: {
+        ...withTaxonomy,
+        sources: SOURCES_IN_ORDER,
+        images: ENTRY_IMAGES_IN_ORDER,
+        lab: LAB_PUBLIC_SELECT,
+      },
     });
 
     if (!entry) {
@@ -325,6 +349,7 @@ export class EntriesService {
           slug: true,
           kind: true,
           published: true,
+          lab: { select: { tool: true } },
           category: {
             select: {
               id: true,
@@ -368,6 +393,7 @@ export class EntriesService {
         verifiedVersion: true,
         sources: SOURCES_IN_ORDER,
         images: ENTRY_IMAGES_IN_ORDER,
+        lab: LAB_PUBLIC_SELECT,
         category: {
           select: {
             id: true,
@@ -432,6 +458,8 @@ export class EntriesService {
           // Écriture imbriquée : les sources sont créées dans la même
           // transaction que la fiche. Tout est enregistré, ou rien.
           sources: dto.sources ? { create: toSourceRows(dto.sources) } : undefined,
+          // Spec 018 : le laboratoire naît avec la fiche, même transaction.
+          lab: dto.lab ? { create: dto.lab } : undefined,
         },
       });
     } catch (error) {
@@ -488,6 +516,16 @@ export class EntriesService {
     if (dto.verifiedVersion !== undefined) data.verifiedVersion = dto.verifiedVersion;
     if (dto.sources !== undefined) {
       data.sources = { deleteMany: {}, create: toSourceRows(dto.sources) };
+    }
+    // Spec 018. Absent : inchangé. `null` : retiré (`delete` lève P2025 si la
+    // fiche n'en a pas, d'où le comptage : retirer l'absent est sans effet).
+    // Objet : remplacé en entier.
+    if (dto.lab === null) {
+      if ((await this.prisma.entryLab.count({ where: { entryId: id } })) > 0) {
+        data.lab = { delete: true };
+      }
+    } else if (dto.lab !== undefined) {
+      data.lab = { upsert: { create: dto.lab, update: dto.lab } };
     }
 
     try {

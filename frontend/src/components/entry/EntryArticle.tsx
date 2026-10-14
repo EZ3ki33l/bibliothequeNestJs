@@ -4,11 +4,17 @@ import { playgroundStatus } from '../../lib/entryChecks';
 import { isPythonTemplate } from '../../lib/playgroundEnvironments';
 import { verificationLabel, type EntrySource } from '../../lib/entrySources';
 import type { EntryIllustrationImage } from '../../lib/illustrations';
-import type { Difficulty, EntryKind, SandpackFiles } from '../../lib/stacks';
+import type {
+  Difficulty,
+  EntryKind,
+  EntryLab as EntryLabData,
+  SandpackFiles,
+} from '../../lib/stacks';
 import { Playground } from '../lab/Playground';
 import { PythonPlayground } from '../lab/PythonPlayground';
 import { EmptyMessage } from '../ui/EmptyMessage';
 import { EntryMeta } from '../ui/EntryMeta';
+import { EntryLab } from './EntryLab';
 import { EntryMdx } from './EntryMdx';
 import { EntrySources } from './EntrySources';
 import { Typo } from '../ui/Typo';
@@ -46,6 +52,10 @@ type EntryContentProps = {
   playgroundInput: string;
   /** Atelier Python : sortie attendue ; vide, pas de « Vérifier ». */
   playgroundExpectedOutput: string;
+  /** Laboratoire à télécharger (spec 018). `null` ou absent : aucune section. */
+  lab?: EntryLabData | null;
+  /** Adresse de la fiche : nomme l'archive du laboratoire. */
+  slug?: string;
   /** Liste vide : aucun bloc « Sources ». */
   sources: EntrySource[];
   /** `null` : aucune mention de vérification, même si une version existe. */
@@ -182,6 +192,9 @@ export function EntryArticle(props: EntryArticleProps) {
             playgroundInput={props.playgroundInput}
             playgroundExpectedOutput={props.playgroundExpectedOutput}
             sources={props.sources}
+            lab={props.lab}
+            slug={props.slug}
+            title={title}
             images={props.images}
             onDiagramError={props.onDiagramError}
           />
@@ -211,9 +224,15 @@ function EntryContent({
   playgroundInput,
   playgroundExpectedOutput,
   sources,
+  lab,
+  slug,
+  title,
   images,
   onDiagramError,
-}: Omit<EntryContentProps, 'verifiedOn' | 'verifiedVersion'> & { kind: EntryKind }) {
+}: Omit<EntryContentProps, 'verifiedOn' | 'verifiedVersion'> & {
+  kind: EntryKind;
+  title: string;
+}) {
   return (
     <>
       {bodyMdx ? (
@@ -237,6 +256,9 @@ function EntryContent({
           <Playground files={files} template={template} dependencies={dependencies} />
         )
       ) : null}
+
+      {/* Le laboratoire vient après l'atelier et avant les sources (spec 018). */}
+      {lab && slug ? <EntryLab slug={slug} title={title} lab={lab} /> : null}
 
       <EntrySources sources={sources} />
     </>

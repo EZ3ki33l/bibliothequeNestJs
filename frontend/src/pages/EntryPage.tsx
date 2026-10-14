@@ -478,6 +478,8 @@ export function EntryPage() {
       playgroundInput={fullEntry.playgroundInput}
       playgroundExpectedOutput={fullEntry.playgroundExpectedOutput}
       sources={fullEntry.sources}
+      lab={fullEntry.lab}
+      slug={fullEntry.slug}
       verifiedOn={fullEntry.verifiedOn}
       verifiedVersion={fullEntry.verifiedVersion}
       images={fullEntry.images}

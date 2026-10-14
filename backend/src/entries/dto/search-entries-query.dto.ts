@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Difficulty, EntryKind } from '../../generated/prisma/enums';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
@@ -36,4 +36,9 @@ export class SearchEntriesQueryDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(50)
   tag?: string;
+
+  /** Seule valeur admise : `true` (une valeur fermée évite le piège `'false'` → vrai). */
+  @IsOptional()
+  @IsIn(['true'])
+  lab?: 'true';
 }

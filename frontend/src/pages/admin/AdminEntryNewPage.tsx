@@ -35,6 +35,7 @@ function toSource(entry: AdminEntryDetail): AdminEntryFormSource {
     // Reprises : la copie part du même document d'origine. La date de
     // vérification, elle, n'est pas copiée (voir `AdminEntryFormSource`).
     sources: entry.sources,
+    lab: entry.lab,
   };
 }
 

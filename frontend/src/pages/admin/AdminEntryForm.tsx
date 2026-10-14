@@ -18,7 +18,11 @@ import {
   type AdminEntryDifficulty,
   type AdminEntryKind,
 } from '../../lib/admin';
-import { publicationGaps, publicationQuestion } from '../../lib/entryChecks';
+import {
+  needsPublicationQuestion,
+  publicationGaps,
+  publicationQuestion,
+} from '../../lib/entryChecks';
 import type { EntryImageAdmin } from '../../lib/entryImages';
 import { todayAsDay, type EntrySource } from '../../lib/entrySources';
 import { DIFFICULTY_LABEL, KIND_LABEL } from '../../lib/labels';
@@ -28,11 +32,12 @@ import {
   environmentLabel,
   isPythonTemplate,
 } from '../../lib/playgroundEnvironments';
-import { jsonToStringRecord } from '../../lib/stacks';
+import { jsonToStringRecord, type EntryLab } from '../../lib/stacks';
 import { useAdminSubmit } from '../../components/admin/useAdminSubmit';
 import { AdminSelect } from '../../components/admin/AdminSelect';
 import { AdminEntryImages } from '../../components/admin/AdminEntryImages';
 import { AdminEntryPreview } from '../../components/admin/AdminEntryPreview';
+import { AdminLabEditor } from '../../components/admin/AdminLabEditor';
 import { AdminKeyValueList } from '../../components/admin/AdminKeyValueList';
 import { AdminSourceList } from '../../components/admin/AdminSourceList';
 import { readEntryFields, type EntryFormFields } from '../../components/admin/entryFormFields';
@@ -65,6 +70,8 @@ export type AdminEntryFormSource = {
   playgroundInput: string;
   playgroundExpectedOutput: string;
   sources: EntrySource[];
+  /** Reprise comme les sources : une copie part du même laboratoire. */
+  lab: EntryLab | null;
 };
 
 type AdminEntryFormProps =
@@ -92,6 +99,7 @@ type AdminEntryFormProps =
       initialPlaygroundInput: string;
       initialPlaygroundExpectedOutput: string;
       initialSources: EntrySource[];
+      initialLab: EntryLab | null;
       /** `AAAA-MM-JJ`, ou `null` : la fiche n'a pas de date de vérification. */
       initialVerifiedOn: string | null;
       initialVerifiedVersion: string;
@@ -119,6 +127,7 @@ type InitialValues = {
   playgroundInput: string;
   playgroundExpectedOutput: string;
   sources: EntrySource[];
+  lab: EntryLab | null;
   verifiedOn: string;
   verifiedVersion: string;
 };
@@ -138,6 +147,7 @@ function initialValues(props: AdminEntryFormProps): InitialValues {
       playgroundInput: props.initialPlaygroundInput,
       playgroundExpectedOutput: props.initialPlaygroundExpectedOutput,
       sources: props.initialSources,
+      lab: props.initialLab,
       verifiedOn: props.initialVerifiedOn ?? '',
       verifiedVersion: props.initialVerifiedVersion,
     };
@@ -158,6 +168,7 @@ function initialValues(props: AdminEntryFormProps): InitialValues {
     playgroundInput: source?.playgroundInput ?? '',
     playgroundExpectedOutput: source?.playgroundExpectedOutput ?? '',
     sources: source?.sources ?? [],
+    lab: source?.lab ?? null,
     verifiedOn: '',
     verifiedVersion: '',
   };
@@ -183,6 +194,9 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
     recordToPairs(initial.dependencies),
   );
   const [sources, setSources] = useState<SourceRow[]>(() => sourcesToRows(initial.sources));
+  // Laboratoire (spec 018) : fichiers et case suivie pour masquer les champs.
+  const [labFiles, setLabFiles] = useState<KeyValuePair[]>(() => recordToPairs(initial.lab?.files));
+  const [labEnabled, setLabEnabled] = useState(initial.lab !== null);
   // Suivi du choix d'environnement (le `<select>` reste non contrôlé) : en
   // Python, les dépendances sont masquées et l'entrée et la sortie attendue
   // apparaissent.
@@ -261,7 +275,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
 
     // Même lecture qu'à l'enregistrement : l'aperçu montre exactement ce qui
     // serait envoyé, et une liste mal remplie donne le même message.
-    const result = readEntryFields(form, files, dependencies, sources);
+    const result = readEntryFields(form, files, dependencies, sources, labFiles);
     if (!result.ok) {
       refusePreview(result.message);
       return;
@@ -290,7 +304,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
     // La lecture de la saisie (normalisation, validation des deux listes) vit
     // dans `readEntryFields`. Une lecture invalide s'arrête ici, avant tout
     // appel réseau, avec le message à afficher.
-    const result = readEntryFields(form, files, dependencies, sources);
+    const result = readEntryFields(form, files, dependencies, sources, labFiles);
     if (!result.ok) {
       setError(result.message);
       return;
@@ -314,7 +328,10 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
         sourceCount: fields.sources.length,
         imageIds,
       });
-      if (gaps.length > 0 && !window.confirm(publicationQuestion(gaps))) {
+      if (
+        needsPublicationQuestion(gaps, fields.lab !== null) &&
+        !window.confirm(publicationQuestion(gaps, fields.lab !== null))
+      ) {
         return;
       }
     }
@@ -322,7 +339,8 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
     void submit(() =>
       props.mode === 'edit'
         ? updateAdminEntry(props.entryId, fields)
-        : createAdminEntry({ categoryId, ...fields }),
+        : // Création : « pas de laboratoire » = champ absent, pas `null`.
+          createAdminEntry({ categoryId, ...fields, lab: fields.lab ?? undefined }),
     );
   }
 
@@ -585,6 +603,13 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
             onChange={setDependencies}
           />
         </div>
+        <AdminLabEditor
+          initial={initial.lab}
+          enabled={labEnabled}
+          onEnabledChange={setLabEnabled}
+          files={labFiles}
+          onFilesChange={setLabFiles}
+        />
       </Form>
 
       {/* L'aperçu, lui, est démonté au retour à l'édition : cela libère
