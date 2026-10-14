@@ -1,9 +1,12 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { playgroundStatus } from '../../lib/entryChecks';
+import { isPythonTemplate } from '../../lib/playgroundEnvironments';
 import { verificationLabel, type EntrySource } from '../../lib/entrySources';
+import type { EntryIllustrationImage } from '../../lib/illustrations';
 import type { Difficulty, EntryKind, SandpackFiles } from '../../lib/stacks';
 import { Playground } from '../lab/Playground';
+import { PythonPlayground } from '../lab/PythonPlayground';
 import { EmptyMessage } from '../ui/EmptyMessage';
 import { EntryMeta } from '../ui/EntryMeta';
 import { EntryMdx } from './EntryMdx';
@@ -39,11 +42,22 @@ type EntryContentProps = {
   /** `undefined` : aucun fichier. */
   files: SandpackFiles | undefined;
   dependencies: SandpackFiles | undefined;
+  /** Atelier Python : entrée standard prévue par le rédacteur. Ignorée pour un modèle web. */
+  playgroundInput: string;
+  /** Atelier Python : sortie attendue ; vide, pas de « Vérifier ». */
+  playgroundExpectedOutput: string;
   /** Liste vide : aucun bloc « Sources ». */
   sources: EntrySource[];
   /** `null` : aucune mention de vérification, même si une version existe. */
   verifiedOn: string | null;
   verifiedVersion: string;
+  /**
+   * Images enregistrées pour la fiche (spec 016). Absent : aucune, donc toute
+   * image du corps s'affiche comme un cadre « Image non affichée ».
+   */
+  images?: readonly EntryIllustrationImage[];
+  /** Aperçu de l'administration : prévenu de chaque schéma qui n'a pas pu être dessiné. */
+  onDiagramError?: () => void;
 };
 
 /**
@@ -165,7 +179,11 @@ export function EntryArticle(props: EntryArticleProps) {
             template={props.template}
             files={props.files}
             dependencies={props.dependencies}
+            playgroundInput={props.playgroundInput}
+            playgroundExpectedOutput={props.playgroundExpectedOutput}
             sources={props.sources}
+            images={props.images}
+            onDiagramError={props.onDiagramError}
           />
         ) : (
           props.locked
@@ -190,12 +208,16 @@ function EntryContent({
   template,
   files,
   dependencies,
+  playgroundInput,
+  playgroundExpectedOutput,
   sources,
+  images,
+  onDiagramError,
 }: Omit<EntryContentProps, 'verifiedOn' | 'verifiedVersion'> & { kind: EntryKind }) {
   return (
     <>
       {bodyMdx ? (
-        <EntryMdx source={bodyMdx} />
+        <EntryMdx source={bodyMdx} images={images} onDiagramError={onDiagramError} />
       ) : (
         <EmptyMessage>Cette fiche n’a pas encore de contenu.</EmptyMessage>
       )}
@@ -204,7 +226,16 @@ function EntryContent({
           fois). Le test `files !== undefined` n'ajoute aucune règle : il sert au
           compilateur, qui ne peut pas déduire d'un statut que `files` existe. */}
       {files !== undefined && playgroundStatus(kind, files) === 'shown' ? (
-        <Playground files={files} template={template} dependencies={dependencies} />
+        // Même règle d'affichage pour tous les environnements ; seul l'atelier change.
+        isPythonTemplate(template) ? (
+          <PythonPlayground
+            files={files}
+            input={playgroundInput}
+            expectedOutput={playgroundExpectedOutput}
+          />
+        ) : (
+          <Playground files={files} template={template} dependencies={dependencies} />
+        )
       ) : null}
 
       <EntrySources sources={sources} />

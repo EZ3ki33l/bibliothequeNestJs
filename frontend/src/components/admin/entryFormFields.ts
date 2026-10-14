@@ -1,5 +1,6 @@
 import type { AdminEntryDifficulty, AdminEntryKind } from '../../lib/admin';
 import { todayAsDay, type EntrySourceInput } from '../../lib/entrySources';
+import { isPythonTemplate } from '../../lib/playgroundEnvironments';
 import { pairsToRecord, type KeyValuePair } from './keyValuePairs';
 import { rowsToSources, type SourceRow } from './sourceRows';
 
@@ -22,6 +23,9 @@ export type EntryFormFields = {
   tags: string[];
   files: Record<string, string>;
   dependencies: Record<string, string>;
+  /** Atelier Python : entrée standard et sortie attendue. */
+  playgroundInput: string;
+  playgroundExpectedOutput: string;
   /** Dans l'ordre des lignes du formulaire. */
   sources: EntrySourceInput[];
   /** `AAAA-MM-JJ`, ou `null` quand le champ est vide (efface la date). */
@@ -63,10 +67,14 @@ export function readEntryFields(
     return { ok: false, message: filesResult.message };
   }
 
-  const dependenciesResult = pairsToRecord(
-    dependencies,
-    'Chaque dépendance doit avoir un nom de paquet.',
-  );
+  const data = new FormData(form);
+  const template = String(data.get('template') ?? '').trim();
+
+  // Un atelier Python n'a pas de dépendances (le serveur les refuse) : la liste,
+  // masquée dans le formulaire, est envoyée vide et n'est pas contrôlée.
+  const dependenciesResult = isPythonTemplate(template)
+    ? { ok: true as const, value: {} }
+    : pairsToRecord(dependencies, 'Chaque dépendance doit avoir un nom de paquet.');
   if (!dependenciesResult.ok) {
     return { ok: false, message: dependenciesResult.message };
   }
@@ -77,8 +85,6 @@ export function readEntryFields(
   if (!sourcesResult.ok) {
     return { ok: false, message: sourcesResult.message };
   }
-
-  const data = new FormData(form);
 
   // Champ date vide : `null`, qui efface la date côté serveur. La date n'est
   // jamais déduite ni préremplie : elle n'avance que sur saisie.
@@ -101,7 +107,7 @@ export function readEntryFields(
     difficulty: String(data.get('difficulty') ?? '').trim() as AdminEntryDifficulty,
     // Une case cochée envoie `on` ; décochée, elle n'envoie rien.
     published: data.get('published') === 'on',
-    template: String(data.get('template') ?? '').trim(),
+    template,
     // « react, hooks , » → ['react', 'hooks']
     tags: String(data.get('tags') ?? '')
       .split(',')
@@ -109,6 +115,9 @@ export function readEntryFields(
       .filter((tag) => tag.length > 0),
     files: filesResult.value,
     dependencies: dependenciesResult.value,
+    // Fin seulement : les espaces intérieurs et en début de ligne comptent.
+    playgroundInput: String(data.get('playgroundInput') ?? '').trimEnd(),
+    playgroundExpectedOutput: String(data.get('playgroundExpectedOutput') ?? '').trimEnd(),
     sources: sourcesResult.value,
     verifiedOn,
     verifiedVersion: String(data.get('verifiedVersion') ?? '').trim(),

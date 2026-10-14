@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Alert, Card, Skeleton } from '@heroui/react';
+import { Alert, Card, Label, Meter, Skeleton } from '@heroui/react';
 import {
   ArticleIcon,
   FoldersIcon,
@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { getAdminDashboardCounts } from '../../lib/admin';
 import { getAccessSummary } from '../../lib/entryAccess';
+import { formatBytes, getImageUsage } from '../../lib/entryImages';
 import { useAsyncData } from '../../lib/useAsyncData';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -41,6 +42,9 @@ const CARDS = [
  * voit que des titres et des résumés : la situation est signalée ici, elle
  * n'est pas corrigée d'office.
  */
+/** Au-delà de cette part de la limite, le tableau de bord prévient. */
+const IMAGE_STORAGE_WARNING_RATIO = 0.8;
+
 export function AdminPage() {
   const { data: counts, error } = useAsyncData(
     getAdminDashboardCounts,
@@ -55,6 +59,17 @@ export function AdminPage() {
     [],
     'Impossible de charger l’accès des fiches',
   );
+
+  // Volume des images (spec 016). Un échec n'affiche rien : la jauge est une
+  // information, pas une condition du tableau de bord.
+  const { data: imageUsage } = useAsyncData(
+    getImageUsage,
+    [],
+    'Impossible de charger le stockage des images',
+  );
+  const imageStorageNearlyFull =
+    imageUsage != null &&
+    imageUsage.usedBytes >= imageUsage.limitBytes * IMAGE_STORAGE_WARNING_RATIO;
 
   return (
     <>
@@ -105,6 +120,36 @@ export function AdminPage() {
             );
           })}
         </ul>
+      )}
+
+      {imageUsage == null ? null : (
+        <div className="mt-6 flex max-w-2xl flex-col gap-3">
+          <Meter
+            value={imageUsage.usedBytes}
+            minValue={0}
+            maxValue={imageUsage.limitBytes}
+            valueLabel={`${formatBytes(imageUsage.usedBytes)} sur ${formatBytes(imageUsage.limitBytes)}`}
+            color={imageStorageNearlyFull ? 'warning' : 'accent'}
+          >
+            <Label>Stockage des images ({imageUsage.imageCount})</Label>
+            <Meter.Output />
+            <Meter.Track>
+              <Meter.Fill />
+            </Meter.Track>
+          </Meter>
+          {imageStorageNearlyFull ? (
+            <Alert status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>Stockage des images bientôt plein</Alert.Title>
+                <Alert.Description>
+                  Au-delà de la limite, tout nouvel envoi d’image est refusé. Retirer des images
+                  inutiles, ou lancer « pnpm images:reconcile » pour repérer les fichiers orphelins.
+                </Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ) : null}
+        </div>
       )}
     </>
   );

@@ -4,7 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
-  IsObject,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -15,6 +15,15 @@ import {
 import { IsPastOrPresentDay } from '../../common/calendar-day';
 import { Difficulty, EntryKind } from '../../generated/prisma/enums';
 import { EntrySourceDto, MAX_ENTRY_SOURCES } from './entry-source.dto';
+import {
+  IsStringRecord,
+  MAX_TAG_LENGTH,
+  MAX_TAGS,
+  PLAYGROUND_DEPENDENCIES_LIMITS,
+  PLAYGROUND_FILES_LIMITS,
+  MAX_PLAYGROUND_TEXT_LENGTH,
+  PLAYGROUND_TEMPLATES,
+} from './playground';
 
 /**
  * Contrat de `POST /admin/entries`.
@@ -48,7 +57,9 @@ export class CreateEntryDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_TAGS)
   @IsString({ each: true })
+  @MaxLength(MAX_TAG_LENGTH, { each: true })
   tags?: string[];
 
   @IsOptional()
@@ -56,16 +67,28 @@ export class CreateEntryDto {
   published?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsIn(PLAYGROUND_TEMPLATES)
   template?: string;
 
   @IsOptional()
-  @IsObject()
+  @IsStringRecord(PLAYGROUND_FILES_LIMITS)
   files?: Record<string, string>;
 
   @IsOptional()
-  @IsObject()
+  @IsStringRecord(PLAYGROUND_DEPENDENCIES_LIMITS)
   dependencies?: Record<string, string>;
+
+  /** Atelier Python : entrée standard, lue par `input()` ligne par ligne. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_PLAYGROUND_TEXT_LENGTH)
+  playgroundInput?: string;
+
+  /** Atelier Python : sortie attendue ; non vide, elle fait apparaître « Vérifier ». */
+  @IsOptional()
+  @IsString()
+  @MaxLength(MAX_PLAYGROUND_TEXT_LENGTH)
+  playgroundExpectedOutput?: string;
 
   /**
    * Sources de la fiche, dans l'ordre d'affichage (le rang est l'index du

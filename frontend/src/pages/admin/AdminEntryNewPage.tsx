@@ -30,6 +30,8 @@ function toSource(entry: AdminEntryDetail): AdminEntryFormSource {
     // Colonnes JSON : validées avant d'être données au formulaire.
     files: jsonToStringRecord(entry.files) ?? {},
     dependencies: jsonToStringRecord(entry.dependencies) ?? {},
+    playgroundInput: entry.playgroundInput,
+    playgroundExpectedOutput: entry.playgroundExpectedOutput,
     // Reprises : la copie part du même document d'origine. La date de
     // vérification, elle, n'est pas copiée (voir `AdminEntryFormSource`).
     sources: entry.sources,

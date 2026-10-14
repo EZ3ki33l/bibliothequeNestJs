@@ -1,12 +1,17 @@
-import { useMemo, type MouseEvent } from 'react';
+import { useCallback, useMemo, useState, type MouseEvent } from 'react';
 import { Alert } from '@heroui/react';
 import { playgroundStatus, publicationGaps } from '../../lib/entryChecks';
 import { toDisplayedSource } from '../../lib/entrySources';
+import { DIAGRAM_FAILED_GAP, type EntryIllustrationImage } from '../../lib/illustrations';
 import { jsonToStringRecord } from '../../lib/stacks';
 import { EntryArticle } from '../entry/EntryArticle';
 import type { EntryFormFields } from './entryFormFields';
 
-type AdminEntryPreviewProps = { fields: EntryFormFields };
+type AdminEntryPreviewProps = {
+  fields: EntryFormFields;
+  /** Images enregistrées pour la fiche : les seules que le corps affiche (spec 016). */
+  images: readonly EntryIllustrationImage[];
+};
 
 /**
  * Protocoles qu'un lien de l'aperçu a le droit d'ouvrir.
@@ -31,7 +36,7 @@ const OPENABLE_PROTOCOLS = new Set(['http:', 'https:']);
  * `fields` est une photographie de la saisie, jamais modifiée ici, et rien
  * n'est envoyé à l'API.
  */
-export function AdminEntryPreview({ fields }: AdminEntryPreviewProps) {
+export function AdminEntryPreview({ fields, images }: AdminEntryPreviewProps) {
   /**
    * `jsonToStringRecord` est la fonction que la page publique applique à la
    * réponse de l'API : un objet vide devient `undefined` des deux côtés, donc
@@ -55,7 +60,29 @@ export function AdminEntryPreview({ fields }: AdminEntryPreviewProps) {
   // Rappel permanent, brouillon ou publiée : c'est la même liste que celle de
   // la confirmation du formulaire, donc les mêmes messages. L'absence de
   // fichier y figure déjà (« Aucun fichier… »).
-  const gaps = publicationGaps({ ...fields, files, sourceCount: sources.length });
+  // Images : celles de la fiche s'affichent, toute autre est signalée.
+  const imageIds = useMemo(() => images.map((image) => image.id), [images]);
+  const gaps = publicationGaps({ ...fields, files, sourceCount: sources.length, imageIds });
+
+  /**
+   * Schémas qui n'ont pas pu être dessinés **dans cette photographie** : une
+   * syntaxe fausse ne se voit qu'au dessin, `publicationGaps` ne peut pas la
+   * détecter. Le compte est rattaché à `fields` : une nouvelle photographie
+   * repart de zéro, sans effet à synchroniser.
+   */
+  const [diagramFailures, setDiagramFailures] = useState<{
+    of: EntryFormFields;
+    count: number;
+  } | null>(null);
+  const onDiagramError = useCallback(() => {
+    setDiagramFailures((previous) => ({
+      of: fields,
+      count: (previous?.of === fields ? previous.count : 0) + 1,
+    }));
+  }, [fields]);
+  if (diagramFailures?.of === fields && diagramFailures.count > 0) {
+    gaps.push(DIAGRAM_FAILED_GAP);
+  }
 
   // Seul cas qui n'est pas un manque mais mérite une explication : des fichiers
   // ont été renseignés et ne serviront pas. Un concept sans fichier n'affiche
@@ -165,9 +192,13 @@ export function AdminEntryPreview({ fields }: AdminEntryPreviewProps) {
         template={fields.template}
         files={files}
         dependencies={dependencies}
+        playgroundInput={fields.playgroundInput}
+        playgroundExpectedOutput={fields.playgroundExpectedOutput}
         sources={sources}
         verifiedOn={fields.verifiedOn}
         verifiedVersion={fields.verifiedVersion}
+        images={images}
+        onDiagramError={onDiagramError}
         linkTags={false}
       />
     </div>

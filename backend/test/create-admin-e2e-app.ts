@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { App } from 'supertest/types';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppModule } from '../src/app.module';
+import { IMAGE_STORAGE } from '../src/entry-images/image-storage';
 
 /**
  * Fiches simulées pour les lectures publiques : une fiche en accès libre, une
@@ -50,6 +51,7 @@ function entryRow(entry: typeof FREE_ENTRY, published: boolean, bodyMdx: string)
     verifiedOn: null,
     verifiedVersion: null,
     sources: [],
+    images: [],
   };
 }
 
@@ -105,6 +107,8 @@ export async function createAdminE2eApp(): Promise<INestApplication<App>> {
       $connect: () => Promise.resolve(),
       $disconnect: () => Promise.resolve(),
       admin: { findUnique: () => Promise.resolve(null) },
+      // Relais des images (spec 016) : aucune image en base, donc 404.
+      entryImage: { findUnique: () => Promise.resolve(null) },
       // `GET /learning-paths` est public : sans ce mock, il atteindrait Prisma.
       // La règle d'accès lit aussi les parcours, mais avec leurs modules :
       // c'est ce `select` qui distingue les deux lectures.
@@ -125,6 +129,15 @@ export async function createAdminE2eApp(): Promise<INestApplication<App>> {
             ),
           ),
       },
+    })
+    // Jamais de réseau en e2e : le prestataire des images est remplacé par un
+    // stockage vide.
+    .overrideProvider(IMAGE_STORAGE)
+    .useValue({
+      put: () => Promise.reject(new Error('stockage e2e')),
+      read: () => Promise.resolve(null),
+      remove: () => Promise.resolve(true),
+      list: async function* () {},
     })
     .compile();
 

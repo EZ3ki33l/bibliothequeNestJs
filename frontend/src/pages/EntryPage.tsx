@@ -462,7 +462,10 @@ export function EntryPage() {
    *   le contenu : un lecteur connecté voit autant de leçon qu'un visiteur.
    */
   return (
+    // `key` : une autre fiche remonte l'article, et l'atelier Python repart du
+    // code de cette fiche-là.
     <EntryArticle
+      key={fullEntry.id}
       title={fullEntry.title}
       summary={fullEntry.summary}
       kind={fullEntry.kind}
@@ -472,9 +475,12 @@ export function EntryPage() {
       template={fullEntry.template}
       files={files}
       dependencies={dependencies}
+      playgroundInput={fullEntry.playgroundInput}
+      playgroundExpectedOutput={fullEntry.playgroundExpectedOutput}
       sources={fullEntry.sources}
       verifiedOn={fullEntry.verifiedOn}
       verifiedVersion={fullEntry.verifiedVersion}
+      images={fullEntry.images}
       lead={lead}
       headerActions={
         <>

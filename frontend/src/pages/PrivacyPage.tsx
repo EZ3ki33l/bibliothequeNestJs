@@ -5,7 +5,7 @@ import { SITE_LEGAL } from '../lib/site-legal';
 import { Typo } from '../components/ui/Typo';
 
 /** À mettre à jour à chaque modification de fond de cette page. */
-const LAST_UPDATED = '7 octobre 2026';
+const LAST_UPDATED = '14 octobre 2026';
 
 const LINK_CLASS = 'text-blueberry-light underline underline-offset-2';
 
@@ -188,12 +188,29 @@ export function PrivacyPage() {
             captcha tiers, et ne stocke rien d’autre dans le navigateur.
           </Typo>
           <Typo variant="p">
-            Une exception : sur les fiches qui comportent un éditeur de code exécutable, le
+            Une exception : sur les fiches qui comportent un éditeur de code web exécutable, le
             navigateur charge des ressources du service CodeSandbox (domaines codesandbox.io), qui
             reçoit à cette occasion l’adresse IP et les informations techniques du navigateur du
             visiteur. Le site ne dépose lui-même aucun cookie pour cela ; les pratiques de ce
             prestataire relèvent de sa propre politique de confidentialité. Cette exécution est
             nécessaire au fonctionnement de l’éditeur de code (intérêt légitime, RGPD, art. 6.1.f).
+          </Typo>
+          <Typo variant="p" className="mt-2">
+            Illustrations : les images et les schémas des fiches sont servis par le site lui-même.
+            Une image placée dans une fiche mais hébergée ailleurs n’est pas chargée, son texte
+            alternatif s’affiche à sa place. Les images envoyées par l’administration sont
+            réencodées à l’envoi, ce qui retire leurs métadonnées (position GPS, appareil, auteur,
+            date de prise de vue). Leurs fichiers sont stockés chez UploadThing, aux États-Unis ; le
+            site va les y chercher puis les transmet au navigateur, si bien qu’UploadThing ne reçoit
+            aucune donnée des lecteurs. Le site ne garde aucune trace de qui regarde une image.
+          </Typo>
+          <Typo variant="p" className="mt-2">
+            Atelier Python : au premier lancement d’un atelier Python, le navigateur télécharge un
+            moteur Python (Pyodide) depuis le site lui-même, puis le garde dans son cache comme tout
+            fichier d’une page web. Le code s’exécute dans le navigateur, isolé de la page et sans
+            accès au réseau : ni le code, ni l’entrée, ni la sortie, ni le résultat d’une
+            vérification ne sont envoyés au site ou à un tiers, ni conservés. Aucun prestataire
+            n’intervient.
           </Typo>
         </Section>
 
@@ -211,6 +228,11 @@ export function PrivacyPage() {
             <li>
               <strong className="font-medium">CodeSandbox</strong> : exécution de l’éditeur de code
               des fiches (voir ci-dessus).
+            </li>
+            <li>
+              <strong className="font-medium">UploadThing</strong> : stockage des fichiers des
+              illustrations envoyées par l’administration, aux États-Unis. Il ne reçoit ni donnée de
+              compte ni donnée de lecteur : seul le site lui écrit et le lit (voir ci-dessus).
             </li>
           </ul>
           <Typo variant="p" className="mt-3">
@@ -231,7 +253,9 @@ export function PrivacyPage() {
             Le traitement de Resend a principalement lieu aux États-Unis. Il est encadré par les
             clauses contractuelles types de la Commission européenne et par l’adhésion du
             prestataire au Data Privacy Framework. L’infrastructure de CodeSandbox peut également se
-            situer hors de l’Union européenne.
+            situer hors de l’Union européenne. Les fichiers des illustrations sont stockés chez
+            UploadThing, aux États-Unis : ce sont des contenus éditoriaux sans métadonnées, et
+            aucune donnée personnelle des lecteurs n’y est transférée.
           </Typo>
         </Section>
 

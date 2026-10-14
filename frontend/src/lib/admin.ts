@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import type { EntrySource, EntrySourceInput } from './entrySources';
+import type { EntryImageAdmin } from './entryImages';
 
 /**
  * Couche d'accès à l'API d'administration.
@@ -96,7 +97,7 @@ const ENTRIES: ResourceLabels = {
  * sont traités. En dernier recours, un message générique — on n'affiche jamais
  * un corps de réponse brut à l'utilisateur.
  */
-async function messageFromNest(response: Response): Promise<string> {
+export async function messageFromNest(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json();
 
@@ -483,10 +484,15 @@ export type AdminEntryDetail = {
    */
   files: unknown;
   dependencies: unknown;
+  /** Atelier Python (spec 017) : entrée standard et sortie attendue. */
+  playgroundInput: string;
+  playgroundExpectedOutput: string;
   sources: EntrySource[];
   /** `AAAA-MM-JJ`, ou `null` si la fiche n'a pas de date de vérification. */
   verifiedOn: string | null;
   verifiedVersion: string;
+  /** Images de la fiche, dans l'ordre d'envoi (spec 016). */
+  images: EntryImageAdmin[];
   category: {
     id: string;
     name: string;
@@ -511,6 +517,8 @@ export type CreateAdminEntryInput = {
   template?: string;
   files?: Record<string, string>;
   dependencies?: Record<string, string>;
+  playgroundInput?: string;
+  playgroundExpectedOutput?: string;
   /** Présent : remplace la liste entière. Absent d'un `PATCH` : liste inchangée. */
   sources?: EntrySourceInput[];
   /** `null` efface la date. Absent d'un `PATCH` : date inchangée. */

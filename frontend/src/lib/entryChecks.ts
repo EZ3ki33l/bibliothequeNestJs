@@ -1,3 +1,6 @@
+import { illustrationGaps } from './illustrations';
+import { isPythonTemplate } from './playgroundEnvironments';
+import { pythonPlaygroundGaps } from './pythonCheck';
 import type { EntryKind, SandpackFiles } from './stacks';
 
 /**
@@ -50,14 +53,25 @@ export function playgroundStatus(
  *
  * Les champs sont attendus déjà normalisés (`trim()` fait par
  * `readEntryFields`) : « vide » signifie donc une chaîne vide.
+ *
+ * Un atelier Python ajoute les siens (spec 017) : pas de `main.py`, fichier
+ * qui n'est pas un `.py`.
+ *
+ * Les manques d'illustration (spec 016) viennent en dernier : image venue d'un
+ * autre site, image introuvable. `imageIds` : les images enregistrées pour la
+ * fiche ; la règle est celle de l'affichage (`lib/illustrations.ts`).
  */
 export function publicationGaps(fields: {
   summary: string;
   bodyMdx: string;
   kind: EntryKind;
+  /** Environnement du playground : un atelier Python a ses propres manques (spec 017). */
+  template: string;
   files: SandpackFiles | undefined;
   /** Nombre de sources citées par la fiche. */
   sourceCount: number;
+  /** Identifiants des images enregistrées pour la fiche. */
+  imageIds: readonly string[];
 }): string[] {
   const gaps: string[] = [];
 
@@ -67,14 +81,22 @@ export function publicationGaps(fields: {
   if (fields.summary === '') {
     gaps.push('Le résumé est vide.');
   }
-  if (playgroundStatus(fields.kind, fields.files) === 'no-files') {
+  const playground = playgroundStatus(fields.kind, fields.files);
+  if (playground === 'no-files') {
     gaps.push('Aucun fichier : le playground n’apparaîtra pas.');
+  }
+  // Seulement si l'atelier s'affiche : un concept n'a pas d'atelier, et une
+  // fiche sans fichier a déjà son manque ci-dessus.
+  if (playground === 'shown' && fields.files && isPythonTemplate(fields.template)) {
+    gaps.push(...pythonPlaygroundGaps(fields.files));
   }
   // Une fiche reprend presque toujours un document existant : ne pas le citer
   // est le plus souvent un oubli. Le manque reste indicatif, comme les autres.
   if (fields.sourceCount === 0) {
     gaps.push('Aucune source n’est citée.');
   }
+
+  gaps.push(...illustrationGaps(fields.bodyMdx, fields.imageIds));
 
   return gaps;
 }

@@ -357,6 +357,122 @@
   color: var(--color-blueberry-light);
 }
 
+/* Image que le site ne charge pas (spec 016) : un cadre en pointillés, une
+   marche au-dessus du fond, qui dit qu'une image manque et donne son texte
+   alternatif. Pas de Cherry : ce n'est pas une alerte, juste une absence. */
+.entry-mdx .blocked-image {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.75rem;
+  background: var(--color-blacksea);
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Image du site dans le corps (spec 016, story 3). Dans une phrase, elle reste
+   en ligne ; seule sur sa ligne, `rehype-unwrap-images` la sort du paragraphe
+   et elle devient un bloc centré de la colonne. Jamais plus large que la
+   colonne ; `height: auto` garde ses proportions, et ses attributs
+   `width`/`height` réservent sa place avant son arrivée. */
+.entry-mdx .entry-image {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.entry-mdx > .entry-image {
+  display: flex;
+  align-self: center;
+}
+
+.entry-mdx .entry-image-button {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0.75rem;
+  background: none;
+  cursor: zoom-in;
+}
+
+.entry-mdx .entry-image-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.entry-mdx .entry-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+
+/* Légende et lien « Taille réelle » : texte secondaire, sous l'image. */
+.entry-mdx .entry-image-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem 1rem;
+  max-width: 66ch;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Visionneuse : la version pleine tient dans la fenêtre, sans la déborder. */
+.image-viewer-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100dvh - 10rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Schéma Mermaid (spec 016) : centré, jamais plus large que la colonne ; un
+   schéma très large défile horizontalement plutôt que de rapetisser son texte.
+   Pendant le dessin, une hauteur réservée évite que la page saute. */
+.entry-mdx .entry-diagram {
+  overflow-x: auto;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--color-blacksea);
+}
+
+.entry-mdx .entry-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.entry-mdx .entry-diagram-loading {
+  min-height: 12rem;
+}
+
+.entry-mdx .entry-diagram-failed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-style: dashed;
+}
+
+.entry-mdx .entry-diagram-failed pre {
+  padding: 0.75rem 1rem;
+  white-space: pre-wrap;
+  color: var(--color-body);
+}
+
 .entry-mdx figure[data-rehype-pretty-code-figure] {
   margin: 0;
   overflow: hidden;

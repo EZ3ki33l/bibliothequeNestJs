@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { CreateEntryDto } from './dto/create-entry.dto';
@@ -14,8 +14,29 @@ import { assertCanPublish, assertUnlocked, canManagePublished } from '../common/
 import { dateToDay, dayToDate } from '../common/calendar-day';
 import { isQuizEligible } from '../common/quiz-eligibility';
 import { EntryAccessService } from '../entry-access/entry-access.service';
+import { EntryImagesService } from '../entry-images/entry-images.service';
+import {
+  ENTRY_IMAGES_IN_ORDER,
+  toAdminImage,
+  toPublicImage,
+} from '../entry-images/entry-image.view';
 
 const SLUG_TAKEN = 'Ce slug est déjà utilisé';
+
+/**
+ * Un atelier Python n'exécute que la bibliothèque standard (spec 017) : des
+ * dépendances npm y seraient enregistrées sans jamais servir. La règle porte
+ * sur l'état **résultant** de la fiche (envoyé, sinon celui en base).
+ */
+function assertNoPythonDependencies(template: string | undefined, dependencies: unknown) {
+  const hasDependencies =
+    typeof dependencies === 'object' &&
+    dependencies !== null &&
+    Object.keys(dependencies).length > 0;
+  if (template === 'python' && hasDependencies) {
+    throw new BadRequestException("Un atelier Python n'accepte pas de dépendances.");
+  }
+}
 
 /** Catégorie + stack de la fiche : de quoi afficher un fil d'Ariane. */
 const withTaxonomy = {
@@ -102,6 +123,7 @@ export class EntriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly entryAccess: EntryAccessService,
+    private readonly entryImages: EntryImagesService,
   ) {}
 
   /**
@@ -227,19 +249,27 @@ export class EntriesService {
    *
    * `quizEligible` dit si un examen existe pour cette fiche. La règle reste
    * celle de `common/quiz-eligibility.ts`, le navigateur ne la recopie pas.
+   *
+   * `images` (spec 016) : les illustrations de la fiche, sans leurs clés de
+   * stockage. Le navigateur n'affiche que celles-ci dans le corps. La lecture
+   * réduite d'une fiche réservée ne passe pas par ici : elle n'a pas d'images.
    */
   async findReadableBySlug(slug: string) {
     const entry = await this.prisma.entry.findFirst({
       where: { slug, published: true },
       omit: { quizQuestions: true },
-      include: { ...withTaxonomy, sources: SOURCES_IN_ORDER },
+      include: { ...withTaxonomy, sources: SOURCES_IN_ORDER, images: ENTRY_IMAGES_IN_ORDER },
     });
 
     if (!entry) {
       throw new NotFoundException();
     }
 
-    return { ...withCalendarDays(entry), quizEligible: isQuizEligible(entry.bodyMdx) };
+    return {
+      ...withCalendarDays(entry),
+      images: entry.images.map(toPublicImage),
+      quizEligible: isQuizEligible(entry.bodyMdx),
+    };
   }
 
   /**
@@ -332,9 +362,12 @@ export class EntriesService {
         template: true,
         files: true,
         dependencies: true,
+        playgroundInput: true,
+        playgroundExpectedOutput: true,
         verifiedOn: true,
         verifiedVersion: true,
         sources: SOURCES_IN_ORDER,
+        images: ENTRY_IMAGES_IN_ORDER,
         category: {
           select: {
             id: true,
@@ -350,7 +383,7 @@ export class EntriesService {
       throw new NotFoundException();
     }
 
-    return withCalendarDays(entry);
+    return { ...withCalendarDays(entry), images: entry.images.map(toAdminImage) };
   }
 
   /**
@@ -360,6 +393,7 @@ export class EntriesService {
    */
   async create(dto: CreateEntryDto, role: AdminRole) {
     assertCanPublish(role, dto.published);
+    assertNoPythonDependencies(dto.template, dto.dependencies);
 
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
 
@@ -391,6 +425,8 @@ export class EntriesService {
           template: dto.template ?? 'react-ts',
           files: dto.files ?? {},
           dependencies: dto.dependencies,
+          playgroundInput: dto.playgroundInput ?? '',
+          playgroundExpectedOutput: dto.playgroundExpectedOutput ?? '',
           verifiedOn: dto.verifiedOn ? dayToDate(dto.verifiedOn) : undefined,
           verifiedVersion: dto.verifiedVersion,
           // Écriture imbriquée : les sources sont créées dans la même
@@ -425,6 +461,7 @@ export class EntriesService {
   async update(id: string, dto: UpdateEntryDto, role: AdminRole) {
     assertCanPublish(role, dto.published);
     await this.assertUnlocked(id, role);
+    await this.assertPythonWithoutDependencies(id, dto);
 
     const data: Prisma.EntryUpdateInput = {};
 
@@ -441,6 +478,10 @@ export class EntriesService {
     if (dto.template !== undefined) data.template = dto.template;
     if (dto.files !== undefined) data.files = dto.files;
     if (dto.dependencies !== undefined) data.dependencies = dto.dependencies;
+    if (dto.playgroundInput !== undefined) data.playgroundInput = dto.playgroundInput;
+    if (dto.playgroundExpectedOutput !== undefined) {
+      data.playgroundExpectedOutput = dto.playgroundExpectedOutput;
+    }
     if (dto.verifiedOn !== undefined) {
       data.verifiedOn = dto.verifiedOn === null ? null : dayToDate(dto.verifiedOn);
     }
@@ -457,17 +498,49 @@ export class EntriesService {
   }
 
   /**
-   * Supprime la fiche (la cascade emporte traces de lecture et tentatives).
-   * Un `ADMIN` ne supprime qu'un brouillon.
+   * Supprime la fiche (la cascade emporte traces de lecture, tentatives et
+   * images). Un `ADMIN` ne supprime qu'un brouillon.
+   *
+   * Les fichiers des images sont chez le prestataire, hors de portée de la
+   * cascade : leurs clés sont relevées **avant** la suppression, puis retirées
+   * **après** qu'elle a réussi (spec 016). Un retrait raté ne fait pas échouer
+   * la suppression ; il se rattrape par `pnpm images:reconcile`.
    */
   async delete(id: string, role: AdminRole) {
     await this.assertUnlocked(id, role);
+
+    const imageKeys = await this.entryImages.keysFor({ id });
 
     try {
       await this.prisma.entry.delete({ where: { id } });
     } catch (error) {
       throw toWriteException(error, SLUG_TAKEN);
     }
+
+    await this.entryImages.purge(imageKeys);
+  }
+
+  /**
+   * 400 si le PATCH laisse un atelier Python avec des dépendances. La base
+   * n'est lue que pour le champ que le PATCH n'envoie pas (passage d'un modèle
+   * web à `python` avec des dépendances déjà enregistrées, par exemple). Une
+   * fiche introuvable passe : l'écriture qui suit répond 404.
+   */
+  private async assertPythonWithoutDependencies(id: string, dto: UpdateEntryDto) {
+    if (dto.template === undefined && dto.dependencies === undefined) {
+      return;
+    }
+    const current =
+      dto.template !== undefined && dto.dependencies !== undefined
+        ? null
+        : await this.prisma.entry.findUnique({
+            where: { id },
+            select: { template: true, dependencies: true },
+          });
+    assertNoPythonDependencies(
+      dto.template ?? current?.template,
+      dto.dependencies ?? current?.dependencies,
+    );
   }
 
   /**
