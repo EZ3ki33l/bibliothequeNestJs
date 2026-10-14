@@ -7,6 +7,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { VerifiedEmailGuard } from '../auth/verified-email.guard';
 import { ReaderEntriesController } from './reader-entries.controller';
 import { EntryAccessModule } from '../entry-access/entry-access.module';
+import { EntryImagesModule } from '../entry-images/entry-images.module';
 
 /**
  * Frontière du domaine « fiches » : un contrôleur public, un contrôleur de
@@ -14,9 +15,10 @@ import { EntryAccessModule } from '../entry-access/entry-access.module';
  *
  * `EntryAccessModule` est importé pour que `EntriesService` puisse demander
  * si une fiche est en accès libre : la règle vit là-bas, pas ici.
+ * `EntryImagesModule` : retirer les fichiers des images d'une fiche supprimée.
  */
 @Module({
-  imports: [EntryAccessModule],
+  imports: [EntryAccessModule, EntryImagesModule],
   controllers: [EntriesController, ReaderEntriesController, AdminEntriesController],
   providers: [EntriesService, SessionGuard, AdminGuard, VerifiedEmailGuard],
 })

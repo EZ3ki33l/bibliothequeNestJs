@@ -14,6 +14,7 @@ import { ContactModule } from './contact/contact.module';
 import { LearningPathsModule } from './learning-paths/learning-paths.module';
 import { EntryProgressModule } from './entry-progress/entry-progress.module';
 import { EntryAccessModule } from './entry-access/entry-access.module';
+import { EntryImagesModule } from './entry-images/entry-images.module';
 
 /**
  * Module racine : il assemble les modules de domaine, il ne contient pas de
@@ -45,6 +46,7 @@ import { EntryAccessModule } from './entry-access/entry-access.module';
     LearningPathsModule,
     EntryProgressModule,
     EntryAccessModule,
+    EntryImagesModule,
   ],
   controllers: [MeController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

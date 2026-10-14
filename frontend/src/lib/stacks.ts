@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import type { EntrySource } from './entrySources';
+import type { EntryIllustrationImage } from './illustrations';
 
 /**
  * Types du catalogue public et appels correspondants à l'API Nest.
@@ -96,6 +97,10 @@ export type FullEntry = EntryHeader & {
   template: string;
   files: SandpackFiles | null;
   dependencies: SandpackFiles | null;
+  /** Atelier Python (spec 017) : entrée standard prévue par le rédacteur ('' = aucune). */
+  playgroundInput: string;
+  /** Atelier Python : sortie attendue ; vide, pas de bouton « Vérifier ». */
+  playgroundExpectedOutput: string;
   /** Documents d'origine, dans l'ordre saisi. Tableau vide : aucune source. */
   sources: EntrySource[];
   /** Jour de la dernière vérification, `AAAA-MM-JJ`. Saisi par l'administration. */
@@ -107,6 +112,11 @@ export type FullEntry = EntryHeader & {
    * serveur, identique pour tous : la règle n'est pas recopiée ici.
    */
   quizEligible: boolean;
+  /**
+   * Images enregistrées pour la fiche (spec 016) : les seules que le corps
+   * affiche. Absent de la lecture réduite d'une fiche réservée.
+   */
+  images: EntryIllustrationImage[];
 };
 
 /**

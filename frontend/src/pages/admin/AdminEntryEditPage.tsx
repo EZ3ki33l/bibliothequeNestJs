@@ -42,9 +42,12 @@ export function AdminEntryEditPage() {
         // Colonnes JSON : on les valide avant de les donner au formulaire.
         initialFiles={jsonToStringRecord(entry.files) ?? {}}
         initialDependencies={jsonToStringRecord(entry.dependencies) ?? {}}
+        initialPlaygroundInput={entry.playgroundInput}
+        initialPlaygroundExpectedOutput={entry.playgroundExpectedOutput}
         initialSources={entry.sources}
         initialVerifiedOn={entry.verifiedOn}
         initialVerifiedVersion={entry.verifiedVersion}
+        initialImages={entry.images}
         onSuccess={returnToList}
       />
     </>

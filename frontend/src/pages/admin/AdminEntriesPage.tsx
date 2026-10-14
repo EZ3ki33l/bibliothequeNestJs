@@ -149,8 +149,11 @@ export function AdminEntriesPage() {
           summary: detail.summary.trim(),
           bodyMdx: detail.bodyMdx.trim(),
           kind: detail.kind,
+          template: detail.template,
           files: jsonToStringRecord(detail.files),
           sourceCount: detail.sources.length,
+          // Images enregistrées pour la fiche : seules elles s'afficheront.
+          imageIds: detail.images.map((image) => image.id),
         });
         if (
           gaps.length > 0 &&

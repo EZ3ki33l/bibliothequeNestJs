@@ -4,6 +4,9 @@ allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
   es5-ext: false
+  # Accélérateur natif facultatif d'UploadThing (spec 016) : sans lui, msgpackr
+  # reste en JavaScript pur. Refusé : aucun script de compilation à l'installation.
+  msgpackr-extract: false
   esbuild: true
   prisma: true
 

@@ -12,6 +12,8 @@ type AdminSelectProps = {
   isRequired?: boolean;
   defaultValue?: string;
   placeholder?: string;
+  /** Prévenu du choix, pour ce qui en dépend ailleurs dans le formulaire (le champ reste non contrôlé). */
+  onChange?: (value: string) => void;
 };
 
 export function AdminSelect({
@@ -21,6 +23,7 @@ export function AdminSelect({
   isRequired,
   defaultValue,
   placeholder,
+  onChange,
 }: AdminSelectProps) {
   return (
     <Select
@@ -28,6 +31,7 @@ export function AdminSelect({
       isRequired={isRequired}
       defaultValue={defaultValue}
       placeholder={placeholder}
+      onChange={onChange ? (value) => onChange(String(value ?? '')) : undefined}
     >
       <Label>{label}</Label>
       <Select.Trigger>

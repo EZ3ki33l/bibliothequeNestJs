@@ -4,6 +4,7 @@ import { AdminStacksController } from './admin-stacks.controller';
 import { StacksService } from './stacks.service';
 import { SessionGuard } from '../auth/session.guard';
 import { AdminGuard } from '../auth/admin.guard';
+import { EntryImagesModule } from '../entry-images/entry-images.module';
 
 /**
  * Frontière du domaine « stacks ».
@@ -14,6 +15,8 @@ import { AdminGuard } from '../auth/admin.guard';
  * saurait pas les instancier.
  */
 @Module({
+  // Retirer les fichiers des images des fiches emportées par une suppression.
+  imports: [EntryImagesModule],
   controllers: [StacksController, AdminStacksController],
   providers: [StacksService, SessionGuard, AdminGuard],
 })

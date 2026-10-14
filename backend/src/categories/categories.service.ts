@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EntryImagesService } from '../entry-images/entry-images.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { slugify } from '../common/slug';
@@ -21,7 +22,10 @@ const PARENT_STACK_SELECT = { select: { id: true, name: true, slug: true } };
  */
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entryImages: EntryImagesService,
+  ) {}
 
   /**
    * Page publique d'une catégorie, atteinte par le couple de slugs
@@ -163,11 +167,17 @@ export class CategoriesService {
   async delete(id: string, role: AdminRole) {
     await this.assertUnlocked(id, role);
 
+    // La cascade emporte les fiches et leurs images ; les fichiers des images,
+    // chez le prestataire, sont relevés avant et retirés après (spec 016).
+    const imageKeys = await this.entryImages.keysFor({ categoryId: id });
+
     try {
       await this.prisma.category.delete({ where: { id } });
     } catch (error) {
       throw toWriteException(error, NAME_TAKEN);
     }
+
+    await this.entryImages.purge(imageKeys);
   }
 
   /**

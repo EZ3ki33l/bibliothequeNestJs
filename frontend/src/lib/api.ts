@@ -19,11 +19,16 @@ export const apiUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:4000';
  * ils peuvent les remplacer si besoin.
  */
 export function apiFetch(path: string, init?: RequestInit) {
+  // Un envoi de fichier (`FormData`) ne porte pas de `Content-Type` imposé :
+  // le navigateur écrit lui-même `multipart/form-data` et sa frontière. La
+  // forcer à `application/json` rendrait le corps illisible pour le serveur.
+  const isFormData = init?.body instanceof FormData;
+
   return fetch(`${apiUrl}${path}`, {
     ...init,
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...init?.headers,
     },
   });

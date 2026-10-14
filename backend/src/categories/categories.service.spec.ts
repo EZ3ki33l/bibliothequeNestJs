@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EntryImagesService } from '../entry-images/entry-images.service';
 import { Prisma } from '../generated/prisma/client';
 import { CategoriesService } from './categories.service';
 
@@ -32,10 +33,19 @@ describe('CategoriesService', () => {
     },
   };
 
+  const entryImages = {
+    keysFor: jest.fn().mockResolvedValue([]),
+    purge: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CategoriesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        CategoriesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EntryImagesService, useValue: entryImages },
+      ],
     }).compile();
     service = module.get(CategoriesService);
   });
@@ -215,6 +225,16 @@ describe('CategoriesService', () => {
 
       await expect(service.delete('c1', 'SUPER_ADMIN')).resolves.toBeUndefined();
       expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'c1' } });
+    });
+
+    it('removes the image files of the deleted entries, after the deletion (spec 016)', async () => {
+      entryImages.keysFor.mockResolvedValueOnce(['k-r', 'k-f']);
+      prisma.category.delete.mockResolvedValue({ id: 'c1' });
+
+      await service.delete('c1', 'SUPER_ADMIN');
+
+      expect(entryImages.keysFor).toHaveBeenCalledWith({ categoryId: 'c1' });
+      expect(entryImages.purge).toHaveBeenCalledWith(['k-r', 'k-f']);
     });
 
     it('maps Prisma P2025 to NotFoundException', async () => {

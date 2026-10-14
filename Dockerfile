@@ -102,7 +102,15 @@ RUN pnpm build
 # --- SPA servie par nginx ---
 FROM nginx:1.27-alpine AS web
 
+# Origine de l'API (schéma + hôte + port), pour la CSP de nginx.conf (spec 016).
+# Le build échoue si elle est vide, mal formée, ou si le repère subsiste :
+# une CSP incomplète bloquerait les images du site sans prévenir.
+ARG VITE_API_URL
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+RUN API_ORIGIN="$(printf '%s' "$VITE_API_URL" | sed -E 's|^(https?://[^/?#]+).*$|\1|')" \
+    && printf '%s' "$API_ORIGIN" | grep -Eq '^https?://[A-Za-z0-9.-]+(:[0-9]+)?$' \
+    && sed -i "s|__API_ORIGIN__|$API_ORIGIN|" /etc/nginx/conf.d/default.conf \
+    && ! grep -q '__API_ORIGIN__' /etc/nginx/conf.d/default.conf
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80

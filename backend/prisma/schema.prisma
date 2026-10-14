@@ -31,20 +31,23 @@ enum Difficulty {
 }
 
 model User {
-  id            String        @id @default(uuid())
-  name          String
-  email         String        @unique
-  emailVerified Boolean       @default(false)
-  image         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  admin         Admin?
-  sessions      Session[]
-  accounts      Account[]
-  reads         EntryRead[]
-  quizAttempts  QuizAttempt[]
-  favorites     Favorite[]
-  notes         Note[]
+  id             String        @id @default(uuid())
+  name           String
+  email          String        @unique
+  emailVerified  Boolean       @default(false)
+  image          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  admin          Admin?
+  sessions       Session[]
+  accounts       Account[]
+  reads          EntryRead[]
+  quizAttempts   QuizAttempt[]
+  favorites      Favorite[]
+  notes          Note[]
+  // Images envoyées par ce compte (spec 016). Lien seulement : une image
+  // appartient à sa fiche, la suppression du compte ne la supprime pas.
+  uploadedImages EntryImage[]
 
   @@map("user")
 }
@@ -135,35 +138,41 @@ model Category {
 }
 
 model Entry {
-  id              String        @id @default(uuid())
-  categoryId      String
-  category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  title           String
-  slug            String        @unique
-  summary         String        @default("")
-  bodyMdx         String        @default("")
-  kind            EntryKind
-  difficulty      Difficulty    @default(BEGINNER)
-  tags            String[]      @default([])
-  published       Boolean       @default(false)
-  position        Int           @default(0)
-  template        String        @default("react-ts")
-  files           Json
-  dependencies    Json?
-  quizQuestions   Json          @default("[]")
+  id                       String        @id @default(uuid())
+  categoryId               String
+  category                 Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title                    String
+  slug                     String        @unique
+  summary                  String        @default("")
+  bodyMdx                  String        @default("")
+  kind                     EntryKind
+  difficulty               Difficulty    @default(BEGINNER)
+  tags                     String[]      @default([])
+  published                Boolean       @default(false)
+  position                 Int           @default(0)
+  // Environnement du playground : un modèle Sandpack, ou `python` (atelier Python, spec 017).
+  template                 String        @default("react-ts")
+  files                    Json
+  dependencies             Json?
+  // Atelier Python : entrée standard lue par `input()` ligne par ligne ('' = aucune)
+  // et sortie attendue, qui fait apparaître « Vérifier » quand elle n'est pas vide.
+  playgroundInput          String        @default("")
+  playgroundExpectedOutput String        @default("")
+  quizQuestions            Json          @default("[]")
   // Jour où le contenu a été relu face à sa source. Saisi par l'administrateur,
   // jamais déduit de `updatedAt` : une correction de virgule ne le fait pas avancer.
-  verifiedOn      DateTime?     @db.Date
+  verifiedOn               DateTime?     @db.Date
   // Version de la technologie pour laquelle la fiche a été vérifiée (« React 19 »).
-  verifiedVersion String        @default("")
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  reads           EntryRead[]
-  quizAttempts    QuizAttempt[]
-  favorites       Favorite[]
-  notes           Note[]
-  pathSteps       PathStep[]
-  sources         EntrySource[]
+  verifiedVersion          String        @default("")
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  reads                    EntryRead[]
+  quizAttempts             QuizAttempt[]
+  favorites                Favorite[]
+  notes                    Note[]
+  pathSteps                PathStep[]
+  sources                  EntrySource[]
+  images                   EntryImage[]
 
   @@index([categoryId])
   @@index([published, kind])
@@ -300,4 +309,39 @@ model QuizAttempt {
   createdAt DateTime @default(now())
 
   @@index([userId, entryId])
+}
+
+/// Une illustration d'une fiche (spec 016) : deux versions WebP réencodées par
+/// le site, stockées chez le prestataire (UploadThing), servies par le relais
+/// `/media/<id>/<variant>` de l'API.
+model EntryImage {
+  /// UUID v4 : identifiant public, dans `/media/<id>/<variant>`. 122 bits
+  /// aléatoires : l'adresse ne se devine pas.
+  id      String @id @default(uuid())
+  entryId String
+  entry   Entry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  alt     String @db.VarChar(250)
+  caption String @default("") @db.VarChar(300)
+
+  /// Clés chez le prestataire. Jamais renvoyées par l'API.
+  readingKey String @unique
+  fullKey    String @unique
+
+  readingWidth  Int
+  readingHeight Int
+  readingBytes  Int
+  fullWidth     Int
+  fullHeight    Int
+  fullBytes     Int
+
+  /// Compte qui a envoyé l'image : sert au plafond d'envois par heure.
+  /// `SetNull` : supprimer un compte n'efface pas l'illustration d'une fiche.
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([entryId, createdAt])
+  @@index([uploadedById, createdAt])
 }

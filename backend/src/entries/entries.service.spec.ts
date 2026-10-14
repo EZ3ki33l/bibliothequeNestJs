@@ -1,10 +1,16 @@
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import { EntriesService } from './entries.service';
 import { ENTRY_CARD_SELECT } from '../common/entry-card.select';
 import { EntryAccessService } from '../entry-access/entry-access.service';
+import { EntryImagesService } from '../entry-images/entry-images.service';
 
 function knownRequestError(code: string) {
   return new Prisma.PrismaClientKnownRequestError('Prisma error', {
@@ -12,6 +18,29 @@ function knownRequestError(code: string) {
     clientVersion: '7.9.1',
   });
 }
+
+/** Une image telle que Prisma la lit (spec 016), et sa forme publique. */
+const imageRow = {
+  id: 'i1',
+  alt: 'Baie de brassage',
+  caption: '',
+  readingWidth: 1600,
+  readingHeight: 900,
+  readingBytes: 1000,
+  fullWidth: 3200,
+  fullHeight: 1800,
+  fullBytes: 5000,
+  createdAt: new Date('2026-10-14T10:00:00.000Z'),
+};
+const publicImage = {
+  id: 'i1',
+  alt: 'Baie de brassage',
+  caption: '',
+  width: 1600,
+  height: 900,
+  fullWidth: 3200,
+  fullHeight: 1800,
+};
 
 describe('EntriesService', () => {
   let service: EntriesService;
@@ -31,14 +60,18 @@ describe('EntriesService', () => {
     },
   };
   const entryAccess = { isFree: jest.fn() };
+  const entryImages = { keysFor: jest.fn(), purge: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    entryImages.keysFor.mockResolvedValue([]);
+    entryImages.purge.mockResolvedValue(undefined);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EntriesService,
         { provide: PrismaService, useValue: prisma },
         { provide: EntryAccessService, useValue: entryAccess },
+        { provide: EntryImagesService, useValue: entryImages },
       ],
     }).compile();
     service = module.get(EntriesService);
@@ -253,6 +286,7 @@ describe('EntriesService', () => {
       verifiedOn: new Date('2026-10-06T00:00:00.000Z'),
       verifiedVersion: 'React 19',
       sources: [{ title: 'useRef', consultedOn: null }],
+      images: [imageRow],
     };
 
     /**
@@ -290,6 +324,8 @@ describe('EntriesService', () => {
         'template',
         'files',
         'dependencies',
+        'playgroundInput',
+        'playgroundExpectedOutput',
         'sources',
         'verifiedOn',
         'verifiedVersion',
@@ -310,6 +346,8 @@ describe('EntriesService', () => {
         'template',
         'files',
         'dependencies',
+        'playgroundInput',
+        'playgroundExpectedOutput',
         'sources',
         'verifiedOn',
         'verifiedVersion',
@@ -328,6 +366,7 @@ describe('EntriesService', () => {
         ...header,
         ...content,
         verifiedOn: '2026-10-06',
+        images: [publicImage],
         quizEligible: true,
         access: 'free',
       });
@@ -378,6 +417,7 @@ describe('EntriesService', () => {
         bodyMdx: '',
         verifiedOn: null,
         sources: [],
+        images: [imageRow],
       });
 
       await expect(service.findReadableBySlug('use-state')).resolves.toEqual({
@@ -387,6 +427,7 @@ describe('EntriesService', () => {
         bodyMdx: '',
         verifiedOn: null,
         sources: [],
+        images: [publicImage],
         quizEligible: false,
       });
       expect(prisma.entry.findFirst).toHaveBeenCalledWith(
@@ -396,8 +437,16 @@ describe('EntriesService', () => {
         }),
       );
 
-      const { include } = prisma.entry.findFirst.mock.calls[0][0];
+      const { include, omit } = prisma.entry.findFirst.mock.calls[0][0];
       expect(include.sources.orderBy).toEqual({ position: 'asc' });
+      // Toutes les colonnes sont lues, celles de l'atelier Python comprises (spec 017).
+      expect(omit).not.toHaveProperty('playgroundInput');
+      expect(omit).not.toHaveProperty('playgroundExpectedOutput');
+      // Images : dans l'ordre d'envoi, jamais leurs clés de stockage (spec 016).
+      expect(include.images.orderBy).toEqual({ createdAt: 'asc' });
+      expect(include.images.select).not.toHaveProperty('readingKey');
+      expect(include.images.select).not.toHaveProperty('fullKey');
+      expect(include.images.select).not.toHaveProperty('uploadedById');
       // Ni identifiant ni rang : l'ordre du tableau suffit au client.
       expect(include.sources.select).not.toHaveProperty('id');
       expect(include.sources.select).not.toHaveProperty('entryId');
@@ -413,6 +462,7 @@ describe('EntriesService', () => {
           { title: 'useState', consultedOn: new Date('2026-09-30T00:00:00.000Z') },
           { title: 'Hooks', consultedOn: null },
         ],
+        images: [],
       });
 
       await expect(service.findReadableBySlug('use-state')).resolves.toEqual({
@@ -423,12 +473,13 @@ describe('EntriesService', () => {
           { title: 'useState', consultedOn: '2026-09-30' },
           { title: 'Hooks', consultedOn: null },
         ],
+        images: [],
         quizEligible: false,
       });
     });
 
     it('says whether a quiz exists for the entry, with the shared eligibility rule', async () => {
-      const entry = { id: 'e1', verifiedOn: null, sources: [] };
+      const entry = { id: 'e1', verifiedOn: null, sources: [], images: [] };
 
       prisma.entry.findFirst.mockResolvedValue({ ...entry, bodyMdx: 'x'.repeat(79) });
       await expect(service.findReadableBySlug('courte')).resolves.toMatchObject({
@@ -459,6 +510,7 @@ describe('EntriesService', () => {
         bodyMdx: '',
         verifiedOn: null,
         sources: [],
+        images: [],
       });
 
       await expect(service.findReadableBySlug('use-ref')).resolves.not.toHaveProperty('access');
@@ -502,6 +554,8 @@ describe('EntriesService', () => {
           template: 'react-ts',
           files: {},
           dependencies: undefined,
+          playgroundInput: '',
+          playgroundExpectedOutput: '',
         },
       });
     });
@@ -522,6 +576,8 @@ describe('EntriesService', () => {
           template: 'vanilla',
           files: { 'App.tsx': 'x' },
           dependencies: { react: '19' },
+          playgroundInput: '3',
+          playgroundExpectedOutput: 'Moyenne : 12.00',
         },
         'SUPER_ADMIN',
       );
@@ -541,8 +597,30 @@ describe('EntriesService', () => {
           template: 'vanilla',
           files: { 'App.tsx': 'x' },
           dependencies: { react: '19' },
+          playgroundInput: '3',
+          playgroundExpectedOutput: 'Moyenne : 12.00',
         },
       });
+    });
+
+    it('refuses dependencies in a Python playground, before any database call', async () => {
+      await expect(
+        service.create(
+          { ...dto, template: 'python', dependencies: { lodash: '4' } },
+          'SUPER_ADMIN',
+        ),
+      ).rejects.toThrow(new BadRequestException("Un atelier Python n'accepte pas de dépendances."));
+      expect(prisma.category.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('accepts a Python playground with empty dependencies', async () => {
+      prisma.category.findUnique.mockResolvedValue({ id: 'cat-1' });
+      prisma.entry.aggregate.mockResolvedValue({ _max: { position: null } });
+      prisma.entry.create.mockResolvedValue({ id: 'e1' });
+
+      await service.create({ ...dto, template: 'python', dependencies: {} }, 'SUPER_ADMIN');
+
+      expect(prisma.entry.create).toHaveBeenCalled();
     });
 
     it('creates the sources with the entry, ranked by their index', async () => {
@@ -661,6 +739,78 @@ describe('EntriesService', () => {
           files: { a: '1' },
           dependencies: { b: '2' },
         },
+      });
+    });
+
+    it('writes the input and the expected output of a Python playground', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+      await service.update(
+        'e1',
+        { playgroundInput: '', playgroundExpectedOutput: 'Moyenne : 12.00' },
+        'SUPER_ADMIN',
+      );
+
+      expect(prisma.entry.update).toHaveBeenCalledWith({
+        where: { id: 'e1' },
+        data: { playgroundInput: '', playgroundExpectedOutput: 'Moyenne : 12.00' },
+      });
+    });
+
+    describe('Python playground and dependencies', () => {
+      const refusal = new BadRequestException("Un atelier Python n'accepte pas de dépendances.");
+
+      it('refuses python with dependencies sent together, without reading the entry', async () => {
+        await expect(
+          service.update(
+            'e1',
+            { template: 'python', dependencies: { lodash: '4' } },
+            'SUPER_ADMIN',
+          ),
+        ).rejects.toThrow(refusal);
+        expect(prisma.entry.findUnique).not.toHaveBeenCalled();
+        expect(prisma.entry.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses switching to python while dependencies remain in the database', async () => {
+        prisma.entry.findUnique.mockResolvedValue({
+          template: 'react-ts',
+          dependencies: { 'react-markdown': '10' },
+        });
+
+        await expect(service.update('e1', { template: 'python' }, 'SUPER_ADMIN')).rejects.toThrow(
+          refusal,
+        );
+        expect(prisma.entry.findUnique).toHaveBeenCalledWith({
+          where: { id: 'e1' },
+          select: { template: true, dependencies: true },
+        });
+        expect(prisma.entry.update).not.toHaveBeenCalled();
+      });
+
+      it('refuses dependencies added to a Python playground', async () => {
+        prisma.entry.findUnique.mockResolvedValue({ template: 'python', dependencies: null });
+
+        await expect(
+          service.update('e1', { dependencies: { lodash: '4' } }, 'SUPER_ADMIN'),
+        ).rejects.toThrow(refusal);
+      });
+
+      it('accepts switching to python when the dependencies are emptied', async () => {
+        prisma.entry.update.mockResolvedValue({ id: 'e1' });
+
+        await service.update('e1', { template: 'python', dependencies: {} }, 'SUPER_ADMIN');
+
+        expect(prisma.entry.update).toHaveBeenCalled();
+      });
+
+      it('lets an unknown entry reach the write, which answers 404', async () => {
+        prisma.entry.findUnique.mockResolvedValue(null);
+        prisma.entry.update.mockRejectedValue(knownRequestError('P2025'));
+
+        await expect(
+          service.update('missing', { template: 'python' }, 'SUPER_ADMIN'),
+        ).rejects.toBeInstanceOf(NotFoundException);
       });
     });
 
@@ -792,6 +942,27 @@ describe('EntriesService', () => {
 
       await expect(service.delete('e1', 'SUPER_ADMIN')).rejects.toThrow('db down');
     });
+
+    it('collects image keys before the deletion and removes the files after it (spec 016)', async () => {
+      entryImages.keysFor.mockResolvedValue(['k-r', 'k-f']);
+      prisma.entry.delete.mockResolvedValue({ id: 'e1' });
+
+      await service.delete('e1', 'SUPER_ADMIN');
+
+      expect(entryImages.keysFor).toHaveBeenCalledWith({ id: 'e1' });
+      expect(entryImages.keysFor.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.entry.delete.mock.invocationCallOrder[0],
+      );
+      expect(entryImages.purge).toHaveBeenCalledWith(['k-r', 'k-f']);
+    });
+
+    it('removes no file when the deletion fails', async () => {
+      entryImages.keysFor.mockResolvedValue(['k-r']);
+      prisma.entry.delete.mockRejectedValue(knownRequestError('P2025'));
+
+      await expect(service.delete('e1', 'SUPER_ADMIN')).rejects.toBeInstanceOf(NotFoundException);
+      expect(entryImages.purge).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAllAdmin', () => {
@@ -878,6 +1049,7 @@ describe('EntriesService', () => {
         title: 'useState',
         verifiedOn: new Date('2026-10-06T00:00:00.000Z'),
         sources: [{ title: 'useState', consultedOn: null }],
+        images: [imageRow],
       });
 
       await expect(service.findById('e1')).resolves.toEqual({
@@ -885,11 +1057,17 @@ describe('EntriesService', () => {
         title: 'useState',
         verifiedOn: '2026-10-06',
         sources: [{ title: 'useState', consultedOn: null }],
+        // L'administration voit aussi les poids et la date d'envoi.
+        images: [
+          { ...publicImage, readingBytes: 1000, fullBytes: 5000, createdAt: imageRow.createdAt },
+        ],
       });
 
       const { select } = prisma.entry.findUnique.mock.calls[0][0];
       expect(select.verifiedOn).toBe(true);
       expect(select.verifiedVersion).toBe(true);
+      expect(select.playgroundInput).toBe(true);
+      expect(select.playgroundExpectedOutput).toBe(true);
       expect(select.sources.orderBy).toEqual({ position: 'asc' });
     });
 

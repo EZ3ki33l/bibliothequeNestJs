@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { EntryImagesService } from '../entry-images/entry-images.service';
 import { CreateStackDto } from './dto/create-stack.dto';
 import { UpdateStackDto } from './dto/update-stack.dto';
 import { slugify } from '../common/slug';
@@ -22,7 +23,10 @@ const HAS_PUBLISHED_ENTRIES =
  */
 @Injectable()
 export class StacksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entryImages: EntryImagesService,
+  ) {}
 
   /** Catalogue public : tri d'affichage choisi par l'admin (`position`). */
   findAll() {
@@ -171,11 +175,17 @@ export class StacksService {
   async delete(id: string, role: AdminRole) {
     await this.assertUnlocked(id, role);
 
+    // La cascade emporte les fiches et leurs images ; les fichiers des images,
+    // chez le prestataire, sont relevés avant et retirés après (spec 016).
+    const imageKeys = await this.entryImages.keysFor({ category: { stackId: id } });
+
     try {
       await this.prisma.stack.delete({ where: { id } });
     } catch (error) {
       throw toWriteException(error, SLUG_TAKEN);
     }
+
+    await this.entryImages.purge(imageKeys);
   }
 
   /**

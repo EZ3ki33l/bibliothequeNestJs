@@ -23,7 +23,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:demo-content": "tsx prisma/update-demo-content.ts",
-    "admin:role": "tsx prisma/set-admin-role.ts"
+    "admin:role": "tsx prisma/set-admin-role.ts",
+    "images:reconcile": "tsx prisma/reconcile-images.ts"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.5",
@@ -45,6 +46,8 @@
     "reflect-metadata": "^0.2.2",
     "resend": "^6.28.1",
     "rxjs": "^7.8.1",
+    "sharp": "0.35.5",
+    "uploadthing": "7.7.4",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -55,6 +58,7 @@
     "@nestjs/testing": "^11.0.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.3.0",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
     "eslint": "^10.8.1",

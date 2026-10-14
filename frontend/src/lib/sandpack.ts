@@ -70,6 +70,9 @@ const TEMPLATE_SET = new Set<string>(SANDPACK_TEMPLATES);
  * Le `as` n'est pas un contournement du typage : le `Set` est construit depuis
  * `SANDPACK_TEMPLATES`, donc à l'intérieur du `if`, la chaîne est forcément
  * l'une de ces valeurs — TypeScript ne sait juste pas le déduire d'un `Set`.
+ *
+ * Ne reçoit jamais `python` : `EntryArticle` choisit l'atelier Python avant
+ * (`isPythonTemplate`, `lib/playgroundEnvironments.ts`).
  */
 export function resolveSandpackTemplate(template: string): SandpackPredefinedTemplate {
   return TEMPLATE_SET.has(template) ? (template as SandpackPredefinedTemplate) : 'react-ts';

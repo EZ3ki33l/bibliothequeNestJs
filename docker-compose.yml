@@ -59,6 +59,7 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       CONTACT_FROM_EMAIL: ${CONTACT_FROM_EMAIL:-}
       CONTACT_TO_EMAIL: ${CONTACT_TO_EMAIL:-}
+      UPLOADTHING_TOKEN: ${UPLOADTHING_TOKEN:-}
     ports:
       - '127.0.0.1:4000:4000'
     depends_on:
