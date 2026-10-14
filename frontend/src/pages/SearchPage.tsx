@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router';
 import { type SubmitEvent } from 'react';
-import { Button, Input, Label, Skeleton, TextField } from '@heroui/react';
+import { Button, Checkbox, Input, Label, Skeleton, TextField } from '@heroui/react';
 import { listStacks, searchEntries } from '../lib/stacks';
 import { DIFFICULTY_LABEL, KIND_LABEL } from '../lib/labels';
 import { MAX_SEARCH_LENGTH } from '../lib/headerSearch';
@@ -32,10 +32,13 @@ export function SearchPage() {
   const difficulty = searchParams.get('difficulty') ?? '';
   const stack = searchParams.get('stack') ?? '';
   const tag = searchParams.get('tag')?.trim() ?? '';
+  // `lab=true` : seulement les fiches avec laboratoire (spec 018).
+  const withLab = searchParams.get('lab') === 'true';
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
 
   // US2/US3 : filtrer (ou suivre un tag) sans taper de mot est valide.
-  const hasCriteria = q !== '' || kind !== '' || difficulty !== '' || stack !== '' || tag !== '';
+  const hasCriteria =
+    q !== '' || kind !== '' || difficulty !== '' || stack !== '' || tag !== '' || withLab;
 
   // Les stacks alimentent le select « Leçons ». Chargés une fois.
   const { data: stacks } = useAsyncData(() => listStacks(), [], 'Impossible de charger les leçons');
@@ -43,9 +46,9 @@ export function SearchPage() {
   const { data, error } = useAsyncData(
     () =>
       hasCriteria
-        ? searchEntries({ q, kind, difficulty, stack, tag, page })
+        ? searchEntries({ q, kind, difficulty, stack, tag, lab: withLab, page })
         : Promise.resolve(null),
-    [q, kind, difficulty, stack, tag, page],
+    [q, kind, difficulty, stack, tag, withLab, page],
     'Impossible de charger les fiches',
   );
 
@@ -69,6 +72,7 @@ export function SearchPage() {
     if (nextKind) next.set('kind', nextKind);
     if (nextDifficulty) next.set('difficulty', nextDifficulty);
     if (nextStack) next.set('stack', nextStack);
+    if (form.get('lab') === 'true') next.set('lab', 'true');
     // Le tag vient de l'URL (pas du formulaire) : on le reconduit tant que
     // l'utilisateur ne l'a pas retiré via la puce.
     if (tag) next.set('tag', tag);
@@ -143,6 +147,14 @@ export function SearchPage() {
           items={stackItems}
           defaultValue={stack}
         />
+        <Checkbox key={`lab-${withLab}`} name="lab" value="true" defaultSelected={withLab}>
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Label>Avec laboratoire</Label>
+          </Checkbox.Content>
+        </Checkbox>
         <Button type="submit" variant="primary">
           Chercher
         </Button>

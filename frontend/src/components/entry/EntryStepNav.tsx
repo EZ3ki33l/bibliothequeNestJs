@@ -1,3 +1,4 @@
+import { LabMention } from '../ui/LabMention';
 import { Link } from 'react-router';
 import { ArrowLeftIcon, ArrowRightIcon, LockIcon } from '@phosphor-icons/react';
 import { entryHrefFromPath, type PathEntry } from '../../lib/learningPaths';
@@ -90,6 +91,7 @@ function StepLink({ entry, pathSlug, direction, access }: StepLinkProps) {
       {/* `wrap-break-word` : un titre long passe à la ligne au lieu
           d'élargir la page. */}
       <span className="text-foreground text-sm font-medium wrap-break-word">{entry.title}</span>
+      <LabMention lab={entry.lab} />
       {/* Pictogramme et libellé : la mention se comprend sans la couleur. */}
       {access ? (
         <span className="text-muted flex items-center gap-1 text-xs">

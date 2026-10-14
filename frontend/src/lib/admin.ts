@@ -1,6 +1,7 @@
 import { apiFetch } from './api';
 import type { EntrySource, EntrySourceInput } from './entrySources';
 import type { EntryImageAdmin } from './entryImages';
+import type { EntryLab, EntryLabSummary } from './stacks';
 
 /**
  * Couche d'accès à l'API d'administration.
@@ -455,6 +456,8 @@ export type AdminEntryListItem = {
   slug: string;
   kind: AdminEntryKind;
   published: boolean;
+  /** Mention « Laboratoire » de la ligne (spec 018). */
+  lab: EntryLabSummary | null;
   category: {
     id: string;
     name: string;
@@ -488,6 +491,8 @@ export type AdminEntryDetail = {
   playgroundInput: string;
   playgroundExpectedOutput: string;
   sources: EntrySource[];
+  /** Laboratoire à télécharger (spec 018), `null` si la fiche n'en a pas. */
+  lab: EntryLab | null;
   /** `AAAA-MM-JJ`, ou `null` si la fiche n'a pas de date de vérification. */
   verifiedOn: string | null;
   verifiedVersion: string;
@@ -521,6 +526,11 @@ export type CreateAdminEntryInput = {
   playgroundExpectedOutput?: string;
   /** Présent : remplace la liste entière. Absent d'un `PATCH` : liste inchangée. */
   sources?: EntrySourceInput[];
+  /**
+   * Laboratoire (spec 018). Création : absent = aucun. Modification : absent =
+   * inchangé, `null` = retiré, objet = remplacé en entier.
+   */
+  lab?: EntryLab | null;
   /** `null` efface la date. Absent d'un `PATCH` : date inchangée. */
   verifiedOn?: string | null;
   verifiedVersion?: string;

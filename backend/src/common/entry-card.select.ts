@@ -26,6 +26,10 @@ export const ENTRY_CARD_SELECT = {
   kind: true,
   difficulty: true,
   tags: true,
+  // Spec 018 : seuls l'existence et l'outil sortent d'une carte (et de la
+  // lecture réduite d'une fiche réservée) ; fichiers et étapes restent derrière
+  // la lecture complète.
+  lab: { select: { tool: true } },
   category: {
     select: {
       id: true,

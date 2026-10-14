@@ -17,6 +17,7 @@ import { Breadcrumbs } from '../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryMarkers } from '../components/ui/EntryMarkers';
 import { EntryMeta } from '../components/ui/EntryMeta';
+import { LabMention } from '../components/ui/LabMention';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { NotFoundState } from '../components/ui/NotFoundState';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -347,6 +348,7 @@ function StepRow({ step, number, pathSlug, isValidated, isNext, access }: StepRo
         </span>
         <span className="mt-1 flex flex-wrap gap-2">
           <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
+          <LabMention lab={entry.lab} />
           <EntryMarkers access={access} />
           {step.optional ? (
             <Chip size="sm" variant="soft">

@@ -23,6 +23,24 @@ export type StackListItem = {
 export type EntryKind = 'FUNCTION' | 'COMPONENT' | 'CONCEPT';
 export type Difficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
+export type LabTool = 'VAGRANT' | 'DOCKER_COMPOSE' | 'CONTAINERLAB' | 'GNS3' | 'OTHER';
+export type LabHost = 'LINUX' | 'WINDOWS' | 'MACOS';
+
+/** Ce que les cartes et la lecture réduite transmettent d'un laboratoire (spec 018). */
+export type EntryLabSummary = { tool: LabTool };
+
+/** Laboratoire complet d'une fiche lue ; la lecture réduite n'en porte que l'outil. */
+export type EntryLab = EntryLabSummary & {
+  securityLab: boolean;
+  software: string;
+  ramGb: number;
+  diskGb: number;
+  hosts: LabHost[];
+  setupMd: string;
+  teardownMd: string;
+  files: Record<string, string>;
+};
+
 /** Fiche telle qu'affichée dans une liste : pas de contenu, pas de quiz. */
 export type StackEntry = {
   id: string;
@@ -32,6 +50,7 @@ export type StackEntry = {
   kind: EntryKind;
   difficulty: Difficulty;
   tags: string[];
+  lab: EntryLabSummary | null;
 };
 
 export type StackCategory = {
@@ -79,6 +98,7 @@ export type EntryHeader = {
   kind: EntryKind;
   difficulty: Difficulty;
   tags: string[];
+  lab: EntryLabSummary | null;
   category: {
     id: string;
     name: string;
@@ -92,7 +112,9 @@ export type EntryHeader = {
 };
 
 /** Fiche entière : l'en-tête, plus le contenu. */
-export type FullEntry = EntryHeader & {
+export type FullEntry = Omit<EntryHeader, 'lab'> & {
+  /** Laboratoire complet, `null` si la fiche n'en a pas (spec 018). */
+  lab: EntryLab | null;
   bodyMdx: string;
   template: string;
   files: SandpackFiles | null;
@@ -269,6 +291,8 @@ export type SearchEntriesParams = {
   difficulty?: string;
   stack?: string;
   tag?: string;
+  /** `true` : seulement les fiches avec laboratoire (spec 018). */
+  lab?: boolean;
   page?: number;
   limit?: number;
 };
@@ -298,6 +322,7 @@ export async function searchEntries(params: SearchEntriesParams = {}): Promise<S
   if (params.difficulty) query.set('difficulty', params.difficulty);
   if (params.stack) query.set('stack', params.stack);
   if (params.tag) query.set('tag', params.tag);
+  if (params.lab) query.set('lab', 'true');
   if (params.page !== undefined) query.set('page', String(params.page));
   if (params.limit !== undefined) query.set('limit', String(params.limit));
 

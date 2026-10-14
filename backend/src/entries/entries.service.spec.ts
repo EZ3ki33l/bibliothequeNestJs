@@ -58,6 +58,7 @@ describe('EntriesService', () => {
       delete: jest.fn(),
       count: jest.fn(),
     },
+    entryLab: { count: jest.fn() },
   };
   const entryAccess = { isFree: jest.fn() };
   const entryImages = { keysFor: jest.fn(), purge: jest.fn() };
@@ -1186,5 +1187,94 @@ describe('EntriesService', () => {
     await service.delete('e1', 'SUPER_ADMIN');
 
     expect(prisma.entry.findUnique).not.toHaveBeenCalled();
+  });
+
+  describe('laboratoire (spec 018)', () => {
+    const lab = {
+      tool: 'VAGRANT' as const,
+      securityLab: false,
+      software: '',
+      ramGb: 4,
+      diskGb: 10,
+      hosts: ['LINUX' as const],
+      setupMd: '',
+      teardownMd: '',
+      files: { Vagrantfile: 'x' },
+    };
+
+    it('creates the lab with the entry', async () => {
+      prisma.category.findUnique.mockResolvedValue({ id: 'c1' });
+      prisma.entry.aggregate.mockResolvedValue({ _max: { position: null } });
+      prisma.entry.create.mockResolvedValue({ id: 'e1' });
+
+      await service.create({ categoryId: 'c1', title: 'Lab', kind: 'CONCEPT', lab }, 'ADMIN');
+
+      expect(prisma.entry.create.mock.calls[0][0].data.lab).toEqual({ create: lab });
+    });
+
+    it('leaves the lab untouched when absent', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+      await service.update('e1', { published: true }, 'SUPER_ADMIN');
+      expect(prisma.entry.update.mock.calls[0][0].data).not.toHaveProperty('lab');
+    });
+
+    it('replaces the lab as a whole', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+      await service.update('e1', { lab }, 'SUPER_ADMIN');
+      expect(prisma.entry.update.mock.calls[0][0].data.lab).toEqual({
+        upsert: { create: lab, update: lab },
+      });
+    });
+
+    it('removes the lab on null when there is one', async () => {
+      prisma.entryLab.count.mockResolvedValue(1);
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+      await service.update('e1', { lab: null }, 'SUPER_ADMIN');
+      expect(prisma.entry.update.mock.calls[0][0].data.lab).toEqual({ delete: true });
+    });
+
+    it('null without a lab is a no-op, not an error', async () => {
+      prisma.entryLab.count.mockResolvedValue(0);
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+      await service.update('e1', { lab: null }, 'SUPER_ADMIN');
+      expect(prisma.entry.update.mock.calls[0][0].data).not.toHaveProperty('lab');
+    });
+
+    it('refuses an ADMIN on a published entry, before any write', async () => {
+      prisma.entry.findUnique.mockResolvedValue({ published: true });
+      await expect(service.update('e1', { lab }, 'ADMIN')).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(prisma.entry.update).not.toHaveBeenCalled();
+    });
+
+    it('lets a SUPER_ADMIN edit the lab of a published entry', async () => {
+      prisma.entry.update.mockResolvedValue({ id: 'e1' });
+      await expect(service.update('e1', { lab }, 'SUPER_ADMIN')).resolves.toBeDefined();
+    });
+
+    it('full reads select the whole lab, cards select the tool only', async () => {
+      prisma.entry.findFirst.mockResolvedValue({
+        id: 'e1',
+        bodyMdx: '',
+        sources: [],
+        images: [],
+        lab,
+      });
+      await service.findReadableBySlug('x');
+      const include = prisma.entry.findFirst.mock.calls[0][0].include;
+      expect(include.lab.select).toMatchObject({ files: true, setupMd: true, tool: true });
+      expect(include.lab.select).not.toHaveProperty('entryId');
+      expect(include.lab.select).not.toHaveProperty('updatedAt');
+
+      expect(ENTRY_CARD_SELECT.lab).toEqual({ select: { tool: true } });
+    });
+
+    it('filters on entries with a lab', async () => {
+      prisma.entry.findMany.mockResolvedValue([]);
+      prisma.entry.count.mockResolvedValue(0);
+      await service.findPublished({ page: 1, limit: 10, lab: 'true' });
+      expect(prisma.entry.findMany.mock.calls[0][0].where.lab).toEqual({ isNot: null });
+    });
   });
 });

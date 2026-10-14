@@ -4,6 +4,7 @@ import type { StackEntry } from '../../lib/stacks';
 import type { EntryState } from '../../lib/entryProgress';
 import { EntryMarkers } from './EntryMarkers';
 import { EntryMeta } from './EntryMeta';
+import { LabMention } from './LabMention';
 
 type EntryCardProps = {
   entry: StackEntry;
@@ -33,6 +34,7 @@ export function EntryCard({ entry, state, access }: EntryCardProps) {
         </Card.Header>
         <Card.Footer className="flex flex-wrap gap-2">
           <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
+          <LabMention lab={entry.lab} />
           <EntryMarkers state={state} access={access} />
         </Card.Footer>
       </Card>

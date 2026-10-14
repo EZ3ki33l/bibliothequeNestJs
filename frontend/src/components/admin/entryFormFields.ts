@@ -1,6 +1,8 @@
 import type { AdminEntryDifficulty, AdminEntryKind } from '../../lib/admin';
 import { todayAsDay, type EntrySourceInput } from '../../lib/entrySources';
+import { labFilesRefusal } from '../../lib/labFiles';
 import { isPythonTemplate } from '../../lib/playgroundEnvironments';
+import type { EntryLab, LabHost, LabTool } from '../../lib/stacks';
 import { pairsToRecord, type KeyValuePair } from './keyValuePairs';
 import { rowsToSources, type SourceRow } from './sourceRows';
 
@@ -31,6 +33,8 @@ export type EntryFormFields = {
   /** `AAAA-MM-JJ`, ou `null` quand le champ est vide (efface la date). */
   verifiedOn: string | null;
   verifiedVersion: string;
+  /** `null` : case « Cette fiche a un laboratoire » décochée. */
+  lab: EntryLab | null;
 };
 
 /**
@@ -59,6 +63,7 @@ export function readEntryFields(
   files: KeyValuePair[],
   dependencies: KeyValuePair[],
   sources: SourceRow[],
+  labFiles: KeyValuePair[] = [],
 ): ReadEntryFieldsResult {
   // Validation locale avant tout appel réseau : une paire sans clé est une
   // erreur de saisie, inutile de la faire voyager jusqu'au serveur.
@@ -93,6 +98,13 @@ export function readEntryFields(
     return { ok: false, message: 'La date de vérification est dans le futur.' };
   }
 
+  // Laboratoire (spec 018) : décoché, rien n'est lu ni contrôlé (les champs
+  // restent dans le DOM, cachés). Coché, une erreur de saisie s'affiche ici.
+  const labResult = readLab(data, labFiles);
+  if (!labResult.ok) {
+    return { ok: false, message: labResult.message };
+  }
+
   /**
    * Payload complet, sans tri des champs vides : c'est `lib/admin.ts` qui
    * décide quoi envoyer selon le verbe HTTP (à la création les champs vides
@@ -121,7 +133,106 @@ export function readEntryFields(
     sources: sourcesResult.value,
     verifiedOn,
     verifiedVersion: String(data.get('verifiedVersion') ?? '').trim(),
+    lab: labResult.value,
   };
 
   return { ok: true, fields, categoryId: String(data.get('categoryId') ?? '').trim() };
+}
+
+const LAB_TOOLS: readonly LabTool[] = [
+  'VAGRANT',
+  'DOCKER_COMPOSE',
+  'CONTAINERLAB',
+  'GNS3',
+  'OTHER',
+];
+const LAB_HOSTS: readonly LabHost[] = ['LINUX', 'WINDOWS', 'MACOS'];
+
+/** Entier de `min` à `max`, ou `null` (une chaîne vide n'est pas 0). */
+function boundedInt(raw: unknown, min: number, max: number): number | null {
+  const text = String(raw ?? '').trim();
+  if (!/^\d+$/.test(text)) return null;
+  const value = Number(text);
+  return value >= min && value <= max ? value : null;
+}
+
+/**
+ * Lit le bloc « Laboratoire ». Mêmes bornes que `EntryLabDto` : le message
+ * immédiat évite un aller-retour, le serveur reste le contrôle.
+ */
+function readLab(
+  data: FormData,
+  labFiles: KeyValuePair[],
+): { ok: true; value: EntryLab | null } | { ok: false; message: string } {
+  if (data.get('labEnabled') !== 'on') {
+    return { ok: true, value: null };
+  }
+
+  const tool = String(data.get('labTool') ?? '');
+  if (!LAB_TOOLS.includes(tool as LabTool)) {
+    return { ok: false, message: 'Le laboratoire demande un outil.' };
+  }
+
+  const ramGb = boundedInt(data.get('labRamGb'), 1, 128);
+  if (ramGb === null) {
+    return {
+      ok: false,
+      message: 'La mémoire du laboratoire doit être un nombre de Go entre 1 et 128.',
+    };
+  }
+  const diskGb = boundedInt(data.get('labDiskGb'), 1, 500);
+  if (diskGb === null) {
+    return {
+      ok: false,
+      message: 'Le disque du laboratoire doit être un nombre de Go entre 1 et 500.',
+    };
+  }
+
+  const hosts = data
+    .getAll('labHost')
+    .map(String)
+    .filter((host): host is LabHost => LAB_HOSTS.includes(host as LabHost));
+  if (hosts.length === 0) {
+    return { ok: false, message: 'Le laboratoire demande au moins un système hôte.' };
+  }
+
+  const software = String(data.get('labSoftware') ?? '').trim();
+  if (software.length > 300) {
+    return { ok: false, message: 'Les logiciels requis dépassent 300 caractères.' };
+  }
+  const setupMd = String(data.get('labSetupMd') ?? '').trimEnd();
+  if (setupMd.length > 5000) {
+    return { ok: false, message: 'Les étapes de lancement dépassent 5 000 caractères.' };
+  }
+  const teardownMd = String(data.get('labTeardownMd') ?? '').trimEnd();
+  if (teardownMd.length > 3000) {
+    return { ok: false, message: 'Les étapes d’arrêt dépassent 3 000 caractères.' };
+  }
+
+  const filesResult = pairsToRecord(
+    labFiles,
+    'Chaque fichier du laboratoire doit avoir un chemin.',
+  );
+  if (!filesResult.ok) {
+    return { ok: false, message: filesResult.message };
+  }
+  const refusal = labFilesRefusal(filesResult.value);
+  if (refusal) {
+    return { ok: false, message: refusal };
+  }
+
+  return {
+    ok: true,
+    value: {
+      tool: tool as LabTool,
+      securityLab: data.get('labSecurity') === 'on',
+      software,
+      ramGb,
+      diskGb,
+      hosts,
+      setupMd,
+      teardownMd,
+      files: filesResult.value,
+    },
+  };
 }

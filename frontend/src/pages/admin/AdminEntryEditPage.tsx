@@ -45,6 +45,7 @@ export function AdminEntryEditPage() {
         initialPlaygroundInput={entry.playgroundInput}
         initialPlaygroundExpectedOutput={entry.playgroundExpectedOutput}
         initialSources={entry.sources}
+        initialLab={entry.lab}
         initialVerifiedOn={entry.verifiedOn}
         initialVerifiedVersion={entry.verifiedVersion}
         initialImages={entry.images}

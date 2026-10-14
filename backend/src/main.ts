@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import * as express from 'express';
+import { payloadTooLargeHandler } from './common/payload-too-large';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { NestFactory } from '@nestjs/core';
@@ -146,7 +147,14 @@ async function bootstrap() {
   // Express 5 (Nest 11) : le joker s'écrit `*splat`, plus `*`.
   expressApp.all(`/api/auth/*splat`, toNodeHandler(auth));
   // Limite explicite (défaut Express = 100kb) : un body énorme est un DoS.
+  // Seules les écritures de fiche portent un laboratoire ou un playground
+  // pleins (spec 018) : 1 Mo là, 100 Ko ailleurs. Ce parseur passe avant le
+  // global, qui ne relit pas un corps déjà lu. Le corps est lu avant la garde
+  // admin ; le throttler global (100/min/IP) borne ce coût.
+  expressApp.use('/admin/entries', express.json({ limit: '1mb' }));
   expressApp.use(express.json({ limit: '100kb' }));
+  // Corps trop gros : 413 JSON de l'API plutôt que la page d'erreur d'Express.
+  expressApp.use(payloadTooLargeHandler);
 
   await app.listen(process.env.PORT ?? 4000);
 }
