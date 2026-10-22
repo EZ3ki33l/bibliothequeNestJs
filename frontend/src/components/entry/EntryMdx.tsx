@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { Children, isValidElement, useMemo, type ReactNode } from 'react';
 import { MarkdownHooks, type Components, type HooksOptions } from 'react-markdown';
+import { Table } from '@heroui/react';
 import remarkGfm from 'remark-gfm';
 import rehypePrettyCode, { type Options as RehypePrettyCodeOptions } from 'rehype-pretty-code';
 import rehypeUnwrapImages from 'rehype-unwrap-images';
@@ -72,6 +73,30 @@ export function EntryMdx({ source, images = NO_IMAGES, onDiagramError }: EntryMd
 
     return {
       ...diagram,
+      table: ({ children }) => (
+        <Table>
+          <Table.ScrollContainer>
+            <Table.Content aria-label="Tableau de la fiche">{children}</Table.Content>
+          </Table.ScrollContainer>
+        </Table>
+      ),
+      // HeroUI attend les colonnes directement dans l'en-tête, sans `<tr>` :
+      // on déplie la ligne que Markdown y met.
+      thead: ({ children }) => (
+        <Table.Header>
+          {Children.toArray(children).flatMap((row) =>
+            isValidElement<{ children?: ReactNode }>(row) ? Children.toArray(row.props.children) : [],
+          )}
+        </Table.Header>
+      ),
+      th: ({ children, style }) => (
+        <Table.Column isRowHeader style={style}>
+          {children}
+        </Table.Column>
+      ),
+      tbody: ({ children }) => <Table.Body>{children}</Table.Body>,
+      tr: ({ children }) => <Table.Row>{children}</Table.Row>,
+      td: ({ children, style }) => <Table.Cell style={style}>{children}</Table.Cell>,
       img({ src, alt }) {
         const id = parseMediaReference(typeof src === 'string' ? src : undefined);
         const image = id === null ? undefined : byId.get(id);
