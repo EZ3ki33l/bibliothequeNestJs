@@ -1,12 +1,23 @@
 import { LabMention } from '../../components/ui/LabMention';
 import { useState, type SubmitEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Button, Chip, Input, Label, TextField, buttonVariants, toast } from '@heroui/react';
+import {
+  Button,
+  Checkbox,
+  Chip,
+  Input,
+  Label,
+  TextField,
+  buttonVariants,
+  toast,
+} from '@heroui/react';
 import { ArticleIcon } from '@phosphor-icons/react';
 import {
   deleteAdminEntry,
+  AdminRefusedError,
   getAdminEntryById,
   listAdminEntries,
+  listAllAdminEntries,
   listAllAdminCategories,
   listAllAdminPaths,
   listAllAdminStacks,
@@ -78,6 +89,95 @@ export function AdminEntriesPage() {
   // Id de la fiche dont la publication est en cours : un seul envoi à la fois,
   // sinon un double clic publierait puis dépublierait.
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Sélection pour les actions en masse. Elle est rattachée aux filtres qui l'ont
+  // produite : un autre filtrage la vide (sans effet), changer de page la garde.
+  const filterKey = [q, status ?? '', stackId, categoryId, pathId].join('|');
+  const [selection, setSelection] = useState<{
+    key: string;
+    items: Map<string, AdminEntryListItem>;
+  }>({ key: filterKey, items: new Map() });
+  const selected =
+    selection.key === filterKey ? selection.items : new Map<string, AdminEntryListItem>();
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function select(items: Map<string, AdminEntryListItem>) {
+    setSelection({ key: filterKey, items });
+  }
+
+  function toggleSelected(entry: AdminEntryListItem, on: boolean) {
+    const next = new Map(selected);
+    if (on) next.set(entry.id, entry);
+    else next.delete(entry.id);
+    select(next);
+  }
+
+  async function selectEveryResult() {
+    setBulkBusy(true);
+    try {
+      const all = await listAllAdminEntries({ q, status, stackId, categoryId, pathId });
+      select(new Map(all.map((entry) => [entry.id, entry])));
+    } catch {
+      toast.danger('Impossible de charger toutes les fiches');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  /**
+   * Publie, dépublie ou supprime les fiches sélectionnées, une requête après
+   * l'autre, avec **une seule** confirmation.
+   *
+   * Ce sont les routes unitaires : le serveur applique à chaque fiche les mêmes
+   * droits que pour un clic isolé (un `ADMIN` reçoit un 403 par fiche publiée).
+   * Les fiches déjà dans l'état demandé sont ignorées. Contrairement à la
+   * publication unitaire, aucune relecture du contenu (`publicationGaps`) n'est
+   * faite fiche par fiche : la confirmation le dit.
+   */
+  async function runBulk(action: 'publish' | 'unpublish' | 'delete') {
+    const targets = [...selected.values()].filter(
+      (entry) => action === 'delete' || entry.published === (action === 'unpublish'),
+    );
+    if (targets.length === 0 || bulkBusy) return;
+
+    const count = `${targets.length} ${targets.length > 1 ? 'fiches' : 'fiche'}`;
+    const question = {
+      publish: `Publier ${count} ? Le contenu de chaque fiche n’est pas revérifié (résumé, sources, images).`,
+      unpublish: `Dépublier ${count} ? Elles ne seront plus visibles dans le catalogue ni dans les parcours.`,
+      delete: `Supprimer ${count} ? Lectures, quiz, favoris et notes des lecteurs sur ces fiches sont supprimés aussi, et elles sont retirées des parcours. Cette action est définitive.`,
+    }[action];
+    if (!window.confirm(question)) return;
+
+    setBulkBusy(true);
+    let failed = 0;
+    let firstError: string | undefined;
+
+    for (const entry of targets) {
+      try {
+        if (action === 'delete') {
+          await deleteAdminEntry(entry.id);
+        } else {
+          const result = await setAdminEntryPublished(entry.id, action === 'publish');
+          if (!result.ok) {
+            failed += 1;
+            firstError ??= result.message;
+          }
+        }
+      } catch (caught) {
+        failed += 1;
+        firstError ??= caught instanceof AdminRefusedError ? caught.message : 'Erreur réseau';
+      }
+    }
+
+    const done = targets.length - failed;
+    const verb = { publish: 'publiées', unpublish: 'dépubliées', delete: 'supprimées' }[action];
+    if (done > 0) toast.success(`${done} ${done > 1 ? 'fiches' : 'fiche'} ${verb}`);
+    if (failed > 0) toast.danger(`${failed} en échec : ${firstError ?? 'erreur inconnue'}`);
+
+    select(new Map());
+    setBulkBusy(false);
+    reload();
+  }
 
   const { page, setPage, data, error, reload, reloadAfterRemoval, requestDelete } =
     useAdminResourceList({
@@ -297,13 +397,112 @@ export function AdminEntriesPage() {
         )
       ) : (
         <>
-          <Typo variant="small" as="p" className="mb-3">
-            {data.total} {data.total > 1 ? 'fiches' : 'fiche'}
-          </Typo>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <Checkbox
+              aria-label="Sélectionner les fiches de la page"
+              isSelected={data.items.every((entry) => selected.has(entry.id))}
+              isIndeterminate={
+                data.items.some((entry) => selected.has(entry.id)) &&
+                !data.items.every((entry) => selected.has(entry.id))
+              }
+              isDisabled={bulkBusy}
+              onChange={(on) => {
+                const next = new Map(selected);
+                for (const entry of data.items) {
+                  if (on) next.set(entry.id, entry);
+                  else next.delete(entry.id);
+                }
+                select(next);
+              }}
+            >
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+            </Checkbox>
+            <Typo variant="small" as="p">
+              {selected.size > 0
+                ? `${selected.size} sélectionnée${selected.size > 1 ? 's' : ''} sur ${data.total}`
+                : `${data.total} ${data.total > 1 ? 'fiches' : 'fiche'}`}
+            </Typo>
+            {selected.size > 0 && selected.size < data.total ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                isDisabled={bulkBusy}
+                onPress={() => void selectEveryResult()}
+              >
+                Tout sélectionner ({data.total})
+              </Button>
+            ) : null}
+            {selected.size === 0 && data.total > data.items.length ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                isDisabled={bulkBusy}
+                onPress={() => void selectEveryResult()}
+              >
+                Tout sélectionner ({data.total})
+              </Button>
+            ) : null}
+            {selected.size > 0 ? (
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  isDisabled={bulkBusy}
+                  onPress={() => void runBulk('publish')}
+                >
+                  Publier
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  isDisabled={bulkBusy}
+                  onPress={() => void runBulk('unpublish')}
+                >
+                  Dépublier
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger-soft"
+                  size="sm"
+                  isDisabled={bulkBusy}
+                  onPress={() => void runBulk('delete')}
+                >
+                  Supprimer
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  isDisabled={bulkBusy}
+                  onPress={() => select(new Map())}
+                >
+                  Désélectionner
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <ul className="flex flex-col gap-2">
             {data.items.map((entry) => (
               <AdminListRow
                 key={entry.id}
+                selection={
+                  <Checkbox
+                    aria-label={`Sélectionner « ${entry.title} »`}
+                    isSelected={selected.has(entry.id)}
+                    isDisabled={bulkBusy}
+                    onChange={(on) => toggleSelected(entry, on)}
+                  >
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                  </Checkbox>
+                }
                 icon={ArticleIcon}
                 title={entry.title}
                 subtitle={`${entry.category.stack.name} · ${entry.category.name} · ${KIND_LABEL[entry.kind]}`}

@@ -11,6 +11,8 @@ type AdminListRowProps = {
   onDelete: () => void;
   /** Actions propres à la ressource, placées avant « Modifier » (ex. publier). */
   actions?: ReactNode;
+  /** Case de sélection en tête de ligne (actions en masse). */
+  selection?: ReactNode;
 };
 
 export function AdminListRow({
@@ -20,11 +22,13 @@ export function AdminListRow({
   editTo,
   onDelete,
   actions,
+  selection,
 }: AdminListRowProps) {
   return (
     // `flex-wrap` : sur un écran étroit, les actions passent sous le titre
     // plutôt que de l'écraser.
-    <li className="border-border flex flex-wrap items-center gap-3 rounded-xl border p-4">
+    <li className="border-border flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5">
+      {selection}
       <Icon className="text-muted size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <Typo variant="p" className="font-medium">
