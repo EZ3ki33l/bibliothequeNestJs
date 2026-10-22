@@ -5,6 +5,7 @@ import { useAsyncData } from '../lib/useAsyncData';
 import { useEntryStates } from '../lib/useEntryStates';
 import { useAccessMentions } from '../lib/entryAccess';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { CtaLink } from '../components/ui/CtaLink';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryCard } from '../components/ui/EntryCard';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
@@ -58,7 +59,15 @@ export function StackPage() {
   return (
     <>
       <Breadcrumbs items={[{ label: 'Leçons', to: '/stacks' }, { label: stack.name }]} />
-      <PageHeader title={stack.name} description={stack.description || undefined} />
+      <PageHeader
+        title={stack.name}
+        description={stack.description || undefined}
+        action={
+          <CtaLink to={`/recherche?stack=${encodeURIComponent(stack.slug)}`}>
+            Rechercher dans cette leçon
+          </CtaLink>
+        }
+      />
 
       {stack.categories.length === 0 ? (
         <EmptyMessage>Aucune catégorie dans cette leçon.</EmptyMessage>

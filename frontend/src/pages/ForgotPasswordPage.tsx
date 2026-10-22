@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Button, Form } from '@heroui/react';
 import { requestPasswordReset, type PasswordResetResult } from '../lib/auth';
 import { AuthField } from '../components/AuthField';
+import { CtaLink } from '../components/ui/CtaLink';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Typo } from '../components/ui/Typo';
@@ -70,6 +71,9 @@ export function ForgotPasswordPage() {
           </button>
           .
         </Typo>
+        <div className="mt-6">
+          <CtaLink to="/login">Retour à la connexion</CtaLink>
+        </div>
       </>
     );
   }
@@ -90,7 +94,7 @@ export function ForgotPasswordPage() {
       >
         <AuthField name="email" type="email" label="Email" autoComplete="email" isRequired />
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-        <Button type="submit" variant="primary" isDisabled={pending}>
+        <Button type="submit" variant="primary" className="cta" isDisabled={pending}>
           {pending ? 'Envoi…' : 'Envoyer le lien'}
         </Button>
       </Form>

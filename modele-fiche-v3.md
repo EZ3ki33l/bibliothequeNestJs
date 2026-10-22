@@ -1,12 +1,14 @@
-# Modèle de fiche — Bibliothèque (v3)
+# Modèle de fiche — EZ3Learn (v3)
 
 Une fiche = **une notion**. Le modèle comprend un **tronc commun** (champs, corps, sources, contrôle) valable pour tous les parcours, une **variante par parcours** (§ 3), trois dimensions techniques (**illustrations**, **ateliers Python**, **labs téléchargeables**) et, depuis la v3, des consignes de rédaction pour les **tableaux** et les **schémas** (§ 2.2 et § 2.3) ainsi qu'une liste de **ce qu'il ne faut pas écrire** (§ 2.4).
 
 Parcours couverts : Design / graphisme · Développement Web · Développement Python · Administration réseau · Linux · Cybersécurité.
 
-Règles issues du code : `schema.prisma` (`Entry`, `EntrySource`, `EntryImage`, `EntryLab`), `CreateEntryDto`, `EntrySourceDto`, `quiz-eligibility.ts`, `EntryMdx.tsx`, `entryChecks.ts`, `Playground.tsx`, `sandpack.ts`, `PythonPlayground.tsx`.
+Règles issues du code : `schema.prisma` (`Entry`, `EntrySource`, `EntryImage`, `EntryLab`, `LearningPath`), `CreateEntryDto`, `EntrySourceDto`, `quiz-eligibility.ts`, `free-access.ts`, `EntryMdx.tsx`, `entryChecks.ts`, `pathChecks.ts`, `Playground.tsx`, `sandpack.ts`, `PythonPlayground.tsx`.
 
 Changements de la v3 : sections « Pourquoi c'est utile » → « Contexte » et « Points à retenir » → « À retenir » (calques de l'anglais, § 2.4) ; exemple de titre sans deux-points ; ajout des § 2.2, 2.3 et 2.4.
+
+Mise à jour du 2026-10-22 : le site s'appelle **EZ3Learn** ; parcours et **sous-parcours** (spec 019) et fiches lisibles sans compte (§ 6.8 et § 6.9) ; la question posée avant publication s'affiche dans une fenêtre du site (§ 7).
 
 ---
 
@@ -483,7 +485,8 @@ Chiffres, noms et commandes de cet exemple à vérifier sur une machine réelle 
 5. **Tableaux et couleurs** : le tableau est rendu par le composant HeroUI (alignement des colonnes géré). Aucune couleur, bordure ou mise en forme de cellule n'est réglable depuis le corps, faute de HTML. Une mise en valeur plus riche (encadrés, surlignage) demanderait une évolution du site, non faite.
 6. **Pas de graphiques de données** (barres, courbes) : tableau, ou schéma Mermaid testé dans l'aperçu.
 7. **Slugs non stables** : renommer une fiche change l'URL (`stable-slugs` à venir). Les anciennes URL cassent.
-8. **Aucune séquence d'étapes formelle** : un parcours ordonne les fiches via ses modules/étapes, mais il n'y a pas de « prérequis » appliqué automatiquement. L'ordre pédagogique n'est qu'une recommandation textuelle.
+8. **Aucune séquence d'étapes formelle** : un parcours ordonne les fiches via ses modules/étapes, mais il n'y a pas de « prérequis » appliqué automatiquement. L'ordre pédagogique n'est qu'une recommandation textuelle. Un parcours contient **soit des modules, soit des sous-parcours** (un seul niveau, 30 sous-parcours au plus) ; un sous-parcours contient des modules. Une fiche **appartient à sa leçon**, pas au parcours : une étape renvoie à une fiche existante, et la même fiche peut servir dans plusieurs parcours (une seule fois par parcours).
+9. **Fiches lisibles sans compte** : seules les fiches du **premier module affiché** de chaque parcours publié se lisent sans compte ; pour un parcours découpé en sous-parcours, c'est le premier module de **chaque** sous-parcours publié. Toutes les autres demandent un compte à l'adresse vérifiée. Rien ne se règle sur la fiche : l'accès découle de la place de la fiche dans les parcours, et change si les modules sont réordonnés. Une fiche placée en tête d'un (sous-)parcours sert de porte d'entrée : elle doit se comprendre seule, sans renvoyer à une fiche réservée pour l'essentiel.
 
 ---
 
@@ -507,4 +510,5 @@ Chiffres, noms et commandes de cet exemple à vérifier sur une machine réelle 
 - [ ] Aucun « tu » ni « vous » (interface et corps).
 - [ ] Au moins une source `https://`, avec date de consultation réelle.
 - [ ] « Vérifiée le » vide tant que la relecture n'a pas eu lieu.
-- [ ] **Publié décoché.** Seul un `SUPER_ADMIN` publie (le formulaire signale les écarts : corps vide, sources, playground sans fichier, images absentes si publiée, lab sans fichier, etc.).
+- [ ] **Publié décoché.** Seul un `SUPER_ADMIN` publie. Au passage en ligne (formulaire, liste ou action en masse), une fenêtre de confirmation liste les écarts (corps vide, sources, playground sans fichier, images absentes, lab sans fichier, etc.) : c'est un rappel, pas un contrôle.
+- [ ] **Fiche en tête de parcours ou de sous-parcours** (§ 6.9) : lisible sans compte, donc compréhensible seule.

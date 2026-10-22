@@ -27,6 +27,7 @@ import { CreatePathStepDto } from './dto/create-path-step.dto';
 import { UpdatePathStepDto } from './dto/update-path-step.dto';
 import { ReorderModulesDto } from './dto/reorder-modules.dto';
 import { ReorderStepsDto } from './dto/reorder-steps.dto';
+import { ReorderSubPathsDto } from './dto/reorder-sub-paths.dto';
 
 /**
  * Composition admin des parcours : parcours, modules, étapes et leur ordre.
@@ -76,6 +77,46 @@ export class AdminLearningPathsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   delete(@Param('id', ParseUUIDPipe) id: string, @CurrentAdminRole() role: AdminRole) {
     return this.learningPathsService.delete(id, role);
+  }
+
+  // Sous-parcours (`order` déclaré avant `:childId`, comme pour les modules)
+
+  @Put(':id/sub-paths/order')
+  reorderSubPaths(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReorderSubPathsDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.reorderSubPaths(id, dto.pathIds, role);
+  }
+
+  @Post(':id/sub-paths')
+  @HttpCode(HttpStatus.CREATED)
+  createSubPath(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateLearningPathDto,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.createSubPath(id, dto, role);
+  }
+
+  @Put(':id/sub-paths/:childId')
+  attachSubPath(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('childId', ParseUUIDPipe) childId: string,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.attachSubPath(id, childId, role);
+  }
+
+  @Delete(':id/sub-paths/:childId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  detachSubPath(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('childId', ParseUUIDPipe) childId: string,
+    @CurrentAdminRole() role: AdminRole,
+  ) {
+    return this.learningPathsService.detachSubPath(id, childId, role);
   }
 
   // Modules

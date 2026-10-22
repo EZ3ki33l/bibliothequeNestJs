@@ -38,8 +38,8 @@ export function EntryStepNav({ steps, pathSlug, reservedIds, viewer }: EntryStep
   const mentionOf = (entry: PathEntry) =>
     accessMention(viewer, !reservedIds?.has(entry.id)) ?? undefined;
 
-  // Parcours d'une seule étape : rien à enchaîner.
-  if (steps.previous === null && steps.next === null) {
+  // Parcours d'une seule étape, sans sous-parcours suivant : rien à enchaîner.
+  if (steps.previous === null && steps.next === null && steps.nextSubPath === null) {
     return null;
   }
 
@@ -61,6 +61,20 @@ export function EntryStepNav({ steps, pathSlug, reservedIds, viewer }: EntryStep
           direction="next"
           access={mentionOf(steps.next)}
         />
+      ) : null}
+      {steps.nextSubPath ? (
+        <Link
+          to={`/parcours/${encodeURIComponent(steps.nextSubPath.slug)}`}
+          className={`${LINK_CLASS} sm:items-end sm:text-right`}
+        >
+          <span className="text-muted flex items-center gap-1.5 text-xs">
+            Sous-parcours suivant
+            <ArrowRightIcon className="size-3.5" />
+          </span>
+          <span className="text-foreground text-sm font-medium wrap-break-word">
+            {steps.nextSubPath.name}
+          </span>
+        </Link>
       ) : null}
     </nav>
   );

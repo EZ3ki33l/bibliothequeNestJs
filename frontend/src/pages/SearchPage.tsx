@@ -155,7 +155,7 @@ export function SearchPage() {
             <Label>Avec laboratoire</Label>
           </Checkbox.Content>
         </Checkbox>
-        <Button type="submit" variant="primary">
+        <Button type="submit" variant="primary" className="cta">
           Chercher
         </Button>
       </form>

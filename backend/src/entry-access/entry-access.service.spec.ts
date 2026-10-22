@@ -35,7 +35,7 @@ describe('EntryAccessService', () => {
       await service.freeEntryIds();
 
       expect(prisma.learningPath.findMany).toHaveBeenCalledWith({
-        where: { published: true },
+        where: { published: true, OR: [{ parentId: null }, { parent: { published: true } }] },
         select: {
           modules: {
             orderBy: { position: 'asc' },

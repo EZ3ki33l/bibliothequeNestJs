@@ -27,7 +27,7 @@ export function AdminCategoriesPage() {
         action={
           <Link
             to="/admin/categories/new"
-            className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
           >
             Nouvelle catégorie
           </Link>

@@ -70,7 +70,7 @@ export function EmailVerifiedPage() {
   const loginLink = (
     <Link
       to={loginHref(destination)}
-      className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+      className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
     >
       Se connecter
     </Link>
@@ -97,7 +97,7 @@ export function EmailVerifiedPage() {
           <PageHeader title={title} description="L’adresse du compte connecté est déjà vérifiée." />
           <Link
             to={destination}
-            className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
           >
             Continuer
           </Link>

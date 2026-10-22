@@ -20,7 +20,7 @@ export function NotFoundPage() {
         description="Cette adresse ne correspond à aucune page du site. L’accueil et le catalogue restent accessibles."
       />
       <div className="flex flex-wrap gap-3">
-        <Link to="/" className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
+        <Link to="/" className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}>
           Retour à l’accueil
         </Link>
         <Link to="/stacks" className={`${buttonVariants({ variant: 'secondary' })} no-underline`}>

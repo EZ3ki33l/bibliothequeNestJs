@@ -5,6 +5,7 @@ import { useAsyncData } from '../lib/useAsyncData';
 import { useEntryStates } from '../lib/useEntryStates';
 import { useAccessMentions } from '../lib/entryAccess';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { CtaLink } from '../components/ui/CtaLink';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryCard } from '../components/ui/EntryCard';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
@@ -61,7 +62,15 @@ export function CategoryPage() {
           { label: category.name },
         ]}
       />
-      <PageHeader title={category.name} description={category.description || undefined} />
+      <PageHeader
+        title={category.name}
+        description={category.description || undefined}
+        action={
+          category.entries[0] ? (
+            <CtaLink to={`/entries/${category.entries[0].slug}`}>Lire la première fiche</CtaLink>
+          ) : null
+        }
+      />
 
       {category.entries.length === 0 ? (
         <EmptyMessage>Aucune fiche publiée.</EmptyMessage>

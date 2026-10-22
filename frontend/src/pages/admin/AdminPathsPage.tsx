@@ -19,7 +19,7 @@ export function AdminPathsPage() {
     loadError: 'Impossible de charger les parcours',
     // La suppression n'emporte que la composition : les fiches restent.
     confirmMessage: (name) =>
-      `Supprimer le parcours « ${name} », ses modules et ses étapes ? Les fiches sont conservées.`,
+      `Supprimer le parcours « ${name} », ses modules et ses étapes ? Les fiches sont conservées. Un parcours qui a des sous-parcours ne se supprime pas.`,
     deletedMessage: 'Parcours supprimé',
     deleteError: 'Impossible de supprimer le parcours',
   });
@@ -32,7 +32,7 @@ export function AdminPathsPage() {
         action={
           <Link
             to="/admin/parcours/new"
-            className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
           >
             Nouveau parcours
           </Link>
@@ -63,8 +63,11 @@ export function AdminPathsPage() {
                 title={path.name}
                 subtitle={[
                   path.published ? 'Publié' : 'Brouillon',
-                  plural(path.moduleCount, 'module', 'modules'),
-                  plural(path.stepCount, 'étape', 'étapes'),
+                  ...(path.parent ? [`Sous-parcours de ${path.parent.name}`] : []),
+                  path.subPathCount > 0
+                    ? `${path.subPathCount} sous-parcours`
+                    : plural(path.moduleCount, 'module', 'modules'),
+                  ...(path.subPathCount > 0 ? [] : [plural(path.stepCount, 'étape', 'étapes')]),
                 ].join(' · ')}
                 editTo={`/admin/parcours/${path.id}/edit`}
                 onDelete={() => void requestDelete(path.id, path.name)}

@@ -144,6 +144,15 @@ function Resume({ started }: { started: StartedPaths }) {
           <li key={path.pathId}>
             <Card className="h-full">
               <Card.Header>
+                {/* Sous-parcours : son parent au-dessus, « TSSR › Réseaux ». */}
+                {path.parent ? (
+                  <Link
+                    to={`/parcours/${encodeURIComponent(path.parent.slug)}`}
+                    className="text-muted hover:text-foreground w-fit text-xs no-underline transition-colors duration-150"
+                  >
+                    {path.parent.name} ›
+                  </Link>
+                ) : null}
                 <Card.Title className="text-base">
                   <Link
                     to={`/parcours/${encodeURIComponent(path.slug)}`}

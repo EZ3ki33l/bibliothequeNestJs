@@ -2,6 +2,7 @@ import { useEffect, useRef, type SubmitEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { MagnifyingGlassIcon } from '@phosphor-icons/react';
 import { MAX_SEARCH_LENGTH, headerSearchHref, headerSearchValue } from '../../lib/headerSearch';
+import { SITE_NAME } from '../../lib/pageTitle';
 
 /**
  * Vrai quand la frappe vise déjà une zone de saisie : un champ, une liste, ou
@@ -59,7 +60,7 @@ export function AppHeader() {
           to="/"
           className="font-heading text-foreground text-base font-bold tracking-tight no-underline lg:hidden"
         >
-          Bibliothèque
+          {SITE_NAME}
         </Link>
 
         <form role="search" onSubmit={onSubmit} className="relative min-w-0 flex-1 lg:max-w-2xl">

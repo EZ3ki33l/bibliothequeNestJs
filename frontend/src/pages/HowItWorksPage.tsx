@@ -131,8 +131,8 @@ const AUTHOR_LINKS = [
  * « Qui a créé ce site » reprend le nom des mentions légales (`SITE_LEGAL`) :
  * il n'est écrit qu'à un seul endroit.
  *
- * Les deux logos (celui du site, retourné en miroir pour faire face à l'autre,
- * et celui de la société de l'auteur) sont centrés au-dessus de la vidéo, dans
+ * Les deux logos (celui de la société de l'auteur, retourné en miroir, puis
+ * celui du site, dans son sens) sont centrés au-dessus de la vidéo, dans
  * la même colonne qu'elle : ils en suivent donc la largeur à toutes les tailles
  * d'écran. Ce sont des fichiers de `public/`,
  * blancs ou clairs sur fond transparent : le site n'a qu'un thème sombre.
@@ -151,17 +151,17 @@ export function HowItWorksPage() {
         <div className="max-w-3xl xl:sticky xl:top-8 xl:max-w-none">
           <div className="mb-5 flex items-center justify-center gap-5">
             <img
-              src="/ez3learn-logo-fond-transparent.svg"
-              alt="Logo EZ3Learn"
-              width={700}
+              src="/EZ3_logo_white.png"
+              alt="Logo EZ3"
+              width={730}
               height={730}
               className="h-16 w-auto -scale-x-100"
             />
             <span aria-hidden className="bg-border h-12 w-px" />
             <img
-              src="/EZ3_logo_white.png"
-              alt="Logo EZ3"
-              width={730}
+              src="/ez3learn-logo-fond-transparent.svg"
+              alt="Logo EZ3Learn"
+              width={700}
               height={730}
               className="h-16 w-auto"
             />
@@ -285,7 +285,7 @@ export function HowItWorksPage() {
       </ul>
 
       <div className="flex flex-wrap gap-3">
-        <Link to="/stacks" className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
+        <Link to="/stacks" className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}>
           Parcourir le catalogue
         </Link>
         <Link

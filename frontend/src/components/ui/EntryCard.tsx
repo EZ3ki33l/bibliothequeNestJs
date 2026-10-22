@@ -1,6 +1,9 @@
 import { Link } from 'react-router';
 import { Card } from '@heroui/react';
-import type { StackEntry } from '../../lib/stacks';
+import { CubeIcon, FunctionIcon, LightbulbIcon, type Icon } from '@phosphor-icons/react';
+import type { EntryKind, StackEntry } from '../../lib/stacks';
+import { CoverCard } from './CoverCard';
+import { IconTile } from './IconTile';
 import type { EntryState } from '../../lib/entryProgress';
 import { EntryMarkers } from './EntryMarkers';
 import { EntryMeta } from './EntryMeta';
@@ -19,24 +22,57 @@ type EntryCardProps = {
    * vérifier »). Absente pour une fiche en accès libre ou un compte vérifié.
    */
   access?: string;
+  cover?: boolean;
 };
 
-/** Vignette d'une fiche dans une grille (leçon, catégorie, recherche, favoris, notes). */
-export function EntryCard({ entry, state, access }: EntryCardProps) {
+/** Pictogramme du type de fiche, à côté de son libellé (`EntryMeta`). */
+const KIND_ICON: Record<EntryKind, Icon> = {
+  FUNCTION: FunctionIcon,
+  COMPONENT: CubeIcon,
+  CONCEPT: LightbulbIcon,
+};
+
+/**
+ * Vignette d'une fiche dans une grille (leçon, catégorie, recherche, favoris).
+ *
+ * `cover` : carte à couverture, comme les parcours et les leçons. Réservée aux
+ * listes courtes (favoris) ; une leçon de trente fiches en couvertures serait
+ * trop haute à parcourir.
+ */
+export function EntryCard({ entry, state, access, cover = false }: EntryCardProps) {
+  const meta = (
+    <>
+      <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
+      <LabMention lab={entry.lab} />
+      <EntryMarkers state={state} access={access} />
+    </>
+  );
+
+  if (cover) {
+    return (
+      <CoverCard
+        to={`/entries/${entry.slug}`}
+        icon={KIND_ICON[entry.kind]}
+        title={entry.title}
+        description={entry.summary}
+        meta={meta}
+      />
+    );
+  }
+
   return (
     <Link to={`/entries/${entry.slug}`} className="block h-full no-underline">
       <Card className="card-interactive h-full">
-        <Card.Header>
-          <Card.Title className="text-base">{entry.title}</Card.Title>
-          {entry.summary ? (
-            <Card.Description className="line-clamp-2">{entry.summary}</Card.Description>
-          ) : null}
-        </Card.Header>
-        <Card.Footer className="flex flex-wrap gap-2">
-          <EntryMeta kind={entry.kind} difficulty={entry.difficulty} />
-          <LabMention lab={entry.lab} />
-          <EntryMarkers state={state} access={access} />
-        </Card.Footer>
+        <div className="flex items-start gap-3">
+          <IconTile icon={KIND_ICON[entry.kind]} />
+          <Card.Header className="min-w-0">
+            <Card.Title className="text-base">{entry.title}</Card.Title>
+            {entry.summary ? (
+              <Card.Description className="line-clamp-2">{entry.summary}</Card.Description>
+            ) : null}
+          </Card.Header>
+        </div>
+        <Card.Footer className="flex flex-wrap gap-2">{meta}</Card.Footer>
       </Card>
     </Link>
   );

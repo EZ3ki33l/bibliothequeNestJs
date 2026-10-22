@@ -176,6 +176,26 @@
     border-radius: var(--radius-2xl);
   }
 
+  /* Case à cocher : 6 px de rayon sur 16 px de côté, la case cochée se lit
+     comme un rond. 4 px, case et fond de sélection, garde un carré dans les
+     deux états. */
+  .checkbox__control,
+  .checkbox__control::before {
+    border-radius: 0.25rem;
+  }
+
+  /* Case cochée : sa bordure devient transparente et laisse voir le fond sombre
+     du champ autour du remplissage, un liseré crénelé au survol. Le fond de la
+     case prend la couleur du remplissage. Une case invalide (sélecteur plus
+     précis de HeroUI) garde son rouge. */
+  .checkbox[data-selected='true'] .checkbox__control {
+    background-color: var(--accent);
+  }
+
+  .checkbox[data-selected='true']:hover .checkbox__control {
+    background-color: var(--accent-hover);
+  }
+
   .card__title {
     font-family: var(--font-heading);
   }
@@ -247,21 +267,23 @@
 
 /* Carte cliquable (fiche, leçon, parcours, étape) : au survol comme au focus
    clavier du lien, la bordure passe en Blueberry clair et une ombre la détache
-   du fond. Aucun déplacement : rien à neutraliser pour `prefers-reduced-motion`
-   en dehors de la transition. */
+   du fond, et la carte se soulève de quelques pixels. `prefers-reduced-motion`
+   coupe le déplacement et la transition. */
 @utility card-interactive {
   border: 1px solid transparent;
   transition:
     border-color 150ms ease-out,
-    box-shadow 150ms ease-out,
-    background-color 150ms ease-out;
+    box-shadow 200ms ease-out,
+    background-color 150ms ease-out,
+    transform 200ms ease-out;
 
   &:hover,
   a:hover > &,
   a:focus-visible > & {
     border-color: var(--color-blueberry-light);
     background-color: var(--surface-hover);
-    box-shadow: 0 14px 28px -18px var(--color-blacksea-dark);
+    box-shadow: 0 18px 32px -18px var(--color-blacksea-dark);
+    transform: translateY(-3px);
   }
 
   &:focus-visible,
@@ -272,6 +294,12 @@
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+
+    &:hover,
+    a:hover > &,
+    a:focus-visible > & {
+      transform: none;
+    }
   }
 }
 

@@ -235,7 +235,7 @@ export function ExamPage() {
       <Fallback>
         <ErrorMessage>{error}</ErrorMessage>
         <Actions>
-          <Button type="button" variant="primary" onPress={reload}>
+          <Button type="button" variant="primary" className="cta" onPress={reload}>
             Réessayer
           </Button>
           {entryLink}
@@ -281,7 +281,10 @@ export function ExamPage() {
           Le message de vérification se demande depuis la fiche, ou depuis « Mon compte ».
         </Typo>
         <Actions>
-          <Link to={entryHref} className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
+          <Link
+            to={entryHref}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
+          >
             Voir la fiche
           </Link>
         </Actions>
@@ -300,6 +303,7 @@ export function ExamPage() {
           <Button
             type="button"
             variant="primary"
+            className="cta"
             isDisabled={restarting}
             onPress={() => void restart()}
           >
@@ -335,7 +339,10 @@ export function ExamPage() {
           Cette fiche n’a pas d’examen : sa lecture suffit à valider l’étape.
         </Typo>
         <Actions>
-          <Link to={entryHref} className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
+          <Link
+            to={entryHref}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
+          >
             Voir la fiche
           </Link>
         </Actions>
@@ -429,7 +436,7 @@ export function ExamPage() {
         </ol>
         {submitError ? <ErrorMessage>{submitError}</ErrorMessage> : null}
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" variant="primary" isDisabled={pending}>
+          <Button type="submit" variant="primary" className="cta" isDisabled={pending}>
             {pending ? 'Correction…' : 'Valider'}
           </Button>
           <Link

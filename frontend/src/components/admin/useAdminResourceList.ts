@@ -1,6 +1,7 @@
 import { useEffect, type DependencyList } from 'react';
 import { toast } from '@heroui/react';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useConfirm } from '../../lib/confirm';
 import { AdminRefusedError, type AdminListPage } from '../../lib/admin';
 import { useUrlPage } from './useUrlPage';
 
@@ -41,6 +42,7 @@ type UseAdminResourceListOptions<T> = {
 export function useAdminResourceList<T>(options: UseAdminResourceListOptions<T>) {
   // La page vit dans l'URL : elle survit au passage par un formulaire.
   const { page, setPage } = useUrlPage();
+  const confirm = useConfirm();
 
   const { data, error, reload } = useAsyncData(
     () => options.load(page),
@@ -85,7 +87,12 @@ export function useAdminResourceList<T>(options: UseAdminResourceListOptions<T>)
 
   /** Demande confirmation, supprime, puis remet la liste à jour. */
   async function requestDelete(id: string, label: string) {
-    if (!window.confirm(options.confirmMessage(label))) {
+    const accepted = await confirm(options.confirmMessage(label), {
+      title: 'Confirmer la suppression',
+      confirmLabel: 'Supprimer',
+      danger: true,
+    });
+    if (!accepted) {
       return;
     }
 

@@ -27,7 +27,7 @@ export function AdminStacksPage() {
         action={
           <Link
             to="/admin/stacks/new"
-            className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
           >
             Nouvelle leçon
           </Link>

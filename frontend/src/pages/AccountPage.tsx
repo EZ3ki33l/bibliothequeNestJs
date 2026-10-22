@@ -17,6 +17,7 @@ import { viewerAccess } from '../lib/viewerAccess';
 import { VerifyEmailReminder } from '../components/account/VerifyEmailReminder';
 import { AuthField } from '../components/AuthField';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { CtaLink } from '../components/ui/CtaLink';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Typo } from '../components/ui/Typo';
 
@@ -218,7 +219,11 @@ export function AccountPage() {
 
   return (
     <>
-      <PageHeader title="Mon compte" description="Identité du compte et gestion des données." />
+      <PageHeader
+        title="Mon compte"
+        description="Identité du compte et gestion des données."
+        action={<CtaLink to="/parcours">Reprendre un parcours</CtaLink>}
+      />
 
       <div className="card-grid grid items-start gap-8 [--card-min:26rem]">
         <section aria-labelledby="account-name-title" className={SECTION_CLASS}>

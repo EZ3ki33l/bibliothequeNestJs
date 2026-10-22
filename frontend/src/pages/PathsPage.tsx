@@ -1,5 +1,5 @@
-import { Link, useSearchParams } from 'react-router';
-import { Button, Card, Chip, Skeleton } from '@heroui/react';
+import { useSearchParams } from 'react-router';
+import { Button, Skeleton } from '@heroui/react';
 import { PathIcon } from '@phosphor-icons/react';
 import {
   listLearningPaths,
@@ -8,8 +8,11 @@ import {
 } from '../lib/learningPaths';
 import { useAsyncData } from '../lib/useAsyncData';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
+import { CtaLink } from '../components/ui/CtaLink';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
+import { CoverCard } from '../components/ui/CoverCard';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PathCardProgress } from '../components/ui/PathCardProgress';
 
 /**
  * Liste publique des parcours guidés. Sans compte : un parcours se lit
@@ -46,11 +49,26 @@ export function PathsPage() {
     setSearchParams(next);
   }
 
+  // Action de l'écran : reprendre le premier parcours entamé de la page, sinon
+  // commencer le premier parcours listé.
+  const started = data?.items.find((path) => {
+    const progress = data.progressById.get(path.id);
+    return progress !== undefined && progress.validatedRequired > 0 && !progress.completed;
+  });
+  const featured = started ?? data?.items[0];
+
   return (
     <>
       <PageHeader
         title="Parcours"
         description="Des plans guidés qui ordonnent les fiches pour apprendre un métier, étape par étape."
+        action={
+          featured ? (
+            <CtaLink to={`/parcours/${featured.slug}`}>
+              {started ? 'Reprendre le parcours' : 'Commencer le premier parcours'}
+            </CtaLink>
+          ) : null
+        }
       />
 
       {error ? (
@@ -58,37 +76,33 @@ export function PathsPage() {
       ) : data === undefined ? (
         <div className="card-grid grid gap-4">
           {[0, 1, 2, 3].map((index) => (
-            <Skeleton key={index} className="h-32 rounded-xl" />
+            <Skeleton key={index} className="h-60 rounded-3xl" />
           ))}
         </div>
       ) : data.items.length === 0 ? (
-        <EmptyMessage>Aucun parcours publié pour le moment.</EmptyMessage>
+        <EmptyMessage icon={PathIcon}>Aucun parcours publié pour le moment.</EmptyMessage>
       ) : (
         <>
           <ul className="card-grid grid gap-4">
             {data.items.map((path) => (
               <li key={path.id}>
-                <Link to={`/parcours/${path.slug}`} className="block h-full no-underline">
-                  <Card className="card-interactive h-full">
-                    <Card.Header>
-                      <Card.Title className="flex items-center gap-2">
-                        <PathIcon className="text-blueberry-light size-4" />
-                        {path.name}
-                      </Card.Title>
-                      {path.description ? (
-                        <Card.Description className="line-clamp-3">
-                          {path.description}
-                        </Card.Description>
+                <CoverCard
+                  to={`/parcours/${path.slug}`}
+                  icon={PathIcon}
+                  title={path.name}
+                  description={path.description}
+                  meta={
+                    <>
+                      {path.subPathCount > 0 ? (
+                        <span>{path.subPathCount} sous-parcours ·</span>
                       ) : null}
-                    </Card.Header>
-                    <Card.Footer className="text-muted flex flex-wrap items-center gap-2 text-xs">
                       <span>
                         {path.stepCount} {path.stepCount > 1 ? 'étapes' : 'étape'}
                       </span>
                       <PathCardProgress progress={data.progressById.get(path.id)} />
-                    </Card.Footer>
-                  </Card>
-                </Link>
+                    </>
+                  }
+                />
               </li>
             ))}
           </ul>
@@ -120,29 +134,5 @@ export function PathsPage() {
         </>
       )}
     </>
-  );
-}
-
-/**
- * Progression sur une carte, seulement si elle dit quelque chose : un parcours
- * jamais commencé n'affiche rien (« 0 validée » serait du bruit sur chaque carte).
- */
-function PathCardProgress({ progress }: { progress: PathProgressSummary | undefined }) {
-  if (!progress) return null;
-
-  if (progress.completed) {
-    return (
-      <Chip size="sm" variant="soft" color="success">
-        Terminé
-      </Chip>
-    );
-  }
-
-  if (progress.validatedRequired === 0) return null;
-
-  return (
-    <span>
-      · {progress.validatedRequired}/{progress.required} validées
-    </span>
   );
 }

@@ -1,6 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router';
 import { Chip, Skeleton, buttonVariants } from '@heroui/react';
-import { CheckCircleIcon } from '@phosphor-icons/react';
+import { CheckCircleIcon, PathIcon } from '@phosphor-icons/react';
 import {
   entryHrefFromPath,
   getLearningPath,
@@ -14,6 +14,8 @@ import { useAccessMentions } from '../lib/entryAccess';
 import { currentReturnTo, loginHref, registerHref } from '../lib/returnTo';
 import { useViewerAccess } from '../lib/viewerAccess';
 import { Breadcrumbs } from '../components/ui/Breadcrumbs';
+import { CoverCard } from '../components/ui/CoverCard';
+import { CtaLink } from '../components/ui/CtaLink';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { EntryMarkers } from '../components/ui/EntryMarkers';
 import { EntryMeta } from '../components/ui/EntryMeta';
@@ -21,6 +23,7 @@ import { LabMention } from '../components/ui/LabMention';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { NotFoundState } from '../components/ui/NotFoundState';
 import { PageHeader } from '../components/ui/PageHeader';
+import { PathCardProgress } from '../components/ui/PathCardProgress';
 import { Typo } from '../components/ui/Typo';
 
 /**
@@ -103,8 +106,14 @@ export function PathPage() {
   }
 
   const progress = data.progress === 'unavailable' ? undefined : data.progress;
+
+  if (path.subPaths.length > 0) {
+    return <ParentPathView path={path} progress={progress} />;
+  }
+
   const validated = new Set(progress?.validatedStepIds ?? []);
   const nextStepId = progress?.nextStepId ?? null;
+  const firstStep = path.modules[0]?.steps[0];
 
   // Numérotation continue d'un module à l'autre : « étape 5 » reste lisible
   // même quand le module 2 commence. `offsets[i]` = nombre d'étapes avant le
@@ -116,8 +125,28 @@ export function PathPage() {
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Parcours', to: '/parcours' }, { label: path.name }]} />
-      <PageHeader title={path.name} description={path.description || undefined} />
+      <Breadcrumbs
+        items={[
+          { label: 'Parcours', to: '/parcours' },
+          ...(path.parent
+            ? [{ label: path.parent.name, to: `/parcours/${path.parent.slug}` }]
+            : []),
+          { label: path.name },
+        ]}
+      />
+      <PageHeader
+        title={path.name}
+        description={path.description || undefined}
+        action={
+          // Visiteur (pas de progression) : l'action de l'écran ouvre la
+          // première étape. Avec un compte, « Continuer » la porte déjà.
+          progress === null && firstStep ? (
+            <CtaLink to={entryHrefFromPath(firstStep.entry.slug, path.slug)}>
+              Commencer le parcours
+            </CtaLink>
+          ) : null
+        }
+      />
 
       {path.modules.length === 0 ? (
         <EmptyMessage>
@@ -224,6 +253,84 @@ export function PathPage() {
           </ol>
         </div>
       )}
+    </>
+  );
+}
+
+/**
+ * Page d'un parent : ses sous-parcours dans l'ordre, chacun avec sa
+ * progression, et le total au-dessus.
+ *
+ * L'action de l'écran : « Reprendre » mène à la prochaine étape du premier
+ * sous-parcours non terminé ; un visiteur ouvre le premier sous-parcours.
+ */
+function ParentPathView({
+  path,
+  progress,
+}: {
+  path: PathDetail;
+  /** `null` : visiteur ; `undefined` : progression indisponible. */
+  progress: PathProgress | null | undefined;
+}) {
+  const progressOf = new Map((progress?.subPaths ?? []).map((item) => [item.pathId, item]));
+  const resume = progress?.subPaths.find((item) => !item.completed && item.nextStep !== null);
+  const first = path.subPaths[0];
+
+  return (
+    <>
+      <Breadcrumbs items={[{ label: 'Parcours', to: '/parcours' }, { label: path.name }]} />
+      <PageHeader
+        title={path.name}
+        description={path.description || undefined}
+        action={
+          resume?.nextStep ? (
+            <CtaLink to={entryHrefFromPath(resume.nextStep.entrySlug, resume.slug)}>
+              Reprendre : {resume.nextStep.title}
+            </CtaLink>
+          ) : progress === null ? (
+            <CtaLink to={`/parcours/${first.slug}`}>Commencer le parcours</CtaLink>
+          ) : null
+        }
+      />
+
+      <div className="rail-layout">
+        <div className="rail empty:hidden">
+          {progress ? (
+            <ProgressSummary path={path} progress={progress} />
+          ) : progress === null ? (
+            <Typo
+              variant="small"
+              as="p"
+              className="border-border mb-8 rounded-xl border border-dashed px-4 py-3"
+            >
+              Le premier module de chaque sous-parcours se lit sans compte. Un compte dont l’adresse
+              est vérifiée ouvre la suite et le suivi de la progression.
+            </Typo>
+          ) : null}
+        </div>
+
+        <ol className="card-grid grid gap-4">
+          {path.subPaths.map((subPath, index) => (
+            <li key={subPath.id}>
+              <CoverCard
+                to={`/parcours/${subPath.slug}`}
+                icon={PathIcon}
+                title={subPath.name}
+                description={subPath.description}
+                meta={
+                  <>
+                    <span>
+                      Partie {index + 1} · {subPath.stepCount}{' '}
+                      {subPath.stepCount > 1 ? 'étapes' : 'étape'}
+                    </span>
+                    <PathCardProgress progress={progressOf.get(subPath.id)} />
+                  </>
+                }
+              />
+            </li>
+          ))}
+        </ol>
+      </div>
     </>
   );
 }

@@ -17,7 +17,13 @@ import { ArrowDownIcon, ArrowUpIcon, LockOpenIcon, TrashIcon } from '@phosphor-i
 import {
   addAdminPathModule,
   addAdminPathStep,
+  adminPathLabel,
   AdminRefusedError,
+  attachAdminSubPath,
+  createAdminSubPath,
+  detachAdminSubPath,
+  listAllAdminPaths,
+  reorderAdminSubPaths,
   deleteAdminPath,
   deleteAdminPathModule,
   deleteAdminPathStep,
@@ -30,11 +36,14 @@ import {
   type AdminPathDetail,
   type AdminPathModule,
   type AdminPathWriteResult,
+  type AdminSubPath,
 } from '../../lib/admin';
 import { freeModuleId, pathPublicationGaps, pathPublicationQuestion } from '../../lib/pathChecks';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useConfirm } from '../../lib/confirm';
 import { AdminFormSkeleton } from '../../components/admin/AdminFormSkeleton';
 import { AdminPathEntryPicker } from '../../components/admin/AdminPathEntryPicker';
+import { AdminSelect } from '../../components/admin/AdminSelect';
 import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import { EmptyMessage } from '../../components/ui/EmptyMessage';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
@@ -63,6 +72,7 @@ function moved(ids: string[], index: number, delta: -1 | 1): string[] {
 export function AdminPathEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -126,9 +136,10 @@ export function AdminPathEditPage() {
 
   async function onDeletePath(current: AdminPathDetail) {
     if (
-      !window.confirm(
-        `Supprimer le parcours « ${current.name} », ses modules et ses étapes ? Les fiches sont conservées.`,
-      )
+      !(await confirm(
+        `« ${current.name} », ses modules et ses étapes seront supprimés. Les fiches sont conservées.`,
+        { title: 'Supprimer le parcours ?', confirmLabel: 'Supprimer', danger: true },
+      ))
     ) {
       return;
     }
@@ -158,10 +169,22 @@ export function AdminPathEditPage() {
   // Ce qu'un lecteur ne verra pas : calculé depuis le parcours affiché, donc
   // toujours à jour après un ajout, un retrait ou un réordonnancement.
   const gaps = pathPublicationGaps(path);
+  // Un parcours a des modules **ou** des sous-parcours ; un sous-parcours n'en a pas.
+  const canHoldModules = path.subPaths.length === 0;
+  const canHoldSubPaths = path.parent === null && path.modules.length === 0;
+  const subPathIds = path.subPaths.map((subPath) => subPath.id);
 
   return (
     <>
-      <Breadcrumbs items={[{ label: 'Parcours', to: '/admin/parcours' }, { label: path.name }]} />
+      <Breadcrumbs
+        items={[
+          { label: 'Parcours', to: '/admin/parcours' },
+          ...(path.parent
+            ? [{ label: path.parent.name, to: `/admin/parcours/${path.parent.id}/edit` }]
+            : []),
+          { label: path.name },
+        ]}
+      />
       <PageHeader
         title={`Modifier ${path.name}`}
         description={
@@ -180,6 +203,19 @@ export function AdminPathEditPage() {
         <div className="mb-6">
           <ErrorMessage>{actionError}</ErrorMessage>
         </div>
+      ) : null}
+
+      {path.parent && path.published && !path.parent.published ? (
+        <Alert status="warning" className="mb-6 max-w-2xl">
+          <Alert.Indicator />
+          <Alert.Content>
+            <Alert.Title>Invisible tant que le parent est en brouillon</Alert.Title>
+            <Alert.Description>
+              Ce sous-parcours est publié, mais son parent « {path.parent.name} » ne l’est pas :
+              aucun visiteur ne le voit, et son premier module n’est pas en accès libre.
+            </Alert.Description>
+          </Alert.Content>
+        </Alert>
       ) : null}
 
       {/* Rappel permanent, brouillon ou publié : la même liste que celle de la
@@ -208,7 +244,7 @@ export function AdminPathEditPage() {
         key={`${path.name}|${path.description}|${path.published}`}
         path={path}
         busy={busy}
-        onSave={(payload) => {
+        onSave={async (payload) => {
           // La question n'est posée qu'au **passage** en ligne, comme pour une
           // fiche : un parcours déjà publié s'enregistre sans redemander. Refus :
           // rien n'est envoyé, la saisie reste telle quelle. C'est un rappel,
@@ -217,98 +253,162 @@ export function AdminPathEditPage() {
             payload.published &&
             !path.published &&
             gaps.length > 0 &&
-            !window.confirm(pathPublicationQuestion(gaps))
+            !(await confirm(pathPublicationQuestion(gaps), {
+              title: 'Publier le parcours ?',
+              confirmLabel: 'Publier',
+            }))
           ) {
-            return Promise.resolve(false);
+            return false;
           }
 
           return apply(() => updateAdminPath(path.id, payload), 'Parcours enregistré');
         }}
       />
 
-      <section aria-labelledby="path-modules" className="mt-12">
-        <Typo variant="h3" as="h2" id="path-modules" className="mb-4">
-          Modules
+      {path.parent ? (
+        <Typo variant="small" as="p" className="mt-8">
+          Sous-parcours de{' '}
+          <Link
+            to={`/admin/parcours/${path.parent.id}/edit`}
+            className="text-blueberry-light underline underline-offset-2"
+          >
+            {path.parent.name}
+          </Link>
+          .
         </Typo>
+      ) : null}
 
-        {path.modules.length === 0 ? (
-          <EmptyMessage>Aucun module : ajouter un premier module ci-dessous.</EmptyMessage>
-        ) : (
-          <ol className="flex flex-col gap-6">
-            {path.modules.map((module, index) => (
-              <li key={module.id}>
-                <ModuleCard
-                  module={module}
-                  index={index}
-                  freeAccess={
-                    module.id === freeModuleId(path)
-                      ? path.published
-                        ? 'published'
-                        : 'draft'
-                      : null
-                  }
-                  isFirst={index === 0}
-                  isLast={index === path.modules.length - 1}
-                  busy={busy}
-                  usedEntryIds={usedEntryIds}
-                  onMove={(delta) =>
-                    void apply(() =>
-                      reorderAdminPathModules(path.id, moved(moduleIds, index, delta)),
-                    )
-                  }
-                  onSave={(payload) =>
-                    apply(
-                      () => updateAdminPathModule(path.id, module.id, payload),
-                      'Module enregistré',
-                    )
-                  }
-                  onDelete={() => {
-                    const warning =
-                      module.steps.length > 0
-                        ? `Supprimer le module « ${module.title} » et ses ${module.steps.length} étape(s) ? Les fiches sont conservées.`
-                        : `Supprimer le module « ${module.title} » ?`;
-                    if (!window.confirm(warning)) return;
-                    void applyDelete(
-                      () => deleteAdminPathModule(path.id, module.id),
-                      'Module supprimé',
-                    );
-                  }}
-                  onAddStep={(entryId) =>
-                    void apply(
-                      () => addAdminPathStep(path.id, module.id, { entryId }),
-                      'Étape ajoutée',
-                    )
-                  }
-                  onMoveStep={(stepIndex, delta) =>
-                    void apply(() =>
-                      reorderAdminPathSteps(
-                        path.id,
-                        module.id,
-                        moved(
-                          module.steps.map((step) => step.id),
-                          stepIndex,
-                          delta,
-                        ),
-                      ),
-                    )
-                  }
-                  onToggleOptional={(stepId, optional) =>
-                    void apply(() => updateAdminPathStep(path.id, stepId, { optional }))
-                  }
-                  onRemoveStep={(stepId) =>
-                    void applyDelete(() => deleteAdminPathStep(path.id, stepId), 'Étape retirée')
-                  }
-                />
-              </li>
-            ))}
-          </ol>
-        )}
-
-        <AddModuleForm
+      {canHoldSubPaths ? (
+        <SubPathsSection
+          path={path}
           busy={busy}
-          onAdd={(payload) => apply(() => addAdminPathModule(path.id, payload), 'Module ajouté')}
+          onCreate={(payload) =>
+            apply(
+              () =>
+                createAdminSubPath(path.id, {
+                  name: payload.title,
+                  description: payload.description,
+                }),
+              'Sous-parcours créé',
+            )
+          }
+          onAttach={(childId) =>
+            apply(() => attachAdminSubPath(path.id, childId), 'Parcours rattaché')
+          }
+          onMove={(index, delta) =>
+            void apply(() => reorderAdminSubPaths(path.id, moved(subPathIds, index, delta)))
+          }
+          onDetach={async (subPath) => {
+            const warning = subPath.published
+              ? `« ${subPath.name} » est publié : il apparaîtra seul dans la liste des parcours.`
+              : `« ${subPath.name} » redevient un parcours à part entière.`;
+            if (
+              !(await confirm(warning, {
+                title: 'Détacher le sous-parcours ?',
+                confirmLabel: 'Détacher',
+              }))
+            )
+              return;
+            void applyDelete(
+              () => detachAdminSubPath(path.id, subPath.id),
+              'Sous-parcours détaché',
+            );
+          }}
         />
-      </section>
+      ) : null}
+
+      {canHoldModules ? (
+        <section aria-labelledby="path-modules" className="mt-12">
+          <Typo variant="h3" as="h2" id="path-modules" className="mb-4">
+            Modules
+          </Typo>
+
+          {path.modules.length === 0 ? (
+            <EmptyMessage>Aucun module : ajouter un premier module ci-dessous.</EmptyMessage>
+          ) : (
+            <ol className="flex flex-col gap-6">
+              {path.modules.map((module, index) => (
+                <li key={module.id}>
+                  <ModuleCard
+                    module={module}
+                    index={index}
+                    freeAccess={
+                      module.id === freeModuleId(path)
+                        ? path.published
+                          ? 'published'
+                          : 'draft'
+                        : null
+                    }
+                    isFirst={index === 0}
+                    isLast={index === path.modules.length - 1}
+                    busy={busy}
+                    usedEntryIds={usedEntryIds}
+                    onMove={(delta) =>
+                      void apply(() =>
+                        reorderAdminPathModules(path.id, moved(moduleIds, index, delta)),
+                      )
+                    }
+                    onSave={(payload) =>
+                      apply(
+                        () => updateAdminPathModule(path.id, module.id, payload),
+                        'Module enregistré',
+                      )
+                    }
+                    onDelete={async () => {
+                      const warning =
+                        module.steps.length > 0
+                          ? `« ${module.title} » et ses ${module.steps.length} étape(s) seront supprimés. Les fiches sont conservées.`
+                          : `« ${module.title} » sera supprimé.`;
+                      if (
+                        !(await confirm(warning, {
+                          title: 'Supprimer le module ?',
+                          confirmLabel: 'Supprimer',
+                          danger: true,
+                        }))
+                      )
+                        return;
+                      void applyDelete(
+                        () => deleteAdminPathModule(path.id, module.id),
+                        'Module supprimé',
+                      );
+                    }}
+                    onAddStep={(entryId) =>
+                      void apply(
+                        () => addAdminPathStep(path.id, module.id, { entryId }),
+                        'Étape ajoutée',
+                      )
+                    }
+                    onMoveStep={(stepIndex, delta) =>
+                      void apply(() =>
+                        reorderAdminPathSteps(
+                          path.id,
+                          module.id,
+                          moved(
+                            module.steps.map((step) => step.id),
+                            stepIndex,
+                            delta,
+                          ),
+                        ),
+                      )
+                    }
+                    onToggleOptional={(stepId, optional) =>
+                      void apply(() => updateAdminPathStep(path.id, stepId, { optional }))
+                    }
+                    onRemoveStep={(stepId) =>
+                      void applyDelete(() => deleteAdminPathStep(path.id, stepId), 'Étape retirée')
+                    }
+                  />
+                </li>
+              ))}
+            </ol>
+          )}
+
+          <AddModuleForm
+            busy={busy}
+            onAdd={(payload) => apply(() => addAdminPathModule(path.id, payload), 'Module ajouté')}
+          />
+        </section>
+      ) : null}
 
       <section className="border-border mt-12 border-t pt-6">
         <Button type="button" variant="danger-soft" onPress={() => void onDeletePath(path)}>
@@ -366,7 +466,7 @@ function PathMetaForm({ path, busy, onSave }: PathMetaFormProps) {
           <Label>Publié</Label>
         </Checkbox.Content>
       </Checkbox>
-      <Button type="submit" variant="primary" isDisabled={busy}>
+      <Button type="submit" variant="primary" className="cta" isDisabled={busy}>
         Enregistrer
       </Button>
     </Form>
@@ -589,10 +689,22 @@ function MoveButtons({ label, isFirst, isLast, busy, onMove }: MoveButtonsProps)
 type AddModuleFormProps = {
   busy: boolean;
   onAdd: (payload: { title: string; description: string }) => Promise<boolean>;
+  /** Libellés : ceux d'un module par défaut, ceux d'un sous-parcours sinon. */
+  heading?: string;
+  label?: string;
+  placeholder?: string;
+  submitLabel?: string;
 };
 
-/** Ajout d'un module en fin de parcours ; les champs se vident après succès. */
-function AddModuleForm({ busy, onAdd }: AddModuleFormProps) {
+/** Ajout d'un module (ou d'un sous-parcours) en fin de liste ; les champs se vident après succès. */
+function AddModuleForm({
+  busy,
+  onAdd,
+  heading = 'Nouveau module',
+  label = 'Titre',
+  placeholder = 'Les bases du web',
+  submitLabel = 'Ajouter le module',
+}: AddModuleFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
 
@@ -611,7 +723,7 @@ function AddModuleForm({ busy, onAdd }: AddModuleFormProps) {
       }}
     >
       <Typo variant="small" as="p" className="text-foreground font-medium">
-        Nouveau module
+        {heading}
       </Typo>
       <TextField
         isRequired
@@ -621,8 +733,8 @@ function AddModuleForm({ busy, onAdd }: AddModuleFormProps) {
         maxLength={120}
         autoComplete="off"
       >
-        <Label>Titre</Label>
-        <Input placeholder="Les bases du web" />
+        <Label>{label}</Label>
+        <Input placeholder={placeholder} />
         <FieldError />
       </TextField>
       <TextField value={description} onChange={setDescription} maxLength={500}>
@@ -630,8 +742,149 @@ function AddModuleForm({ busy, onAdd }: AddModuleFormProps) {
         <TextArea />
       </TextField>
       <Button type="submit" variant="secondary" className="w-fit" isDisabled={busy}>
-        Ajouter le module
+        {submitLabel}
       </Button>
     </Form>
+  );
+}
+
+type SubPathsSectionProps = {
+  path: AdminPathDetail;
+  busy: boolean;
+  onCreate: (payload: { title: string; description: string }) => Promise<boolean>;
+  onAttach: (childId: string) => Promise<boolean>;
+  onMove: (index: number, delta: -1 | 1) => void;
+  onDetach: (subPath: AdminSubPath) => void;
+};
+
+/**
+ * Sous-parcours d'un parent : liste ordonnée, création, rattachement d'un
+ * parcours existant, détachement. Chaque sous-parcours se compose ensuite sur
+ * sa propre page, comme un parcours ordinaire.
+ */
+function SubPathsSection({
+  path,
+  busy,
+  onCreate,
+  onAttach,
+  onMove,
+  onDetach,
+}: SubPathsSectionProps) {
+  // Rattachables : parcours de premier niveau, sans sous-parcours, autres que
+  // celui-ci. Relu à chaque changement de la liste.
+  const { data: candidates } = useAsyncData(
+    async () =>
+      (await listAllAdminPaths()).filter(
+        (candidate) =>
+          candidate.id !== path.id && candidate.parent === null && candidate.subPathCount === 0,
+      ),
+    [path.id, path.subPaths.map((subPath) => subPath.id).join()],
+    'Impossible de charger les parcours',
+  );
+
+  return (
+    <section aria-labelledby="path-sub-paths" className="mt-12">
+      <Typo variant="h3" as="h2" id="path-sub-paths" className="mb-2">
+        Sous-parcours
+      </Typo>
+      <Typo variant="small" as="p" className="mb-4 max-w-2xl">
+        Pour découper une formation longue. Chaque sous-parcours a ses modules, sa page et son
+        premier module en accès libre. Un parcours contient des modules ou des sous-parcours, pas
+        les deux.
+      </Typo>
+
+      {path.subPaths.length === 0 ? (
+        <EmptyMessage>Aucun sous-parcours.</EmptyMessage>
+      ) : (
+        <ol className="flex flex-col gap-2">
+          {path.subPaths.map((subPath, index) => (
+            <li
+              key={subPath.id}
+              className="border-border flex flex-wrap items-center gap-3 rounded-lg border p-3"
+            >
+              <span className="text-muted w-6 text-sm">{index + 1}.</span>
+              <div className="min-w-0 flex-1">
+                <Link to={`/admin/parcours/${subPath.id}/edit`} className="text-sm font-medium">
+                  {subPath.name}
+                </Link>
+                <Typo variant="caption">
+                  {subPath.moduleCount} module(s) · {subPath.stepCount} étape(s)
+                </Typo>
+              </div>
+              {subPath.published ? null : (
+                <Chip size="sm" variant="soft" color="warning">
+                  Brouillon (masqué)
+                </Chip>
+              )}
+              <MoveButtons
+                label={`le sous-parcours « ${subPath.name} »`}
+                isFirst={index === 0}
+                isLast={index === path.subPaths.length - 1}
+                busy={busy}
+                onMove={(delta) => onMove(index, delta)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                isDisabled={busy}
+                onPress={() => onDetach(subPath)}
+              >
+                Détacher
+              </Button>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="flex flex-wrap items-start gap-6">
+        <AddModuleForm
+          busy={busy}
+          onAdd={onCreate}
+          heading="Nouveau sous-parcours"
+          label="Nom"
+          placeholder="Réseaux"
+          submitLabel="Créer le sous-parcours"
+        />
+        <Form
+          className="border-border mt-6 flex max-w-md flex-col gap-3 rounded-xl border border-dashed p-4"
+          validationBehavior="aria"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const childId = String(new FormData(event.currentTarget).get('childId') ?? '');
+            if (childId) void onAttach(childId);
+          }}
+        >
+          <Typo variant="small" as="p" className="text-foreground font-medium">
+            Rattacher un parcours existant
+          </Typo>
+          {candidates && candidates.length > 0 ? (
+            <>
+              <AdminSelect
+                // Remonté après chaque rattachement : le choix repart à vide.
+                key={path.subPaths.length}
+                name="childId"
+                label="Parcours"
+                isRequired
+                placeholder="Choisir un parcours"
+                items={candidates.map((candidate) => ({
+                  id: candidate.id,
+                  label: adminPathLabel(candidate),
+                }))}
+              />
+              <Button type="submit" variant="secondary" className="w-fit" isDisabled={busy}>
+                Rattacher
+              </Button>
+            </>
+          ) : (
+            <Typo variant="small" as="p">
+              {candidates
+                ? 'Aucun parcours à rattacher : seul un parcours sans parent ni sous-parcours peut l’être.'
+                : 'Chargement des parcours…'}
+            </Typo>
+          )}
+        </Form>
+      </div>
+    </section>
   );
 }
