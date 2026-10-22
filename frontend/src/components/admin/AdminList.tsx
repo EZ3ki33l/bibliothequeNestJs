@@ -1,7 +1,16 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Link } from 'react-router';
-import { Button, Skeleton } from '@heroui/react';
+import { Link, useNavigate } from 'react-router';
+import { Button, Dropdown, Label, Skeleton, buttonVariants } from '@heroui/react';
+import { DotsThreeIcon } from '@phosphor-icons/react';
 import { Typo } from '../ui/Typo';
+
+/** Action propre à la ressource, placée dans le menu « … » avant « Modifier ». */
+export type AdminRowAction = {
+  id: string;
+  label: string;
+  onAction: () => void;
+  isDisabled?: boolean;
+};
 
 type AdminListRowProps = {
   icon: ComponentType<{ className?: string }>;
@@ -9,43 +18,81 @@ type AdminListRowProps = {
   subtitle: ReactNode;
   editTo: string;
   onDelete: () => void;
-  /** Actions propres à la ressource, placées avant « Modifier » (ex. publier). */
-  actions?: ReactNode;
+  /** Mentions affichées sur la ligne (état, laboratoire) : à lire, pas à cliquer. */
+  badges?: ReactNode;
+  /** Actions ajoutées au menu « … » (ex. publier, dupliquer). */
+  menuActions?: AdminRowAction[];
   /** Case de sélection en tête de ligne (actions en masse). */
   selection?: ReactNode;
 };
 
+/**
+ * Ligne d'une liste d'administration. Les actions sont regroupées dans un menu
+ * « … » : une rangée de boutons répétée sur chaque ligne noie le titre. Le titre
+ * lui-même ouvre le formulaire, le geste le plus fréquent.
+ */
 export function AdminListRow({
   icon: Icon,
   title,
   subtitle,
   editTo,
   onDelete,
-  actions,
+  badges,
+  menuActions = [],
   selection,
 }: AdminListRowProps) {
+  const navigate = useNavigate();
+  const actions = new Map<string, () => void>([
+    ...menuActions.map((action) => [action.id, action.onAction] as const),
+    ['edit', () => void navigate(editTo)],
+    ['delete', onDelete],
+  ]);
+
   return (
-    // `flex-wrap` : sur un écran étroit, les actions passent sous le titre
-    // plutôt que de l'écraser.
-    <li className="border-border flex flex-wrap items-center gap-3 rounded-xl border px-3 py-2.5">
+    <li className="border-border flex items-center gap-3 rounded-xl border px-3 py-2.5">
       {selection}
       <Icon className="text-muted size-4 shrink-0" />
       <div className="min-w-0 flex-1">
-        <Typo variant="p" className="font-medium">
+        <Link
+          to={editTo}
+          className="text-foreground hover:text-blueberry-light block truncate font-medium no-underline transition-colors duration-150"
+        >
           {title}
+        </Link>
+        <Typo variant="caption" className="block truncate">
+          {subtitle}
         </Typo>
-        <Typo variant="caption">{subtitle}</Typo>
       </div>
-      {actions}
-      <Link
-        to={editTo}
-        className="text-muted hover:text-foreground text-sm no-underline transition-colors duration-150"
-      >
-        Modifier
-      </Link>
-      <Button type="button" variant="danger-soft" size="sm" onPress={onDelete}>
-        Supprimer
-      </Button>
+      {badges ? <div className="flex shrink-0 items-center gap-2">{badges}</div> : null}
+      <Dropdown>
+        <Dropdown.Trigger
+          aria-label={`Actions pour « ${title} »`}
+          className={buttonVariants({ variant: 'ghost', size: 'sm', isIconOnly: true })}
+        >
+          <DotsThreeIcon weight="bold" className="size-5" />
+        </Dropdown.Trigger>
+        <Dropdown.Popover placement="bottom end">
+          <Dropdown.Menu
+            aria-label={`Actions pour « ${title} »`}
+            disabledKeys={menuActions
+              .filter((action) => action.isDisabled)
+              .map((action) => action.id)}
+            onAction={(key) => actions.get(String(key))?.()}
+          >
+            {menuActions.map((action) => (
+              <Dropdown.Item key={action.id} id={action.id} textValue={action.label}>
+                <Label>{action.label}</Label>
+              </Dropdown.Item>
+            ))}
+            <Dropdown.Item id="edit" textValue="Modifier">
+              <Label>Modifier</Label>
+            </Dropdown.Item>
+            <Dropdown.Item id="delete" textValue="Supprimer" className="text-cherry-light">
+              <Label className="text-cherry-light">Supprimer</Label>
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown>
     </li>
   );
 }
