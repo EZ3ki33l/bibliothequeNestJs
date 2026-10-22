@@ -388,7 +388,10 @@ export function EntryPage() {
           className="text-muted hover:text-foreground flex w-fit items-center gap-1.5 text-sm no-underline transition-colors duration-150"
         >
           <ArrowLeftIcon className="size-4" />
-          Retour au parcours
+          {/* Un sous-parcours se nomme avec son parent : « TSSR › Réseaux ». */}
+          {path
+            ? `Retour au parcours ${path.parent ? `${path.parent.name} › ` : ''}${path.name}`
+            : 'Retour au parcours'}
         </Link>
       ) : null}
       <Breadcrumbs

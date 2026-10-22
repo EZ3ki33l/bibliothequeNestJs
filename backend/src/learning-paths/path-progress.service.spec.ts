@@ -27,6 +27,9 @@ function publicPath() {
         ],
       },
     ],
+    parent: null,
+    nextSubPath: null,
+    subPaths: [] as { id: string }[],
   };
 }
 
@@ -144,7 +147,60 @@ describe('PathProgressService', () => {
         modules: [{ moduleId: 'm1', required: 2, validatedRequired: 1 }],
         nextStepId: 's1',
         completed: false,
+        subPaths: [],
       });
+      // Pas de sous-parcours : aucune lecture de plus.
+      expect(prisma.learningPath.findMany).not.toHaveBeenCalled();
+    });
+
+    it('gives a parent the progress of each visible sub-path and their total', async () => {
+      learningPaths.findPublishedBySlug.mockResolvedValue({
+        ...publicPath(),
+        modules: [],
+        subPaths: [{ id: 'c1' }, { id: 'c2' }],
+      });
+      const step = (id: string, entryId: string) => ({
+        id,
+        entryId,
+        optional: false,
+        entry: { slug: `slug-${entryId}`, title: `Titre ${entryId}` },
+      });
+      prisma.learningPath.findMany.mockResolvedValue([
+        {
+          id: 'c1',
+          slug: 'reseaux',
+          modules: [{ id: 'm1', steps: [step('s1', 'e1'), step('s2', 'e2')] }],
+        },
+        { id: 'c2', slug: 'linux', modules: [{ id: 'm2', steps: [step('s3', 'e1')] }] },
+      ]);
+      prisma.quizAttempt.findMany.mockResolvedValue([{ entryId: 'e1' }]);
+
+      const result = await service.findForPath(userId, 'tssr');
+
+      expect(prisma.learningPath.findMany.mock.calls[0][0].where).toEqual({
+        parentId: 'path-1',
+        published: true,
+      });
+      expect(result.subPaths).toEqual([
+        {
+          pathId: 'c1',
+          slug: 'reseaux',
+          required: 2,
+          validatedRequired: 1,
+          completed: false,
+          nextStep: { entrySlug: 'slug-e2', title: 'Titre e2' },
+        },
+        {
+          pathId: 'c2',
+          slug: 'linux',
+          required: 1,
+          validatedRequired: 1,
+          completed: true,
+          nextStep: null,
+        },
+      ]);
+      // Une fiche présente dans deux sous-parcours compte dans chacun.
+      expect(result).toMatchObject({ required: 3, validatedRequired: 2, completed: false });
     });
 
     it('propagates the 404 of a draft or unknown path', async () => {
@@ -165,7 +221,8 @@ describe('PathProgressService', () => {
       await service.findPage(userId, 2, 10);
 
       const call = prisma.learningPath.findMany.mock.calls[0][0];
-      expect(call.where).toEqual({ published: true });
+      expect(call.where).toEqual({ published: true, parentId: null });
+      expect(call.select.children.where).toEqual({ published: true });
       expect(call.orderBy).toEqual([{ position: 'asc' }, { name: 'asc' }]);
       expect(call.skip).toBe(10);
       expect(call.take).toBe(10);
@@ -177,6 +234,7 @@ describe('PathProgressService', () => {
         {
           id: 'p1',
           modules: [{ id: 'm1', steps: [{ id: 's1', entryId: 'e1', optional: false }] }],
+          children: [],
         },
         {
           id: 'p2',
@@ -189,6 +247,16 @@ describe('PathProgressService', () => {
               ],
             },
           ],
+          children: [],
+        },
+        {
+          // Un parent : le total de ses sous-parcours.
+          id: 'p3',
+          modules: [],
+          children: [
+            { modules: [{ id: 'm3', steps: [{ id: 's4', entryId: 'e1', optional: false }] }] },
+            { modules: [{ id: 'm4', steps: [{ id: 's5', entryId: 'e3', optional: false }] }] },
+          ],
         },
       ]);
       prisma.learningPath.count.mockResolvedValue(2);
@@ -199,12 +267,13 @@ describe('PathProgressService', () => {
       expect(prisma.quizAttempt.findMany).toHaveBeenCalledTimes(1);
       // Une même fiche dans deux parcours n'est cherchée qu'une fois.
       expect(prisma.quizAttempt.findMany.mock.calls[0][0].where.entryId).toEqual({
-        in: ['e1', 'e2'],
+        in: ['e1', 'e2', 'e3'],
       });
       expect(result).toEqual({
         items: [
           { pathId: 'p1', required: 1, validatedRequired: 1, completed: true },
           { pathId: 'p2', required: 2, validatedRequired: 1, completed: false },
+          { pathId: 'p3', required: 2, validatedRequired: 1, completed: false },
         ],
         total: 2,
         page: 1,
@@ -254,6 +323,8 @@ describe('PathProgressService', () => {
       const call = prisma.learningPath.findMany.mock.calls[0][0];
       expect(call.where).toEqual({
         published: true,
+        // Un sous-parcours d'un parent brouillon n'est pas visible.
+        OR: [{ parentId: null }, { parent: { published: true } }],
         steps: {
           some: {
             entry: {
@@ -269,6 +340,18 @@ describe('PathProgressService', () => {
       });
       // Une étape dont la fiche est dépubliée ne sort pas.
       expect(call.select.modules.select.steps.where).toEqual({ entry: { published: true } });
+      expect(call.select.parent).toEqual({ select: { name: true, slug: true } });
+    });
+
+    it('names the parent of a started sub-path', async () => {
+      prisma.learningPath.findMany.mockResolvedValue([
+        { ...startedPath('reseaux', ['e1', 'e2']), parent: { name: 'TSSR', slug: 'tssr' } },
+      ]);
+      prisma.entryRead.findMany.mockResolvedValue([{ entryId: 'e1', lastReadAt: day(3) }]);
+
+      const result = await service.findStarted(userId);
+
+      expect(result.items[0].parent).toEqual({ name: 'TSSR', slug: 'tssr' });
     });
 
     it('describes a path started by a read alone, with its next step', async () => {

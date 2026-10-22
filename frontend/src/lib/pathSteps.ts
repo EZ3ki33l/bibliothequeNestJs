@@ -1,4 +1,4 @@
-import type { PathDetail, PathEntry } from './learningPaths';
+import type { PathDetail, PathEntry, PathLink } from './learningPaths';
 
 /**
  * Étapes voisines d'une fiche dans un parcours.
@@ -14,6 +14,8 @@ export type AdjacentSteps = {
   previous: PathEntry | null;
   /** `null` : la fiche est la dernière étape du parcours. */
   next: PathEntry | null;
+  /** Sur la dernière étape d'un sous-parcours : le sous-parcours suivant, s'il existe. */
+  nextSubPath: PathLink | null;
 };
 
 /**
@@ -39,8 +41,11 @@ export function adjacentSteps(
     return null;
   }
 
+  const next = entries[index + 1] ?? null;
+
   return {
     previous: entries[index - 1] ?? null,
-    next: entries[index + 1] ?? null,
+    next,
+    nextSubPath: next === null ? path.nextSubPath : null,
   };
 }

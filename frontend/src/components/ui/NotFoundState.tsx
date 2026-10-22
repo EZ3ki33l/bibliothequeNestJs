@@ -30,7 +30,7 @@ export function NotFoundState({ message, listLink }: NotFoundStateProps) {
         {listLink ? (
           <Link
             to={listLink.to}
-            className={`${buttonVariants({ variant: 'primary', size: 'sm' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary', size: 'sm' })} cta no-underline`}
           >
             {listLink.label}
           </Link>

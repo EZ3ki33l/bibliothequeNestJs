@@ -24,6 +24,7 @@ import {
   publicationQuestion,
 } from '../../lib/entryChecks';
 import type { EntryImageAdmin } from '../../lib/entryImages';
+import { useConfirm } from '../../lib/confirm';
 import { todayAsDay, type EntrySource } from '../../lib/entrySources';
 import { DIFFICULTY_LABEL, KIND_LABEL } from '../../lib/labels';
 import {
@@ -178,6 +179,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
   const { mode, onSuccess } = props;
   const isEdit = mode === 'edit';
   const initial = initialValues(props);
+  const confirm = useConfirm();
   const { error, pending, setError, submit } = useAdminSubmit({
     success: isEdit ? 'Fiche enregistrée' : 'Fiche créée',
     failure: isEdit ? 'Impossible de modifier la fiche' : 'Impossible de créer la fiche',
@@ -293,7 +295,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
     setView('preview');
   }
 
-  function handleSubmit(form: HTMLFormElement) {
+  async function handleSubmit(form: HTMLFormElement) {
     // Un échec précédent a ramené l'affichage en édition sans modifier `view`.
     // Il faut l'acter avant d'envoyer : `submit` efface l'erreur, et l'ancien
     // aperçu, pris avant les corrections, reviendrait à l'écran.
@@ -330,7 +332,10 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
       });
       if (
         needsPublicationQuestion(gaps, fields.lab !== null) &&
-        !window.confirm(publicationQuestion(gaps, fields.lab !== null))
+        !(await confirm(publicationQuestion(gaps, fields.lab !== null), {
+          title: 'Publier la fiche ?',
+          confirmLabel: 'Publier',
+        }))
       ) {
         return;
       }
@@ -422,7 +427,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
         validationBehavior="aria"
         onSubmit={(event) => {
           event.preventDefault();
-          handleSubmit(event.currentTarget);
+          void handleSubmit(event.currentTarget);
         }}
       >
         {props.mode === 'create' ? (
@@ -628,7 +633,7 @@ export function AdminEntryForm(props: AdminEntryFormProps) {
         type="submit"
         form={formId}
         variant="primary"
-        className="self-start"
+        className="cta self-start"
         isDisabled={pending}
       >
         {pending

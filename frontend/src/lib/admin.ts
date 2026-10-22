@@ -283,7 +283,9 @@ async function remove(resource: ResourceLabels, id: string): Promise<void> {
     return;
   }
 
-  if (response.status === 403) {
+  // 403 (droits) et 409 (ex. parcours qui a encore des sous-parcours) : le
+  // serveur explique, son message est affiché tel quel.
+  if (response.status === 403 || response.status === 409) {
     throw new AdminRefusedError(await messageFromNest(response));
   }
 
@@ -633,9 +635,27 @@ export type AdminPathListItem = {
   slug: string;
   published: boolean;
   position: number;
+  /** Parent d'un sous-parcours ; `null` pour un parcours de premier niveau. */
+  parent: { id: string; name: string } | null;
+  moduleCount: number;
+  stepCount: number;
+  subPathCount: number;
+};
+
+/** Sous-parcours tel que l'éditeur de son parent le liste. */
+export type AdminSubPath = {
+  id: string;
+  name: string;
+  slug: string;
+  published: boolean;
   moduleCount: number;
   stepCount: number;
 };
+
+/** Nom d'un parcours dans une liste de choix : « parent › sous-parcours ». */
+export function adminPathLabel(path: Pick<AdminPathListItem, 'name' | 'parent'>): string {
+  return path.parent ? `${path.parent.name} › ${path.name}` : path.name;
+}
 
 export type AdminPathStep = {
   id: string;
@@ -668,6 +688,9 @@ export type AdminPathDetail = {
   slug: string;
   description: string;
   published: boolean;
+  parent: { id: string; name: string; slug: string; published: boolean } | null;
+  /** Un parcours a des modules **ou** des sous-parcours, jamais les deux. */
+  subPaths: AdminSubPath[];
   modules: AdminPathModule[];
 };
 
@@ -770,6 +793,53 @@ export function updateAdminPath(
 
 export function deleteAdminPath(id: string): Promise<void> {
   return remove(PATHS, id);
+}
+
+/** Crée un sous-parcours brouillon, placé après les autres. */
+export function createAdminSubPath(
+  parentId: string,
+  payload: { name: string; description?: string },
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'POST',
+    `${pathUrl(parentId)}/sub-paths`,
+    withoutEmptyFields(payload),
+    'Impossible de créer le sous-parcours',
+  );
+}
+
+/** Rattache un parcours existant (sans parent ni sous-parcours). */
+export function attachAdminSubPath(
+  parentId: string,
+  childId: string,
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'PUT',
+    `${pathUrl(parentId)}/sub-paths/${childId}`,
+    {},
+    'Impossible de rattacher le parcours',
+  );
+}
+
+/** Détache un sous-parcours : il redevient un parcours de premier niveau. */
+export function detachAdminSubPath(parentId: string, childId: string): Promise<void> {
+  return removePathPart(
+    `${pathUrl(parentId)}/sub-paths/${childId}`,
+    'Impossible de détacher le sous-parcours',
+  );
+}
+
+/** Ordre **complet** des sous-parcours (409 si la liste est devenue obsolète). */
+export function reorderAdminSubPaths(
+  parentId: string,
+  pathIds: string[],
+): Promise<AdminPathWriteResult> {
+  return writePath(
+    'PUT',
+    `${pathUrl(parentId)}/sub-paths/order`,
+    { pathIds },
+    'Impossible de réordonner les sous-parcours',
+  );
 }
 
 export function addAdminPathModule(

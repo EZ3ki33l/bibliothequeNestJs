@@ -81,6 +81,21 @@ export function examExits({ passed, entrySlug, pathSlug, steps }: ExamExitsInput
     ];
   }
 
+  // Dernière étape d'un sous-parcours : le suivant prend la place de l'étape suivante.
+  if (steps.nextSubPath) {
+    return [
+      {
+        kind: 'next',
+        to: `/parcours/${encodeURIComponent(steps.nextSubPath.slug)}`,
+        label: `Sous-parcours suivant : ${steps.nextSubPath.name}`,
+        primary: true,
+      },
+      path(false),
+      entry(false),
+      retry(false),
+    ];
+  }
+
   return [path(true), entry(false), retry(false)];
 }
 

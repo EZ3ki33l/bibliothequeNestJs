@@ -74,17 +74,49 @@ const DEMO_PATH = {
   ],
 };
 
-async function upsertDemoPath() {
-  const data = { name: DEMO_PATH.name, description: DEMO_PATH.description, published: true };
+type DemoPath = {
+  slug: string;
+  name: string;
+  description: string;
+  modules: typeof DEMO_PATH.modules;
+};
+
+/**
+ * Parent de démonstration (spec 019) : les deux modules du parcours ci-dessus,
+ * découpés en deux sous-parcours. Une fiche peut figurer à la fois dans un
+ * parcours et dans un sous-parcours.
+ */
+const DEMO_PARENT = {
+  slug: 'hooks-react-en-deux-temps',
+  name: 'Hooks React en deux temps',
+  description: 'Le même programme, découpé en sous-parcours : d’abord les états, puis les effets.',
+  children: DEMO_PATH.modules.map((module, index) => ({
+    slug: ['hooks-react-etats-locaux', 'hooks-react-effets-et-optimisation'][index],
+    name: `Hooks React : ${module.title}`,
+    description: module.description,
+    modules: [module],
+  })),
+};
+
+async function upsertDemoPath(
+  demo: DemoPath,
+  placement: { position: number; parentId: string | null },
+) {
+  const data = {
+    name: demo.name,
+    description: demo.description,
+    published: true,
+    parentId: placement.parentId,
+  };
   const path = await prisma.learningPath.upsert({
-    where: { slug: DEMO_PATH.slug },
+    where: { slug: demo.slug },
     update: data,
-    create: { ...data, slug: DEMO_PATH.slug, position: 0 },
+    create: { ...data, slug: demo.slug, position: placement.position },
   });
 
   await prisma.pathModule.deleteMany({ where: { pathId: path.id } });
 
-  for (const [moduleIndex, module] of DEMO_PATH.modules.entries()) {
+  for (const [moduleIndex, module] of demo.modules.entries()) {
     const created = await prisma.pathModule.create({
       data: {
         pathId: path.id,
@@ -106,6 +138,20 @@ async function upsertDemoPath() {
         },
       });
     }
+  }
+
+  return path;
+}
+
+async function upsertDemoPaths() {
+  await upsertDemoPath(DEMO_PATH, { position: 0, parentId: null });
+
+  const parent = await upsertDemoPath(
+    { ...DEMO_PARENT, modules: [] },
+    { position: 1, parentId: null },
+  );
+  for (const [index, child] of DEMO_PARENT.children.entries()) {
+    await upsertDemoPath(child, { position: index, parentId: parent.id });
   }
 }
 
@@ -145,7 +191,7 @@ async function main() {
     await upsertHookEntry(category.id, entry);
   }
 
-  await upsertDemoPath();
+  await upsertDemoPaths();
 
   const email = process.env.ADMIN_EMAIL;
   if (!email) {
@@ -166,7 +212,7 @@ async function main() {
     }
   }
   console.log(
-    `SEED OK : stack React / catégorie Hooks / ${HOOK_ENTRIES.length} fiches (hooks de base) / parcours « ${DEMO_PATH.name} »`,
+    `SEED OK : stack React / catégorie Hooks / ${HOOK_ENTRIES.length} fiches (hooks de base) / parcours « ${DEMO_PATH.name} » et « ${DEMO_PARENT.name} » (2 sous-parcours)`,
   );
 }
 

@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Button, Dropdown, Label, Skeleton, buttonVariants } from '@heroui/react';
+import { Button, Dropdown, Label, Skeleton } from '@heroui/react';
 import { DotsThreeIcon } from '@phosphor-icons/react';
 import { Typo } from '../ui/Typo';
 
@@ -65,12 +65,11 @@ export function AdminListRow({
       </div>
       {badges ? <div className="flex shrink-0 items-center gap-2">{badges}</div> : null}
       <Dropdown>
-        <Dropdown.Trigger
-          aria-label={`Actions pour « ${title} »`}
-          className={buttonVariants({ variant: 'ghost', size: 'sm', isIconOnly: true })}
-        >
+        {/* Un `Button` direct, comme le menu des actions en masse : `Dropdown.Trigger`
+            impose `inline-block`, qui décentre l'icône. */}
+        <Button variant="ghost" size="sm" isIconOnly aria-label={`Actions pour « ${title} »`}>
           <DotsThreeIcon weight="bold" className="size-5" />
-        </Dropdown.Trigger>
+        </Button>
         <Dropdown.Popover placement="bottom end">
           <Dropdown.Menu
             aria-label={`Actions pour « ${title} »`}

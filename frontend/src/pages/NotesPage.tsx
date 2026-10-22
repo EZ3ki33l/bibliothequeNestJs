@@ -4,7 +4,10 @@ import { Button, Skeleton } from '@heroui/react';
 import { getMe } from '../lib/auth';
 import { deleteNote, listNotes, saveNote, type NotesPage as NotesPageData } from '../lib/notes';
 import { useAsyncData } from '../lib/useAsyncData';
+import { useConfirm } from '../lib/confirm';
 import { useLoginRedirect } from '../lib/useLoginRedirect';
+import { NotePencilIcon } from '@phosphor-icons/react';
+import { CtaLink } from '../components/ui/CtaLink';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { NoteCard } from '../components/notes/NoteCard';
@@ -31,6 +34,7 @@ type NoteFailure = { entryId: string; message: string };
  */
 export function NotesPage() {
   const redirectToLogin = useLoginRedirect();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   // Une seule note en modification à la fois : en ouvrir une autre demande
@@ -129,9 +133,11 @@ export function NotesPage() {
 
     // Une note supprimée ne se récupère pas : la confirmation nomme la fiche.
     if (
-      !window.confirm(
-        `Supprimer la note sur « ${entryTitle} » ? Elle ne pourra pas être récupérée.`,
-      )
+      !(await confirm(`La note sur « ${entryTitle} » ne pourra pas être récupérée.`, {
+        title: 'Supprimer la note ?',
+        confirmLabel: 'Supprimer',
+        danger: true,
+      }))
     ) {
       return;
     }
@@ -174,10 +180,14 @@ export function NotesPage() {
 
   return (
     <>
-      <PageHeader title="Notes" description="Notes personnelles écrites sur des fiches publiées." />
+      <PageHeader
+        title="Notes"
+        description="Notes personnelles écrites sur des fiches publiées."
+        action={<CtaLink to="/stacks">Parcourir les leçons</CtaLink>}
+      />
 
       {data.items.length === 0 ? (
-        <EmptyMessage>
+        <EmptyMessage icon={NotePencilIcon}>
           Aucune note pour le moment. Une note s’écrit en bas d’une fiche, puis se retrouve ici.
         </EmptyMessage>
       ) : (

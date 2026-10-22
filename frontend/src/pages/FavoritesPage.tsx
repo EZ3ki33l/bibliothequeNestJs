@@ -9,6 +9,8 @@ import {
 } from '../lib/favorites';
 import { useAsyncData } from '../lib/useAsyncData';
 import { useLoginRedirect } from '../lib/useLoginRedirect';
+import { HeartIcon as PhosphorHeartIcon } from '@phosphor-icons/react';
+import { CtaLink } from '../components/ui/CtaLink';
 import { EmptyMessage } from '../components/ui/EmptyMessage';
 import { ErrorMessage } from '../components/ui/ErrorMessage';
 import { EntryCard } from '../components/ui/EntryCard';
@@ -107,7 +109,7 @@ export function FavoritesPage() {
     return (
       <div className="card-grid grid gap-4">
         {[0, 1, 2, 3].map((index) => (
-          <Skeleton key={index} className="h-32 rounded-xl" />
+          <Skeleton key={index} className="h-56 rounded-3xl" />
         ))}
       </div>
     );
@@ -115,18 +117,24 @@ export function FavoritesPage() {
 
   return (
     <>
-      <PageHeader title="Favoris" description="Fiches publiées mises de côté sur ce compte." />
+      <PageHeader
+        title="Favoris"
+        description="Fiches publiées mises de côté sur ce compte."
+        action={<CtaLink to="/stacks">Parcourir les leçons</CtaLink>}
+      />
 
       {removeError ? <ErrorMessage>{removeError}</ErrorMessage> : null}
 
       {data.items.length === 0 ? (
-        <EmptyMessage>Aucun favori pour le moment.</EmptyMessage>
+        <EmptyMessage icon={PhosphorHeartIcon}>
+          Aucun favori pour le moment. Le cœur en tête d’une fiche la met de côté ici.
+        </EmptyMessage>
       ) : (
         <>
           <ul className="card-grid grid gap-4">
             {data.items.map((favorite) => (
               <li key={favorite.id} className="relative">
-                <EntryCard entry={favorite.entry} access={accessOf(favorite.entry.id)} />
+                <EntryCard cover entry={favorite.entry} access={accessOf(favorite.entry.id)} />
                 {/* Frère du `<Link>` de la carte, pas un enfant : un bouton ne
                     peut pas être imbriqué dans un lien (HTML), et un clic
                     dessus ne doit de toute façon pas naviguer vers la fiche. */}

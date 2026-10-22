@@ -1,9 +1,15 @@
 import { useId, useState } from 'react';
-import { Button } from '@heroui/react';
+import { Link } from 'react-router';
+import { Button, Card } from '@heroui/react';
+import { NotePencilIcon } from '@phosphor-icons/react';
 import { MAX_NOTE_LENGTH, type NoteItem } from '../../lib/notes';
-import { EntryCard } from '../ui/EntryCard';
+import { EntryMarkers } from '../ui/EntryMarkers';
+import { EntryMeta } from '../ui/EntryMeta';
 import { ErrorMessage } from '../ui/ErrorMessage';
+import { IconTile } from '../ui/IconTile';
 import { Typo } from '../ui/Typo';
+
+const UPDATED_AT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' });
 
 type NoteCardProps = {
   note: NoteItem;
@@ -33,8 +39,9 @@ function isLong(content: string): boolean {
 }
 
 /**
- * Une note de la page « Notes » : la fiche concernée, le texte **entier**, et
- * sa modification sur place.
+ * Une note de la page « Notes », dans une seule carte : la fiche concernée en
+ * tête (lien), le texte **entier** en citation, puis sa date et ses actions.
+ * La modification se fait sur place, dans la même carte.
  *
  * Composant de présentation : il n'appelle pas l'API. La page décide quelle
  * note est en modification (une seule à la fois) et fait l'enregistrement.
@@ -60,8 +67,25 @@ export function NoteCard({
   const long = isLong(note.content);
 
   return (
-    <article className="flex flex-col gap-3">
-      <EntryCard entry={note.entry} access={access} />
+    <Card className="h-full gap-4">
+      <div className="flex items-start gap-3">
+        <IconTile icon={NotePencilIcon} />
+        <Card.Header className="min-w-0 flex-1 gap-1">
+          <Typo variant="caption">Note sur la fiche</Typo>
+          <Card.Title className="text-base">
+            <Link
+              to={`/entries/${note.entry.slug}`}
+              className="text-foreground hover:text-blueberry-light no-underline transition-colors duration-150"
+            >
+              {note.entry.title}
+            </Link>
+          </Card.Title>
+          <div className="flex flex-wrap items-center gap-2">
+            <EntryMeta kind={note.entry.kind} difficulty={note.entry.difficulty} />
+            <EntryMarkers access={access} />
+          </div>
+        </Card.Header>
+      </div>
 
       {editing ? (
         // Monté seulement pendant la modification : son brouillon repart du
@@ -81,14 +105,17 @@ export function NoteCard({
           <Typo
             variant="p"
             id={contentId}
-            className={`wrap-break-word whitespace-pre-wrap ${
+            className={`border-blueberry-light/60 border-l-2 pl-3 wrap-break-word whitespace-pre-wrap ${
               long && !expanded ? 'line-clamp-5' : ''
             }`}
           >
             {note.content}
           </Typo>
           {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <Card.Footer className="border-border mt-auto flex flex-wrap items-center gap-2 border-t pt-3">
+            <Typo variant="caption" className="mr-auto">
+              Modifiée le {UPDATED_AT.format(new Date(note.updatedAt))}
+            </Typo>
             {long ? (
               <Button
                 type="button"
@@ -119,12 +146,12 @@ export function NoteCard({
               aria-label={`Supprimer la note sur ${note.entry.title}`}
               onPress={onRemove}
             >
-              Supprimer la note
+              Supprimer
             </Button>
-          </div>
+          </Card.Footer>
         </>
       )}
-    </article>
+    </Card>
   );
 }
 

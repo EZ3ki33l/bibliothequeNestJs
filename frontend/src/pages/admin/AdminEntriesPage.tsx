@@ -21,6 +21,7 @@ import {
   listAllAdminEntries,
   listAllAdminCategories,
   listAllAdminPaths,
+  adminPathLabel,
   listAllAdminStacks,
   setAdminEntryPublished,
   type AdminEntriesFilters,
@@ -34,6 +35,7 @@ import {
 import { KIND_LABEL } from '../../lib/labels';
 import { jsonToStringRecord } from '../../lib/stacks';
 import { useAsyncData } from '../../lib/useAsyncData';
+import { useConfirm } from '../../lib/confirm';
 import { useAdminResourceList } from '../../components/admin/useAdminResourceList';
 import { AdminListRow, AdminListSkeleton, AdminPagination } from '../../components/admin/AdminList';
 import { AdminSelect } from '../../components/admin/AdminSelect';
@@ -79,6 +81,7 @@ async function loadFilterOptions() {
 export function AdminEntriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const q = searchParams.get('q')?.trim() ?? '';
   const status = readStatus(searchParams.get('status'));
   const stackId = searchParams.get('stack') ?? '';
@@ -143,12 +146,24 @@ export function AdminEntriesPage() {
     if (targets.length === 0 || bulkBusy) return;
 
     const count = `${targets.length} ${targets.length > 1 ? 'fiches' : 'fiche'}`;
-    const question = {
-      publish: `Publier ${count} ? Le contenu de chaque fiche n’est pas revérifié (résumé, sources, images).`,
-      unpublish: `Dépublier ${count} ? Elles ne seront plus visibles dans le catalogue ni dans les parcours.`,
-      delete: `Supprimer ${count} ? Lectures, quiz, favoris et notes des lecteurs sur ces fiches sont supprimés aussi, et elles sont retirées des parcours. Cette action est définitive.`,
+    const [title, message, confirmLabel] = {
+      publish: [
+        `Publier ${count} ?`,
+        'Le contenu de chaque fiche n’est pas revérifié (résumé, sources, images).',
+        'Publier',
+      ],
+      unpublish: [
+        `Dépublier ${count} ?`,
+        'Elles ne seront plus visibles dans le catalogue ni dans les parcours.',
+        'Dépublier',
+      ],
+      delete: [
+        `Supprimer ${count} ?`,
+        'Lectures, quiz, favoris et notes des lecteurs sur ces fiches sont supprimés aussi, et elles sont retirées des parcours. Cette action est définitive.',
+        'Supprimer',
+      ],
     }[action];
-    if (!window.confirm(question)) return;
+    if (!(await confirm(message, { title, confirmLabel, danger: action === 'delete' }))) return;
 
     setBulkBusy(true);
     let failed = 0;
@@ -234,9 +249,10 @@ export function AdminEntriesPage() {
 
     if (
       entry.published &&
-      !window.confirm(
-        `Dépublier « ${entry.title} » ? La fiche ne sera plus visible dans le catalogue ni dans les parcours.`,
-      )
+      !(await confirm(
+        `« ${entry.title} » ne sera plus visible dans le catalogue ni dans les parcours.`,
+        { title: 'Dépublier la fiche ?', confirmLabel: 'Dépublier' },
+      ))
     ) {
       return;
     }
@@ -266,7 +282,10 @@ export function AdminEntriesPage() {
         const hasLab = detail.lab !== null;
         if (
           needsPublicationQuestion(gaps, hasLab) &&
-          !window.confirm(`« ${entry.title} »\n\n${publicationQuestion(gaps, hasLab)}`)
+          !(await confirm(`« ${entry.title} »\n\n${publicationQuestion(gaps, hasLab)}`, {
+            title: 'Publier la fiche ?',
+            confirmLabel: 'Publier',
+          }))
         ) {
           return;
         }
@@ -307,7 +326,7 @@ export function AdminEntriesPage() {
         action={
           <Link
             to="/admin/entries/new"
-            className={`${buttonVariants({ variant: 'primary' })} no-underline`}
+            className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}
           >
             Nouvelle fiche
           </Link>
@@ -362,7 +381,7 @@ export function AdminEntriesPage() {
           label="Parcours"
           items={[
             { id: '', label: 'Tous les parcours' },
-            ...(options?.paths ?? []).map((path) => ({ id: path.id, label: path.name })),
+            ...(options?.paths ?? []).map((path) => ({ id: path.id, label: adminPathLabel(path) })),
           ]}
           defaultValue={pathId}
         />

@@ -5,10 +5,30 @@ import { computePathProgress, type ProgressModule } from '../common/path-progres
 import { lastActivity, rankStartedPaths } from '../common/started-paths';
 import {
   LearningPathsService,
+  LISTED_PATHS_WHERE,
   PUBLISHED_PATHS_ORDER,
   PUBLISHED_PATHS_WHERE,
   VISIBLE_STEP_WHERE,
+  VISIBLE_SUB_PATH_WHERE,
 } from './learning-paths.service';
+
+/** Modules d'un parcours tels que la progression les lit : étapes visibles, dans l'ordre. */
+const PROGRESS_MODULES_SELECT = {
+  orderBy: { position: 'asc' },
+  select: {
+    id: true,
+    steps: {
+      where: VISIBLE_STEP_WHERE,
+      orderBy: { position: 'asc' },
+      select: {
+        id: true,
+        entryId: true,
+        optional: true,
+        entry: { select: { slug: true, title: true } },
+      },
+    },
+  },
+} as const;
 
 /**
  * Progression d'un compte dans les parcours.
@@ -91,11 +111,15 @@ export class PathProgressService {
    *
    * `passingScore` accompagne la réponse : la page affiche le seuil qui valide
    * réellement une étape, sans le recopier dans le navigateur.
+   *
+   * Pour un parent, `subPaths` donne la progression de chacun de ses
+   * sous-parcours visibles, et le total porte sur leurs étapes réunies : une
+   * fiche présente dans deux sous-parcours compte dans chacun.
    */
   async findForPath(userId: string, slug: string) {
     const path = await this.learningPathsService.findPublishedBySlug(slug);
 
-    const modules: ProgressModule[] = path.modules.map((module) => ({
+    const ownModules: ProgressModule[] = path.modules.map((module) => ({
       id: module.id,
       steps: module.steps.map((step) => ({
         id: step.id,
@@ -104,48 +128,76 @@ export class PathProgressService {
       })),
     }));
 
+    const children =
+      path.subPaths.length === 0
+        ? []
+        : await this.prisma.learningPath.findMany({
+            where: { parentId: path.id, ...VISIBLE_SUB_PATH_WHERE },
+            orderBy: PUBLISHED_PATHS_ORDER,
+            select: { id: true, slug: true, modules: PROGRESS_MODULES_SELECT },
+          });
+    const modules = [...ownModules, ...children.flatMap((child) => child.modules)];
+
     const validated = await this.validatedEntryIds(
       userId,
       modules.flatMap((module) => module.steps.map((step) => step.entryId)),
     );
+
+    const subPaths = children.map((child) => {
+      const progress = computePathProgress(child.modules, validated);
+      const next = child.modules
+        .flatMap((module) => module.steps)
+        .find((step) => step.id === progress.nextStepId);
+      return {
+        pathId: child.id,
+        slug: child.slug,
+        required: progress.required,
+        validatedRequired: progress.validatedRequired,
+        completed: progress.completed,
+        nextStep: next ? { entrySlug: next.entry.slug, title: next.entry.title } : null,
+      };
+    });
+
     return {
       pathId: path.id,
       passingScore: PASSING_SCORE,
       ...computePathProgress(modules, validated),
+      subPaths,
     };
   }
 
   /**
    * Résumé de progression pour une page de la liste publique : mêmes parcours,
    * même ordre, même pagination que `GET /learning-paths`. Une seule recherche
-   * de validations couvre toutes les fiches de la page.
+   * de validations couvre toutes les fiches de la page. Un parent porte le
+   * total de ses sous-parcours visibles.
    */
   async findPage(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
 
-    const [paths, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.learningPath.findMany({
-        where: PUBLISHED_PATHS_WHERE,
+        where: LISTED_PATHS_WHERE,
         skip,
         take: limit,
         orderBy: PUBLISHED_PATHS_ORDER,
         select: {
           id: true,
-          modules: {
-            orderBy: { position: 'asc' },
-            select: {
-              id: true,
-              steps: {
-                where: VISIBLE_STEP_WHERE,
-                orderBy: { position: 'asc' },
-                select: { id: true, entryId: true, optional: true },
-              },
-            },
+          modules: PROGRESS_MODULES_SELECT,
+          children: {
+            where: VISIBLE_SUB_PATH_WHERE,
+            orderBy: PUBLISHED_PATHS_ORDER,
+            select: { modules: PROGRESS_MODULES_SELECT },
           },
         },
       }),
-      this.prisma.learningPath.count({ where: PUBLISHED_PATHS_WHERE }),
+      this.prisma.learningPath.count({ where: LISTED_PATHS_WHERE }),
     ]);
+
+    const paths = rows.map((path) => ({
+      id: path.id,
+      modules: [...path.modules, ...path.children.flatMap((child) => child.modules)],
+    }));
 
     const validated = await this.validatedEntryIds(
       userId,
@@ -205,22 +257,10 @@ export class PathProgressService {
         id: true,
         name: true,
         slug: true,
-        modules: {
-          orderBy: { position: 'asc' },
-          select: {
-            id: true,
-            steps: {
-              where: VISIBLE_STEP_WHERE,
-              orderBy: { position: 'asc' },
-              select: {
-                id: true,
-                entryId: true,
-                optional: true,
-                entry: { select: { slug: true, title: true } },
-              },
-            },
-          },
-        },
+        // Un parent n'a pas d'étape : il n'est jamais « commencé » lui-même,
+        // mais ses sous-parcours le nomment.
+        parent: { select: { name: true, slug: true } },
+        modules: PROGRESS_MODULES_SELECT,
       },
     });
 
@@ -274,6 +314,7 @@ export class PathProgressService {
         pathId: path.id,
         slug: path.slug,
         name: path.name,
+        parent: path.parent,
         required: progress.required,
         validatedRequired: progress.validatedRequired,
         completed: progress.completed,

@@ -96,7 +96,7 @@ export function AdminCategoryForm(props: AdminCategoryFormProps) {
 
       {error ? <ErrorMessage>{error}</ErrorMessage> : null}
 
-      <Button type="submit" variant="primary" isDisabled={pending}>
+      <Button type="submit" variant="primary" className="cta" isDisabled={pending}>
         {pending
           ? isEdit
             ? 'Enregistrement…'

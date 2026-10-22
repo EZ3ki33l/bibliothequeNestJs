@@ -80,6 +80,16 @@ describe('Learning paths (e2e)', () => {
         () => server().patch(`${base}/steps/${stepId}`).send({ optional: true }),
       ],
       ['DELETE …/steps/:stepId', () => server().delete(`${base}/steps/${stepId}`)],
+      ['POST …/sub-paths', () => server().post(`${base}/sub-paths`).send({ name: 'Réseaux' })],
+      [
+        'PUT …/sub-paths/order',
+        () =>
+          server()
+            .put(`${base}/sub-paths/order`)
+            .send({ pathIds: [moduleId] }),
+      ],
+      ['PUT …/sub-paths/:childId', () => server().put(`${base}/sub-paths/${moduleId}`)],
+      ['DELETE …/sub-paths/:childId', () => server().delete(`${base}/sub-paths/${moduleId}`)],
     ];
 
     it.each(cases)('%s', (_label, send) => send().expect(401));

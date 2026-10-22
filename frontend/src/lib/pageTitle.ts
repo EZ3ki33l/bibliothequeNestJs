@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 
-export const SITE_NAME = 'Bibliothèque';
+export const SITE_NAME = 'EZ3Learn';
 
-/** Titre d'onglet d'une page : « <nom> · Bibliothèque », ou le nom du site seul. */
+/** Titre d'onglet d'une page : « <nom> · EZ3Learn », ou le nom du site seul. */
 export function pageTitle(name?: string): string {
   const trimmed = name?.trim();
 

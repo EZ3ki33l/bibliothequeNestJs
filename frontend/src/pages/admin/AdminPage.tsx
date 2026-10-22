@@ -12,6 +12,7 @@ import { getAccessSummary } from '../../lib/entryAccess';
 import { formatBytes, getImageUsage } from '../../lib/entryImages';
 import { useAsyncData } from '../../lib/useAsyncData';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { CtaLink } from '../../components/ui/CtaLink';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 /**
@@ -76,6 +77,7 @@ export function AdminPage() {
       <PageHeader
         title="Dashboard"
         description="Fiches, parcours, leçons et catégories du catalogue."
+        action={<CtaLink to="/admin/entries/new">Nouvelle fiche</CtaLink>}
       />
 
       {access?.freeEntryCount === 0 ? (

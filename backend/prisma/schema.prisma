@@ -209,13 +209,21 @@ model LearningPath {
   slug        String       @unique
   description String       @default("")
   published   Boolean      @default(false)
+  // Rang parmi les frères : parcours de premier niveau entre eux, ou
+  // sous-parcours d'un même parent entre eux.
   position    Int          @default(0)
+  // Parent facultatif, un seul niveau (spec 019). `Restrict` : supprimer un
+  // parent ne doit ni effacer ses sous-parcours ni les publier seuls.
+  parentId    String?
+  parent      LearningPath?  @relation("SubPaths", fields: [parentId], references: [id], onDelete: Restrict)
+  children    LearningPath[] @relation("SubPaths")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   modules     PathModule[]
   steps       PathStep[]
 
   @@index([published, position])
+  @@index([parentId, position])
 }
 
 // Regroupement ordonné d'étapes à l'intérieur d'un parcours.

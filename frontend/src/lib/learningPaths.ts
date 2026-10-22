@@ -18,8 +18,10 @@ export type PathListItem = {
   name: string;
   slug: string;
   description: string;
-  /** Étapes dont la fiche est publiée (facultatives comprises). */
+  /** Étapes dont la fiche est publiée (facultatives comprises) ; pour un parent, celles de ses sous-parcours. */
   stepCount: number;
+  /** Sous-parcours publiés : `0` pour un parcours ordinaire. */
+  subPathCount: number;
 };
 
 /** Même enveloppe que les autres listes paginées : `{ items, total, page, limit }`. */
@@ -53,13 +55,30 @@ export type PathModule = {
   steps: PathStep[];
 };
 
+/** Lien vers un autre parcours (parent, sous-parcours suivant). */
+export type PathLink = { name: string; slug: string };
+
+export type SubPathItem = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  stepCount: number;
+};
+
 export type PathDetail = {
   id: string;
   name: string;
   slug: string;
   description: string;
-  /** Vide si aucune étape n'est encore publiée : parcours « en préparation ». */
+  /** Vide si aucune étape n'est encore publiée : parcours « en préparation ». Toujours vide pour un parent. */
   modules: PathModule[];
+  /** Parent d'un sous-parcours ; `null` pour un parcours de premier niveau. */
+  parent: PathLink | null;
+  /** Sous-parcours visible suivant chez le même parent. */
+  nextSubPath: PathLink | null;
+  /** Sous-parcours publiés d'un parent, dans l'ordre ; vide sinon. */
+  subPaths: SubPathItem[];
 };
 
 export async function listLearningPaths(page?: number): Promise<PathListPage> {
@@ -142,6 +161,18 @@ export type PathProgress = {
   /** Première étape obligatoire non validée ; `null` si terminé. */
   nextStepId: string | null;
   completed: boolean;
+  /** Progression de chaque sous-parcours d'un parent ; vide sinon. Le total ci-dessus les réunit. */
+  subPaths: SubPathProgress[];
+};
+
+export type SubPathProgress = {
+  pathId: string;
+  slug: string;
+  required: number;
+  validatedRequired: number;
+  completed: boolean;
+  /** `null` : sous-parcours terminé, ou sans étape obligatoire. */
+  nextStep: { entrySlug: string; title: string } | null;
 };
 
 export type PathProgressSummary = {
@@ -195,6 +226,8 @@ export type StartedPath = {
   pathId: string;
   slug: string;
   name: string;
+  /** Parent d'un sous-parcours commencé. */
+  parent: PathLink | null;
   required: number;
   validatedRequired: number;
   completed: boolean;

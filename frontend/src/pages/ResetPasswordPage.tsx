@@ -107,7 +107,7 @@ export function ResetPasswordPage() {
           minLength={8}
         />
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
-        <Button type="submit" variant="primary" isDisabled={pending}>
+        <Button type="submit" variant="primary" className="cta" isDisabled={pending}>
           {pending ? 'Enregistrement…' : 'Enregistrer le mot de passe'}
         </Button>
       </Form>

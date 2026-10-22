@@ -15,6 +15,7 @@ import {
   type EntryImageAdmin,
 } from '../../lib/entryImages';
 import { bodyCitesImage, mediaMarkdown, mediaUrl } from '../../lib/illustrations';
+import { useConfirm } from '../../lib/confirm';
 import { ErrorMessage } from '../ui/ErrorMessage';
 import { Typo } from '../ui/Typo';
 
@@ -61,6 +62,7 @@ export function AdminEntryImages({
   const [alt, setAlt] = useState('');
   const [caption, setCaption] = useState('');
   const [pending, setPending] = useState(false);
+  const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   /** Une seule image modifiée à la fois. */
@@ -149,9 +151,15 @@ export function AdminEntryImages({
     // Le retrait ne touche pas au corps : une référence restante s'affichera
     // comme une image introuvable. Mieux vaut le dire avant.
     const question = bodyCitesImage(readBody(), image.id)
-      ? `Retirer « ${image.alt} » ? Le corps cite encore cette image : elle y sera remplacée par un cadre « Image non affichée ».`
-      : `Retirer « ${image.alt} » ?`;
-    if (!window.confirm(question)) {
+      ? `« ${image.alt} » : le corps cite encore cette image, elle y sera remplacée par un cadre « Image non affichée ».`
+      : `« ${image.alt} » sera retirée de la fiche.`;
+    if (
+      !(await confirm(question, {
+        title: 'Retirer l’image ?',
+        confirmLabel: 'Retirer',
+        danger: true,
+      }))
+    ) {
       return;
     }
 

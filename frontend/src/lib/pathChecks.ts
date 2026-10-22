@@ -15,9 +15,23 @@ import type { AdminPathDetail } from './admin';
  */
 
 /** Tableau vide : rien ne manque. */
-export function pathPublicationGaps(path: Pick<AdminPathDetail, 'modules'>): string[] {
+export function pathPublicationGaps(path: Pick<AdminPathDetail, 'modules' | 'subPaths'>): string[] {
+  // Un parent : seuls ses sous-parcours publiés s'affichent sur sa page.
+  if (path.subPaths.length > 0) {
+    const drafts = path.subPaths.filter((subPath) => !subPath.published).length;
+    if (drafts === path.subPaths.length) {
+      return ['Aucun sous-parcours publié : la page du parcours sera vide.'];
+    }
+    if (drafts === 0) return [];
+    return [
+      drafts === 1
+        ? '1 sous-parcours ne sera pas affiché : il est en brouillon.'
+        : `${drafts} sous-parcours ne seront pas affichés : ils sont en brouillon.`,
+    ];
+  }
+
   if (path.modules.length === 0) {
-    return ['Aucun module : la page du parcours sera vide.'];
+    return ['Aucun module ni sous-parcours : la page du parcours sera vide.'];
   }
 
   const steps = path.modules.flatMap((module) => module.steps);

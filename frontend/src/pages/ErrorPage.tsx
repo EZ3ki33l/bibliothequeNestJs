@@ -21,7 +21,7 @@ export function ErrorPage() {
         description="Un problème d’affichage s’est produit. L’accueil permet de reprendre."
       />
       <Typo variant="p">
-        <a href="/" className={`${buttonVariants({ variant: 'primary' })} no-underline`}>
+        <a href="/" className={`${buttonVariants({ variant: 'primary' })} cta no-underline`}>
           Retour à l’accueil
         </a>
       </Typo>
