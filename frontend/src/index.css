@@ -292,7 +292,7 @@
 /* Longueur de ligne confortable pour une longue lecture ; les blocs de code
    gardent toute la largeur. */
 .entry-mdx > :is(p, ul, ol, blockquote) {
-  max-width: 66ch;
+  max-width: 78ch;
 }
 
 .entry-mdx :is(h2, h3) {

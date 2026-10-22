@@ -570,6 +570,21 @@ export function listAdminEntries(
   });
 }
 
+/** Toutes les fiches correspondant aux filtres, toutes pages confondues (sélection en masse). */
+export async function listAllAdminEntries(
+  filters: AdminEntriesFilters = {},
+): Promise<AdminEntryListItem[]> {
+  const first = await listAdminEntries(1, MAX_PAGE_SIZE, filters);
+  const pageCount = Math.ceil(first.total / MAX_PAGE_SIZE);
+  const rest = await Promise.all(
+    Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) =>
+      listAdminEntries(index + 2, MAX_PAGE_SIZE, filters),
+    ),
+  );
+
+  return [first, ...rest].flatMap((page) => page.items);
+}
+
 export function getAdminEntryById(id: string): Promise<AdminEntryDetail | null> {
   return readById<AdminEntryDetail>(ENTRIES, id);
 }
