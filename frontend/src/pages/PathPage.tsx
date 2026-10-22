@@ -382,17 +382,32 @@ function ProgressSummary({ path, progress }: { path: PathDetail; progress: PathP
       </div>
 
       {nextStep ? (
-        <div className="flex flex-wrap items-center gap-3">
+        // Le titre de l'étape est du texte, pas le libellé du bouton : un bouton
+        // ne passe pas à la ligne, un titre long sortirait de la carte.
+        <div className="border-border flex flex-col items-start gap-3 border-t pt-4">
+          {/* `w-full` : sans largeur imposée, `truncate` laisserait le titre déborder. */}
+          <div className="w-full min-w-0">
+            <Typo variant="caption" as="p">
+              Prochaine étape
+            </Typo>
+            <Typo
+              variant="p"
+              title={nextStep.entry.title}
+              className="text-foreground truncate font-medium"
+            >
+              {nextStep.entry.title}
+            </Typo>
+          </div>
           <Link
             to={entryHrefFromPath(nextStep.entry.slug, path.slug)}
             className={`${buttonVariants({ variant: 'primary', size: 'sm' })} cta no-underline`}
           >
-            Continuer : {nextStep.entry.title}
+            Continuer le parcours
           </Link>
-          <span className="text-muted text-xs">
+          <Typo variant="caption" as="p">
             {/* Seuil fourni par le serveur : celui qui valide réellement. */}
             Une étape est validée par un examen réussi ({progress.passingScore} / 100 ou plus).
-          </span>
+          </Typo>
         </div>
       ) : null}
     </section>
