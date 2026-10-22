@@ -1,4 +1,11 @@
-import { Children, isValidElement, useMemo, type ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useMemo,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import { MarkdownHooks, type Components, type HooksOptions } from 'react-markdown';
 import { Table } from '@heroui/react';
 import remarkGfm from 'remark-gfm';
@@ -81,18 +88,25 @@ export function EntryMdx({ source, images = NO_IMAGES, onDiagramError }: EntryMd
         </Table>
       ),
       // HeroUI attend les colonnes directement dans l'en-tête, sans `<tr>` :
-      // on déplie la ligne que Markdown y met.
+      // on déplie la ligne que Markdown y met. Seule la première colonne nomme
+      // la ligne (lecteur d'écran) : elle porte l'élément comparé.
       thead: ({ children }) => (
         <Table.Header>
-          {Children.toArray(children).flatMap((row) =>
-            isValidElement<{ children?: ReactNode }>(row)
-              ? Children.toArray(row.props.children)
-              : [],
-          )}
+          {Children.toArray(children)
+            .flatMap((row) =>
+              isValidElement<{ children?: ReactNode }>(row)
+                ? Children.toArray(row.props.children)
+                : [],
+            )
+            .map((cell, index) =>
+              isValidElement<{ isRowHeader?: boolean }>(cell)
+                ? cloneElement(cell, { isRowHeader: index === 0 })
+                : cell,
+            )}
         </Table.Header>
       ),
-      th: ({ children, style }) => (
-        <Table.Column isRowHeader style={style}>
+      th: ({ children, style, isRowHeader }: ComponentProps<'th'> & { isRowHeader?: boolean }) => (
+        <Table.Column isRowHeader={isRowHeader} style={style}>
           {children}
         </Table.Column>
       ),

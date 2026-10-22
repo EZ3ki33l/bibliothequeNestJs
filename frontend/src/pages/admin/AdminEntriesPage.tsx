@@ -441,13 +441,10 @@ export function AdminEntriesPage() {
             ) : null}
             {selected.size > 0 ? (
               <Dropdown>
-                <Dropdown.Trigger
-                  isDisabled={bulkBusy}
-                  className={`${buttonVariants({ variant: 'secondary', size: 'sm' })} ml-auto`}
-                >
+                <Button variant="secondary" size="sm" isDisabled={bulkBusy} className="ml-auto">
                   Actions sur la sélection
                   <CaretDownIcon className="size-4" />
-                </Dropdown.Trigger>
+                </Button>
                 <Dropdown.Popover placement="bottom end">
                   <Dropdown.Menu
                     aria-label="Actions sur la sélection"
