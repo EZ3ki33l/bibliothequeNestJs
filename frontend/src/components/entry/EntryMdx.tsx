@@ -85,7 +85,9 @@ export function EntryMdx({ source, images = NO_IMAGES, onDiagramError }: EntryMd
       thead: ({ children }) => (
         <Table.Header>
           {Children.toArray(children).flatMap((row) =>
-            isValidElement<{ children?: ReactNode }>(row) ? Children.toArray(row.props.children) : [],
+            isValidElement<{ children?: ReactNode }>(row)
+              ? Children.toArray(row.props.children)
+              : [],
           )}
         </Table.Header>
       ),
