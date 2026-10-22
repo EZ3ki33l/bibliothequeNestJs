@@ -1,17 +1,18 @@
 import { LabMention } from '../../components/ui/LabMention';
 import { useState, type SubmitEvent } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   Button,
   Checkbox,
   Chip,
+  Dropdown,
   Input,
   Label,
   TextField,
   buttonVariants,
   toast,
 } from '@heroui/react';
-import { ArticleIcon } from '@phosphor-icons/react';
+import { ArticleIcon, CaretDownIcon } from '@phosphor-icons/react';
 import {
   deleteAdminEntry,
   AdminRefusedError,
@@ -77,6 +78,7 @@ async function loadFilterOptions() {
  */
 export function AdminEntriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const q = searchParams.get('q')?.trim() ?? '';
   const status = readStatus(searchParams.get('status'));
   const stackId = searchParams.get('stack') ?? '';
@@ -415,27 +417,18 @@ export function AdminEntriesPage() {
                 select(next);
               }}
             >
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
+              <Checkbox.Content>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+              </Checkbox.Content>
             </Checkbox>
             <Typo variant="small" as="p">
               {selected.size > 0
                 ? `${selected.size} sélectionnée${selected.size > 1 ? 's' : ''} sur ${data.total}`
                 : `${data.total} ${data.total > 1 ? 'fiches' : 'fiche'}`}
             </Typo>
-            {selected.size > 0 && selected.size < data.total ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                isDisabled={bulkBusy}
-                onPress={() => void selectEveryResult()}
-              >
-                Tout sélectionner ({data.total})
-              </Button>
-            ) : null}
-            {selected.size === 0 && data.total > data.items.length ? (
+            {selected.size < data.total && (selected.size > 0 || data.total > data.items.length) ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -447,44 +440,37 @@ export function AdminEntriesPage() {
               </Button>
             ) : null}
             {selected.size > 0 ? (
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
+              <Dropdown>
+                <Dropdown.Trigger
                   isDisabled={bulkBusy}
-                  onPress={() => void runBulk('publish')}
+                  className={`${buttonVariants({ variant: 'secondary', size: 'sm' })} ml-auto`}
                 >
-                  Publier
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  isDisabled={bulkBusy}
-                  onPress={() => void runBulk('unpublish')}
-                >
-                  Dépublier
-                </Button>
-                <Button
-                  type="button"
-                  variant="danger-soft"
-                  size="sm"
-                  isDisabled={bulkBusy}
-                  onPress={() => void runBulk('delete')}
-                >
-                  Supprimer
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  isDisabled={bulkBusy}
-                  onPress={() => select(new Map())}
-                >
-                  Désélectionner
-                </Button>
-              </div>
+                  Actions sur la sélection
+                  <CaretDownIcon className="size-4" />
+                </Dropdown.Trigger>
+                <Dropdown.Popover placement="bottom end">
+                  <Dropdown.Menu
+                    aria-label="Actions sur la sélection"
+                    onAction={(key) => {
+                      if (key === 'clear') select(new Map());
+                      else void runBulk(key as 'publish' | 'unpublish' | 'delete');
+                    }}
+                  >
+                    <Dropdown.Item id="publish" textValue="Publier">
+                      <Label>Publier</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item id="unpublish" textValue="Dépublier">
+                      <Label>Dépublier</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item id="clear" textValue="Désélectionner">
+                      <Label>Désélectionner</Label>
+                    </Dropdown.Item>
+                    <Dropdown.Item id="delete" textValue="Supprimer">
+                      <Label className="text-cherry-light">Supprimer</Label>
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
             ) : null}
           </div>
           <ul className="flex flex-col gap-2">
@@ -498,37 +484,37 @@ export function AdminEntriesPage() {
                     isDisabled={bulkBusy}
                     onChange={(on) => toggleSelected(entry, on)}
                   >
-                    <Checkbox.Control>
-                      <Checkbox.Indicator />
-                    </Checkbox.Control>
+                    <Checkbox.Content>
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox.Content>
                   </Checkbox>
                 }
                 icon={ArticleIcon}
                 title={entry.title}
                 subtitle={`${entry.category.stack.name} · ${entry.category.name} · ${KIND_LABEL[entry.kind]}`}
-                actions={
+                badges={
                   <>
                     <LabMention lab={entry.lab} />
                     <Chip size="sm" variant="soft" color={entry.published ? 'success' : 'warning'}>
                       {entry.published ? 'Publiée' : 'Brouillon'}
                     </Chip>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      isDisabled={togglingId !== null}
-                      onPress={() => void togglePublished(entry)}
-                    >
-                      {entry.published ? 'Dépublier' : 'Publier'}
-                    </Button>
-                    <Link
-                      to={`/admin/entries/new?from=${entry.id}`}
-                      className="text-muted hover:text-foreground text-sm no-underline transition-colors duration-150"
-                    >
-                      Dupliquer
-                    </Link>
                   </>
                 }
+                menuActions={[
+                  {
+                    id: 'toggle-published',
+                    label: entry.published ? 'Dépublier' : 'Publier',
+                    onAction: () => void togglePublished(entry),
+                    isDisabled: togglingId !== null,
+                  },
+                  {
+                    id: 'duplicate',
+                    label: 'Dupliquer',
+                    onAction: () => void navigate(`/admin/entries/new?from=${entry.id}`),
+                  },
+                ]}
                 editTo={`/admin/entries/${entry.id}/edit`}
                 onDelete={() => void requestDelete(entry.id, entry.title)}
               />
