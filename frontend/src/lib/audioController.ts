@@ -47,6 +47,8 @@ export function createAudioController(events: ControllerEvents) {
   let speakerId = 1;
   let speed = 1;
   let paused = false;
+  /** Indice du segment en cours de lecture ou de préparation. */
+  let current = 0;
   let openGate: (() => void) | null = null;
   /** Vrai tant que le segment courant n'est pas encore chargé dans l'élément <audio>. */
   let loading = false;
@@ -169,6 +171,7 @@ export function createAudioController(events: ControllerEvents) {
       finish();
       return;
     }
+    current = i;
     const segment = segments[i];
     events.section(segment.sectionIndex, sections.length);
     for (let ahead = 0; ahead <= LOOKAHEAD; ahead++) request(i + ahead);
@@ -311,6 +314,30 @@ export function createAudioController(events: ControllerEvents) {
       events.failure(null);
       events.section(null, sections.length);
       setStatus('idle');
+    },
+
+    /**
+     * Change de voix pendant la lecture : la section en cours reprend à son début avec la
+     * nouvelle voix, sans repartir du début de la fiche. Les deux voix sont deux locuteurs du
+     * même modèle : aucun téléchargement, seul ce qui était déjà synthétisé est jeté.
+     */
+    changeVoice(nextSpeakerId: number): void {
+      speakerId = nextSpeakerId;
+      const active = status === 'playing' || status === 'preparing' || status === 'downloading';
+      if ((!active && status !== 'paused') || segments.length === 0) return;
+      const wasPaused = status === 'paused';
+      const sectionIndex = segments[Math.min(current, segments.length - 1)].sectionIndex;
+      const first = segments.findIndex((segment) => segment.sectionIndex === sectionIndex);
+      cancelEverything();
+      const myEpoch = epoch;
+      if (wasPaused) {
+        // Toujours en pause : la nouvelle voix se prépare, elle ne se joue qu'à la reprise.
+        paused = true;
+        setStatus('paused');
+      } else {
+        setStatus('preparing');
+      }
+      void playSegment(first, myEpoch);
     },
 
     setSpeed(next: number): void {

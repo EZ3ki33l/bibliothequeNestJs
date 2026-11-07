@@ -1,10 +1,11 @@
-import { Button, Label, ProgressBar } from '@heroui/react';
-import { PauseIcon, PlayIcon, SpeakerHighIcon, StopIcon } from '@phosphor-icons/react';
+import { useState } from 'react';
+import { Button, Label, ListBox, ProgressBar, Select } from '@heroui/react';
+import { GearIcon, PauseIcon, PlayIcon, SpeakerHighIcon, StopIcon } from '@phosphor-icons/react';
 import { totalDownloadSize } from '../../lib/audioManifest';
 import type { AudioFailure } from '../../lib/audioController';
 import { formatBytes } from '../../lib/entryImages';
 import type { EntryAudioState } from '../../lib/useEntryAudio';
-import { VOICE_MODEL_ID } from '../../lib/audioVoices';
+import { SPEEDS, VOICES, VOICE_MODEL_ID, speedLabel, type VoiceId } from '../../lib/audioVoices';
 import { ErrorMessage } from '../ui/ErrorMessage';
 import { Typo } from '../ui/Typo';
 
@@ -37,6 +38,44 @@ function statusText(audio: EntryAudioState): string {
   }
 }
 
+/** Liste déroulante à étiquette visible : la valeur courante est toujours lisible en texte. */
+function AudioSelect({
+  label,
+  value,
+  items,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  items: { id: string; label: string }[];
+  onChange: (id: string) => void;
+}) {
+  return (
+    <Select
+      value={value}
+      onChange={(key) => {
+        if (key !== null) onChange(String(key));
+      }}
+      className="min-w-44"
+    >
+      <Label>{label}</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {items.map((item) => (
+            <ListBox.Item key={item.id} id={item.id} textValue={item.label}>
+              {item.label}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
 /**
  * Lecteur audio d'une fiche (spec 020) : bouton « Écouter » et commandes.
  *
@@ -49,6 +88,7 @@ function statusText(audio: EntryAudioState): string {
  */
 export function EntryAudio({ audio }: { audio: EntryAudioState }) {
   const { status, failure, progress } = audio;
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const idle = status === 'idle' || status === 'ended';
   const busy = status === 'downloading' || status === 'preparing' || status === 'playing';
 
@@ -80,7 +120,40 @@ export function EntryAudio({ audio }: { audio: EntryAudioState }) {
             Arrêter
           </Button>
         ) : null}
+        {/* Le panneau des réglages s'ouvre et se referme à la demande : l'en-tête reste compact. */}
+        <Button
+          type="button"
+          variant="ghost"
+          aria-expanded={settingsOpen}
+          onPress={() => setSettingsOpen((open) => !open)}
+        >
+          <GearIcon weight="bold" className="size-4" aria-hidden="true" />
+          Réglages
+        </Button>
       </div>
+
+      {settingsOpen ? (
+        <div className="flex flex-wrap gap-4">
+          <AudioSelect
+            label="Voix"
+            value={audio.voiceId}
+            items={VOICES.map((voice) => ({ id: voice.id, label: voice.label }))}
+            onChange={(id) => {
+              const voice = VOICES.find((candidate) => candidate.id === id);
+              if (voice) audio.setVoice(voice.id as VoiceId);
+            }}
+          />
+          <AudioSelect
+            label="Vitesse"
+            value={String(audio.speed)}
+            items={SPEEDS.map((speed) => ({ id: String(speed), label: speedLabel(speed) }))}
+            onChange={(id) => {
+              const speed = SPEEDS.find((candidate) => String(candidate) === id);
+              if (speed !== undefined) audio.setSpeed(speed);
+            }}
+          />
+        </div>
+      ) : null}
 
       {status === 'downloading' && progress !== null ? (
         <ProgressBar

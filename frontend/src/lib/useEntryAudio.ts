@@ -9,7 +9,15 @@ import {
   type AudioProgress,
   type AudioStatus,
 } from './audioController';
-import { VOICE_MODEL_ID, loadPreference, voiceById } from './audioVoices';
+import {
+  VOICE_MODEL_ID,
+  loadPreference,
+  savePreference,
+  voiceById,
+  type AudioPreference,
+  type Speed,
+  type VoiceId,
+} from './audioVoices';
 
 export type EntryAudioState = {
   status: AudioStatus;
@@ -21,6 +29,12 @@ export type EntryAudioState = {
   sectionCount: number;
   /** `false` : la voix n'est pas encore sur l'appareil (le premier clic la télécharge) ; `null` : pas encore su. */
   voiceCached: boolean | null;
+  voiceId: VoiceId;
+  speed: Speed;
+  /** Change de voix : la section en cours reprend à son début avec la nouvelle voix. */
+  setVoice(id: VoiceId): void;
+  /** Change la vitesse : appliquée tout de suite, sans resynthèse. */
+  setSpeed(speed: Speed): void;
   start(): void;
   pause(): void;
   resume(): void;
@@ -59,7 +73,12 @@ export function useEntryAudio(
       },
     }),
   );
-  const [preference] = useState(loadPreference);
+  const [preference, setPreference] = useState(loadPreference);
+  // Le choix vaut pour la visite même si le stockage du navigateur est refusé (savePreference ne lève jamais).
+  const choose = (next: AudioPreference) => {
+    setPreference(next);
+    savePreference(next);
+  };
 
   // Démontage (changement de page, fermeture de l'aperçu) : le son s'arrête et tout est libéré.
   useEffect(() => () => controller.dispose(), [controller]);
@@ -86,6 +105,16 @@ export function useEntryAudio(
     sectionIndex,
     sectionCount,
     voiceCached,
+    voiceId: preference.voice,
+    speed: preference.speed,
+    setVoice: (voice) => {
+      choose({ ...preference, voice });
+      controller.changeVoice(voiceById(voice).speakerId);
+    },
+    setSpeed: (speed) => {
+      choose({ ...preference, speed });
+      controller.setSpeed(speed);
+    },
     start: () => {
       const root = rootRef.current;
       if (root === null) return;
