@@ -199,7 +199,7 @@ export function EntryArticle(props: EntryArticleProps) {
             </ul>
           ) : null}
           {/* Dans l'en-tête, jamais entre l'en-tête et le corps : la leçon passe en premier. */}
-          {hasAudio ? <EntryAudio audio={audio} /> : null}
+          {hasAudio ? <EntryAudio audio={audio} place="header" /> : null}
           {headerActions}
         </header>
 
@@ -229,6 +229,9 @@ export function EntryArticle(props: EntryArticleProps) {
           Sans `footer` (aperçu de l'administration), le bloc reste vide et la
           fiche garde une seule colonne. */}
       <div className="rail 2xl:bg-surface mt-8 flex min-w-0 flex-col gap-8 empty:hidden 2xl:mt-0 2xl:gap-6 2xl:rounded-2xl 2xl:p-5">
+        {/* Commandes de l'écoute (spec 020) : en haut de la colonne, au-dessus de l'examen.
+            Même état que la copie de l'en-tête ; le CSS ne montre celle-ci qu'à partir de `2xl`. */}
+        {hasAudio ? <EntryAudio audio={audio} place="rail" /> : null}
         {footer}
       </div>
     </article>

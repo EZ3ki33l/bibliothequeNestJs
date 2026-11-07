@@ -39,7 +39,20 @@ export type EntryAudioState = {
   pause(): void;
   resume(): void;
   stop(): void;
+  /** Début de la section précédente (ou de la section en cours si elle est entamée). */
+  previous(): void;
+  /** Début de la section suivante. */
+  next(): void;
 };
+
+/** L'élément est-il entièrement visible dans la zone qui défile ? (Seul `<main>` défile dans l'application.) */
+function isInView(element: HTMLElement): boolean {
+  const rect = element.getBoundingClientRect();
+  const scroller = element.closest('main')?.getBoundingClientRect();
+  const top = scroller?.top ?? 0;
+  const bottom = scroller?.bottom ?? window.innerHeight;
+  return rect.top >= top && rect.bottom <= bottom;
+}
 
 /**
  * @param rootRef élément qui contient le titre, le résumé et le corps rendus de la fiche
@@ -87,6 +100,20 @@ export function useEntryAudio(
     controller.stop();
   }, [controller, resetKey]);
 
+  // Repère de la section lue : un attribut posé sur l'élément du rendu (React ne le gère pas), le
+  // style est dans index.css. Amené dans la vue seulement s'il n'y est pas ; ne touche jamais au focus.
+  useEffect(() => {
+    if (sectionIndex === null) return;
+    const element = controller.getSections()[sectionIndex]?.element;
+    if (element === undefined) return;
+    element.setAttribute('data-audio-current', 'true');
+    if (!isInView(element)) {
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      element.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+    return () => element.removeAttribute('data-audio-current');
+  }, [controller, sectionIndex]);
+
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
@@ -126,5 +153,7 @@ export function useEntryAudio(
     pause: () => controller.pause(),
     resume: () => controller.resume(),
     stop: () => controller.stop(),
+    previous: () => controller.previous(),
+    next: () => controller.next(),
   };
 }

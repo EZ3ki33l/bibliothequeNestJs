@@ -29,6 +29,8 @@ type Synthesized = { wav: Blob };
 
 /** Segments préparés avant celui qui se joue. */
 const LOOKAHEAD = 2;
+/** « Section précédente » revient au début de la section en cours si elle est entamée depuis plus que ceci. */
+const RESTART_AFTER_SECONDS = 3;
 /** Le contenu d'une fiche s'affiche en deux temps (coloration du code) : on attend au plus ceci. */
 const CONTENT_WAIT_MS = 3000;
 
@@ -227,6 +229,36 @@ export function createAudioController(events: ControllerEvents) {
     setStatus('ended');
   }
 
+  /**
+   * Reprend la lecture au premier segment de la section `sectionIndex`. Une lecture en pause le
+   * reste : la section se prépare, elle ne se joue qu'à la reprise.
+   */
+  function restartAtSection(sectionIndex: number): void {
+    const first = segments.findIndex((segment) => segment.sectionIndex === sectionIndex);
+    if (first === -1) return;
+    const wasPaused = status === 'paused';
+    cancelEverything();
+    const myEpoch = epoch;
+    if (wasPaused) {
+      paused = true;
+      setStatus('paused');
+    } else {
+      setStatus('preparing');
+    }
+    void playSegment(first, myEpoch);
+  }
+
+  /** Lecture engagée (même en pause) : on peut s'y déplacer. */
+  function isEngaged(): boolean {
+    return (
+      segments.length > 0 &&
+      (status === 'playing' ||
+        status === 'preparing' ||
+        status === 'downloading' ||
+        status === 'paused')
+    );
+  }
+
   /** Attend (au plus quelques secondes) que le contenu provisoire ait disparu de la page. */
   async function collectWhenReady(root: HTMLElement, myEpoch: number): Promise<AudioSection[]> {
     const startedAt = Date.now();
@@ -323,21 +355,29 @@ export function createAudioController(events: ControllerEvents) {
      */
     changeVoice(nextSpeakerId: number): void {
       speakerId = nextSpeakerId;
-      const active = status === 'playing' || status === 'preparing' || status === 'downloading';
-      if ((!active && status !== 'paused') || segments.length === 0) return;
-      const wasPaused = status === 'paused';
+      if (!isEngaged()) return;
+      restartAtSection(segments[Math.min(current, segments.length - 1)].sectionIndex);
+    },
+
+    /** Passe au début de la section suivante ; sans effet sur la dernière. */
+    next(): void {
+      if (!isEngaged()) return;
       const sectionIndex = segments[Math.min(current, segments.length - 1)].sectionIndex;
-      const first = segments.findIndex((segment) => segment.sectionIndex === sectionIndex);
-      cancelEverything();
-      const myEpoch = epoch;
-      if (wasPaused) {
-        // Toujours en pause : la nouvelle voix se prépare, elle ne se joue qu'à la reprise.
-        paused = true;
-        setStatus('paused');
-      } else {
-        setStatus('preparing');
-      }
-      void playSegment(first, myEpoch);
+      if (sectionIndex + 1 < sections.length) restartAtSection(sectionIndex + 1);
+    },
+
+    /**
+     * Revient au début de la section en cours si elle est entamée (plus de quelques secondes,
+     * ou segment qui n'est pas le premier de la section) ; sinon à la section précédente.
+     * Sans effet sur la première section.
+     */
+    previous(): void {
+      if (!isEngaged()) return;
+      const sectionIndex = segments[Math.min(current, segments.length - 1)].sectionIndex;
+      if (sectionIndex === 0) return;
+      const firstOfSection = segments.findIndex((segment) => segment.sectionIndex === sectionIndex);
+      const started = current > firstOfSection || (audio?.currentTime ?? 0) > RESTART_AFTER_SECONDS;
+      restartAtSection(started ? sectionIndex : sectionIndex - 1);
     },
 
     setSpeed(next: number): void {

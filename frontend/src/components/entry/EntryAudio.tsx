@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { Button, Label, ListBox, ProgressBar, Select } from '@heroui/react';
-import { GearIcon, PauseIcon, PlayIcon, SpeakerHighIcon, StopIcon } from '@phosphor-icons/react';
+import {
+  GearIcon,
+  PauseIcon,
+  PlayIcon,
+  SkipBackIcon,
+  SkipForwardIcon,
+  SpeakerHighIcon,
+  StopIcon,
+} from '@phosphor-icons/react';
 import { totalDownloadSize } from '../../lib/audioManifest';
 import type { AudioFailure } from '../../lib/audioController';
 import { formatBytes } from '../../lib/entryImages';
@@ -76,6 +84,8 @@ function AudioSelect({
   );
 }
 
+export type EntryAudioPlace = 'header' | 'rail';
+
 /**
  * Lecteur audio d'une fiche (spec 020) : bouton « Écouter » et commandes.
  *
@@ -83,55 +93,89 @@ function AudioSelect({
  * instance par fiche). Il ne charge rien, ne connaît ni la session ni le texte
  * lu. Le premier clic sur « Écouter » est ce qui déclenche tout téléchargement.
  *
+ * `EntryArticle` le rend **deux fois** autour du même état, et le CSS choisit
+ * laquelle se voit (FR-034) :
+ * - `header` : le bouton « Écouter » à toute largeur ; sous `2xl`, les commandes
+ *   se déplient aussi ici ;
+ * - `rail` : les commandes dans la colonne latérale, au-dessus de l'examen, quand
+ *   cette colonne est à droite et toujours visible (`2xl` et plus).
+ * Comme l'état n'est pas dans le composant, redimensionner la fenêtre déplace les
+ * commandes sans rien démonter : la lecture ne s'interrompt jamais. La copie
+ * masquée par `display: none` sort de l'arbre d'accessibilité.
+ *
  * Aucun bouton n'est en couleur d'appel (`cta`) : l'action principale de
  * l'écran reste ailleurs (examen, formulaire).
  */
-export function EntryAudio({ audio }: { audio: EntryAudioState }) {
+export function EntryAudio({ audio, place }: { audio: EntryAudioState; place: EntryAudioPlace }) {
   const { status, failure, progress } = audio;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const idle = status === 'idle' || status === 'ended';
   const busy = status === 'downloading' || status === 'preparing' || status === 'playing';
+  const engaged = busy || status === 'paused';
+  // Une erreur sans issue (navigateur incapable, rien à lire) n'invite pas à recommencer.
+  const canStart = idle || (status === 'error' && failure !== null && RETRYABLE.has(failure.code));
+  // « Précédente » est inactive sur la première section, « Suivante » sur la dernière.
+  const atFirst = audio.sectionIndex === null || audio.sectionIndex <= 0;
+  const atLast = audio.sectionIndex === null || audio.sectionIndex >= audio.sectionCount - 1;
+  const inHeader = place === 'header';
 
-  return (
-    <div className="mt-4 flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {/* Une erreur sans issue (navigateur incapable, rien à lire) n'invite pas à recommencer. */}
-        {idle || (status === 'error' && failure !== null && RETRYABLE.has(failure.code)) ? (
-          <Button type="button" variant="secondary" onPress={audio.start}>
-            <SpeakerHighIcon weight="bold" className="size-4" aria-hidden="true" />
-            {status === 'error' ? 'Réessayer' : 'Écouter'}
+  const controlButtons = (
+    <>
+      {busy ? (
+        <Button type="button" variant="secondary" onPress={audio.pause}>
+          <PauseIcon weight="bold" className="size-4" aria-hidden="true" />
+          Pause
+        </Button>
+      ) : null}
+      {status === 'paused' ? (
+        <Button type="button" variant="secondary" onPress={audio.resume}>
+          <PlayIcon weight="bold" className="size-4" aria-hidden="true" />
+          Reprendre
+        </Button>
+      ) : null}
+      {engaged ? (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            isIconOnly
+            aria-label="Section précédente"
+            isDisabled={atFirst}
+            onPress={audio.previous}
+          >
+            <SkipBackIcon weight="bold" className="size-4" aria-hidden="true" />
           </Button>
-        ) : null}
-        {busy ? (
-          <Button type="button" variant="secondary" onPress={audio.pause}>
-            <PauseIcon weight="bold" className="size-4" aria-hidden="true" />
-            Pause
+          <Button
+            type="button"
+            variant="ghost"
+            isIconOnly
+            aria-label="Section suivante"
+            isDisabled={atLast}
+            onPress={audio.next}
+          >
+            <SkipForwardIcon weight="bold" className="size-4" aria-hidden="true" />
           </Button>
-        ) : null}
-        {status === 'paused' ? (
-          <Button type="button" variant="secondary" onPress={audio.resume}>
-            <PlayIcon weight="bold" className="size-4" aria-hidden="true" />
-            Reprendre
-          </Button>
-        ) : null}
-        {busy || status === 'paused' ? (
           <Button type="button" variant="ghost" onPress={audio.stop}>
             <StopIcon weight="bold" className="size-4" aria-hidden="true" />
             Arrêter
           </Button>
-        ) : null}
-        {/* Le panneau des réglages s'ouvre et se referme à la demande : l'en-tête reste compact. */}
-        <Button
-          type="button"
-          variant="ghost"
-          aria-expanded={settingsOpen}
-          onPress={() => setSettingsOpen((open) => !open)}
-        >
-          <GearIcon weight="bold" className="size-4" aria-hidden="true" />
-          Réglages
-        </Button>
-      </div>
+        </>
+      ) : null}
+      {/* Le panneau des réglages s'ouvre et se referme à la demande : l'en-tête reste compact. */}
+      <Button
+        type="button"
+        variant="ghost"
+        aria-expanded={settingsOpen}
+        onPress={() => setSettingsOpen((open) => !open)}
+      >
+        <GearIcon weight="bold" className="size-4" aria-hidden="true" />
+        Réglages
+      </Button>
+    </>
+  );
 
+  const panel = (
+    <>
       {settingsOpen ? (
         <div className="flex flex-wrap gap-4">
           <AudioSelect
@@ -170,15 +214,6 @@ export function EntryAudio({ audio }: { audio: EntryAudioState }) {
         </ProgressBar>
       ) : null}
 
-      {/* Avant le premier clic : dit ce que ce clic va faire (sur un réseau mobile, 100 Mo comptent). */}
-      {status === 'idle' && audio.voiceCached === false ? (
-        <Typo variant="caption">
-          La voix est produite dans le navigateur, sans rien envoyer. La première écoute télécharge
-          la voix depuis le site (environ {formatBytes(totalDownloadSize(VOICE_MODEL_ID))}), une
-          seule fois.
-        </Typo>
-      ) : null}
-
       {/* Toujours dans la page, même vide : un lecteur d'écran annonce ainsi les changements d'état. */}
       <Typo variant="caption" role="status">
         {statusText(audio)}
@@ -186,6 +221,40 @@ export function EntryAudio({ audio }: { audio: EntryAudioState }) {
 
       {status === 'error' && failure !== null ? (
         <ErrorMessage>{FAILURE_MESSAGES[failure.code]}</ErrorMessage>
+      ) : null}
+    </>
+  );
+
+  if (!inHeader) {
+    return (
+      <div className="hidden flex-col gap-2 2xl:flex">
+        <div className="flex flex-wrap items-center gap-2">{controlButtons}</div>
+        {panel}
+      </div>
+    );
+  }
+
+  return (
+    // Sur grand écran, une lecture engagée n'a plus rien à montrer ici : ses commandes sont dans la colonne.
+    <div className={`mt-4 flex flex-col gap-2 ${engaged ? '2xl:hidden' : ''}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        {canStart ? (
+          <Button type="button" variant="secondary" onPress={audio.start}>
+            <SpeakerHighIcon weight="bold" className="size-4" aria-hidden="true" />
+            {status === 'error' ? 'Réessayer' : 'Écouter'}
+          </Button>
+        ) : null}
+        <div className="contents 2xl:hidden">{controlButtons}</div>
+      </div>
+      <div className="flex flex-col gap-2 2xl:hidden">{panel}</div>
+
+      {/* Avant le premier clic : dit ce que ce clic va faire (sur un réseau mobile, 100 Mo comptent). */}
+      {status === 'idle' && audio.voiceCached === false ? (
+        <Typo variant="caption">
+          La voix est produite dans le navigateur, sans rien envoyer. La première écoute télécharge
+          la voix depuis le site (environ {formatBytes(totalDownloadSize(VOICE_MODEL_ID))}), une
+          seule fois.
+        </Typo>
       ) : null}
     </div>
   );
