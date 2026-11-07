@@ -21,6 +21,8 @@ export function BlockedImage({ alt }: { alt?: string }) {
       role="img"
       aria-label={text === '' ? 'Image non affichée' : `Image non affichée : ${text}`}
       className="blocked-image"
+      // Écoute audio (spec 020) : l'image est lue par son texte alternatif, jamais par « non affichée ».
+      data-audio-image={text}
     >
       <span aria-hidden="true" className="inline-flex items-center gap-1.5 font-medium">
         <ImageBrokenIcon weight="bold" className="size-4 shrink-0" />

@@ -73,10 +73,13 @@ Le seed ne crée pas le compte : inscris-toi sur `/register` avec `ADMIN_EMAIL`,
 cd frontend
 echo 'VITE_API_URL=http://localhost:4000' > .env
 pnpm install
+pnpm voices:fetch
 pnpm dev
 ```
 
 Ouvre [http://localhost:5173](http://localhost:5173). Les appels API envoient le cookie (`credentials: 'include'`).
+
+`pnpm voices:fetch` télécharge une seule fois le modèle de voix de l’écoute audio (environ 77 Mo) dans `frontend/.voices/` (non versionné) : il est épinglé par commit et vérifié par SHA-256 (`frontend/voices.lock.json`). Sans lui, `pnpm build` refuse de construire et l’écoute ne fonctionne pas en `pnpm dev`. Le `Dockerfile` et la CI le lancent eux-mêmes.
 
 ## Pages (SPA)
 
@@ -174,7 +177,7 @@ Dans `backend/` :
 | `pnpm images:reconcile [--apply]`               | compare les fichiers stockés chez UploadThing aux images en base : liste les orphelins (retrait qui a échoué) et leur volume ; ne retire rien sans `--apply`                        |
 | `pnpm format`                                   | Prettier                                                                                                                                                                             |
 
-Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`.
+Dans `frontend/` : `pnpm dev`, `pnpm build`, `pnpm lint` (oxlint), `pnpm format`, `pnpm voices:fetch` (modèle de voix de l’écoute audio).
 
 ## API (repères)
 
@@ -260,3 +263,5 @@ Flux HTTP : requête → `ValidationPipe` + DTO (`class-validator`) → controll
 ## Licence
 
 Usage personnel / apprentissage.
+
+Exception : le dossier `frontend/phonemizer/` (phonémiseur de l’écoute audio, qui embarque eSpeak NG) est distribué sous **GNU GPL version 3**, avec sa licence et l’indication de ses sources ; il forme un programme séparé du reste du site. Les logos et visuels de `frontend/public/` ne font partie d’aucune licence libre.

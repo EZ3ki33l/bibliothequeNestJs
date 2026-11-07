@@ -94,6 +94,18 @@ ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 COPY --from=frontend-deps /app/frontend/node_modules ./node_modules
+
+# Spec 020, écoute audio : le modèle de voix (77 Mo) n'est ni dans git ni dans
+# npm. Il est téléchargé ICI, avant la copie des sources, pour que cette couche
+# reste en cache tant que voices.lock.json ne change pas. Le script vérifie la
+# taille et le SHA-256 de chaque fichier et fait échouer le build au moindre
+# écart (fichier remplacé en amont). Le plugin Vite refuse ensuite de construire
+# un site sans voix conforme. frontend/.voices est dans .dockerignore : le
+# dossier local n'est jamais envoyé ici.
+COPY frontend/voices.lock.json ./voices.lock.json
+COPY frontend/scripts/fetch-voices.mjs ./scripts/fetch-voices.mjs
+RUN node scripts/fetch-voices.mjs
+
 COPY frontend/ ./
 
 RUN pnpm build

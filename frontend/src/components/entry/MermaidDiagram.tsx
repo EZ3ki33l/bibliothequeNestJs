@@ -42,7 +42,7 @@ export function MermaidDiagram({ source, onError }: MermaidDiagramProps) {
 
   if (state.status === 'failed') {
     return (
-      <div className="entry-diagram entry-diagram-failed">
+      <div className="entry-diagram entry-diagram-failed" data-audio-announce="Schéma.">
         <Typo variant="small">Ce schéma n’a pas pu être dessiné.</Typo>
         <pre>
           <code>{source}</code>
@@ -52,13 +52,21 @@ export function MermaidDiagram({ source, onError }: MermaidDiagramProps) {
   }
 
   if (state.status === 'loading') {
-    return <div className="entry-diagram entry-diagram-loading" aria-busy="true" />;
+    return (
+      <div
+        className="entry-diagram entry-diagram-loading"
+        aria-busy="true"
+        data-audio-announce="Schéma."
+      />
+    );
   }
 
   return (
     <div
       role="figure"
       className="entry-diagram"
+      // Écoute audio (spec 020) : un schéma est annoncé, jamais lu.
+      data-audio-announce="Schéma."
       // Seule insertion de HTML du projet : la sortie du moteur de schémas,
       // assainie par DOMPurify (`lib/diagram.ts`), jamais le corps d'une fiche.
       // Le SVG porte son titre et sa description (`accTitle`, `accDescr`).

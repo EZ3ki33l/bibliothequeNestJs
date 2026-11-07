@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { playgroundStatus } from '../../lib/entryChecks';
 import { isPythonTemplate } from '../../lib/playgroundEnvironments';
+import { useEntryAudio } from '../../lib/useEntryAudio';
 import { verificationLabel, type EntrySource } from '../../lib/entrySources';
 import type { EntryIllustrationImage } from '../../lib/illustrations';
 import type {
@@ -14,6 +15,7 @@ import { Playground } from '../lab/Playground';
 import { PythonPlayground } from '../lab/PythonPlayground';
 import { EmptyMessage } from '../ui/EmptyMessage';
 import { EntryMeta } from '../ui/EntryMeta';
+import { EntryAudio } from './EntryAudio';
 import { EntryLab } from './EntryLab';
 import { EntryMdx } from './EntryMdx';
 import { EntrySources } from './EntrySources';
@@ -138,14 +140,31 @@ export function EntryArticle(props: EntryArticleProps) {
   const verification =
     props.locked === undefined ? verificationLabel(props.verifiedOn, props.verifiedVersion) : null;
 
+  // Écoute audio (spec 020). Une fiche verrouillée n'a ni lecteur ni requête : le hook est
+  // tout de même appelé (règle des hooks) mais reste inactif. Le texte lu est celui du rendu
+  // qui se trouve sous `contentRef`. Le contenu qui change (aperçu de l'administration)
+  // arrête la lecture, car elle porte sur un texte périmé.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const readable = props.locked === undefined;
+  const audio = useEntryAudio(
+    contentRef,
+    readable ? `${title}\n${summary ?? ''}\n${props.bodyMdx}` : '',
+    readable,
+  );
+  // shortcut: un corps vide n'a pas de lecteur ; un corps fait seulement de blocs annoncés en a un
+  // et répond « rien à lire » au clic. À remplacer par un test sur le rendu si cela gêne.
+  const hasAudio = readable && props.bodyMdx.trim() !== '';
+
   return (
     <article className="rail-layout mx-auto w-full max-w-4xl 2xl:has-[>.rail:not(:empty)]:max-w-[76rem]">
-      <div className="flex min-w-0 flex-col gap-8">
+      <div ref={contentRef} className="flex min-w-0 flex-col gap-8">
         {lead}
         <header className="border-border border-b pb-6">
-          <Typo variant="h1">{title}</Typo>
+          <Typo variant="h1" data-audio-title="">
+            {title}
+          </Typo>
           {summary ? (
-            <Typo variant="lead" className="mt-4 max-w-[60ch]">
+            <Typo variant="lead" className="mt-4 max-w-[60ch]" data-audio-summary="">
               {summary}
             </Typo>
           ) : null}
@@ -179,6 +198,8 @@ export function EntryArticle(props: EntryArticleProps) {
               ))}
             </ul>
           ) : null}
+          {/* Dans l'en-tête, jamais entre l'en-tête et le corps : la leçon passe en premier. */}
+          {hasAudio ? <EntryAudio audio={audio} /> : null}
           {headerActions}
         </header>
 

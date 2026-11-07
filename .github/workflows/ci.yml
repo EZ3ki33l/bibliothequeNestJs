@@ -84,7 +84,20 @@ jobs:
       - name: Lint (oxlint)
         run: pnpm lint
 
-      # tsc -b vérifie les types, puis vite build produit le bundle.
+      # Spec 020 : le modèle de voix (77 Mo) n'est pas dans git. Le cache évite de le
+      # retélécharger tant que voices.lock.json ne change pas ; le script vérifie de
+      # toute façon la taille et le SHA-256 de chaque fichier.
+      - name: Cache des voix
+        uses: actions/cache@v4
+        with:
+          path: frontend/.voices
+          key: voices-${{ hashFiles('frontend/voices.lock.json') }}
+
+      - name: Télécharger les voix (SHA-256 vérifié)
+        run: pnpm voices:fetch
+
+      # tsc -b vérifie les types, puis vite build produit le bundle (et refuse de
+      # construire sans voix conforme à voices.lock.json).
       - name: Build Vite
         run: pnpm build
 
