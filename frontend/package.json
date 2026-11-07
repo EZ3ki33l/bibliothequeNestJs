@@ -9,7 +9,8 @@
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "voices:fetch": "node scripts/fetch-voices.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.0",
@@ -33,6 +34,7 @@
     "mdast-util-gfm": "^3.1.0",
     "mermaid": "12.2.0",
     "micromark-extension-gfm": "^3.0.0",
+    "onnxruntime-web": "1.31.1",
     "pyodide": "314.0.7",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -45,6 +47,7 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@diffusionstudio/piper-wasm": "1.0.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",

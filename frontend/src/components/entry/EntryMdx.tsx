@@ -80,12 +80,17 @@ export function EntryMdx({ source, images = NO_IMAGES, onDiagramError }: EntryMd
 
     return {
       ...diagram,
+      // Écoute audio (spec 020) : un bloc de code ou un tableau est annoncé, jamais lu.
+      // `node` est la valeur interne de react-markdown : ne pas la poser sur la balise.
+      pre: ({ node: _node, ...props }) => <pre data-audio-announce="Exemple de code." {...props} />,
       table: ({ children }) => (
-        <Table>
-          <Table.ScrollContainer>
-            <Table.Content aria-label="Tableau de la fiche">{children}</Table.Content>
-          </Table.ScrollContainer>
-        </Table>
+        <div data-audio-announce="Tableau.">
+          <Table>
+            <Table.ScrollContainer>
+              <Table.Content aria-label="Tableau de la fiche">{children}</Table.Content>
+            </Table.ScrollContainer>
+          </Table>
+        </div>
       ),
       // HeroUI attend les colonnes directement dans l'en-tête, sans `<tr>` :
       // on déplie la ligne que Markdown y met. Seule la première colonne nomme
@@ -133,7 +138,8 @@ export function EntryMdx({ source, images = NO_IMAGES, onDiagramError }: EntryMd
         rehypePlugins={REHYPE_PLUGINS}
         components={components}
         fallback={
-          <Typo variant="small" as="p">
+          // Contenu provisoire : l'écoute attend qu'il soit remplacé (data-audio-skip).
+          <Typo variant="small" as="p" data-audio-skip="">
             Chargement du contenu…
           </Typo>
         }

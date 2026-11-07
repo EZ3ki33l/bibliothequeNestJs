@@ -5,7 +5,7 @@ import { SITE_LEGAL } from '../lib/site-legal';
 import { Typo } from '../components/ui/Typo';
 
 /** À mettre à jour à chaque modification de fond de cette page. */
-const LAST_UPDATED = '14 octobre 2026';
+const LAST_UPDATED = '7 novembre 2026';
 
 const LINK_CLASS = 'text-blueberry-light underline underline-offset-2';
 
@@ -185,7 +185,8 @@ export function PrivacyPage() {
           </Typo>
           <Typo variant="p" className="mb-2">
             Le site n’utilise ni outil de mesure d’audience, ni publicité, ni pixel de suivi, ni
-            captcha tiers, et ne stocke rien d’autre dans le navigateur.
+            captcha tiers, et ne stocke dans le navigateur que ce qui est décrit ci-dessous (moteur
+            Python et écoute audio).
           </Typo>
           <Typo variant="p">
             Une exception : sur les fiches qui comportent un éditeur de code web exécutable, le
@@ -211,6 +212,15 @@ export function PrivacyPage() {
             accès au réseau : ni le code, ni l’entrée, ni la sortie, ni le résultat d’une
             vérification ne sont envoyés au site ou à un tiers, ni conservés. Aucun prestataire
             n’intervient.
+          </Typo>
+          <Typo variant="p" className="mt-2">
+            Écoute audio : au premier clic sur « Écouter », le navigateur télécharge depuis le site
+            lui-même un moteur de synthèse vocale et une voix (environ 105 Mo, une seule fois), puis
+            les garde dans son cache. La voix est produite dans le navigateur : le texte de la
+            fiche, la voix choisie et l’avancement de la lecture ne sont envoyés ni au site ni à un
+            tiers, et rien n’est enregistré sur le serveur. La voix et la vitesse choisies sont
+            conservées dans le stockage local de ce navigateur seulement, pour être retrouvées à la
+            visite suivante. Aucun prestataire n’intervient.
           </Typo>
         </Section>
 

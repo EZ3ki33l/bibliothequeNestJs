@@ -549,3 +549,30 @@
     flex: none !important;
   }
 }
+
+/* Section lue à voix haute (spec 020, écoute audio) : un fond une marche au-dessus
+   du fond de page ET un filet Blueberry à gauche. Le repère se voit sans la
+   teinte (fond, filet) : jamais la couleur seule. Le retrait du filet est
+   compensé par une marge négative : le texte ne bouge pas. Aucune animation,
+   quelle que soit la préférence « réduire les animations ». `data-audio-current`
+   est posé par `useEntryAudio` sur l'élément du rendu. */
+[data-audio-current] {
+  background: var(--surface);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 0.375rem 0.375rem 0;
+  padding-left: 0.625rem;
+  margin-left: calc(-0.625rem - 3px);
+  scroll-margin-block: 6rem;
+}
+
+/* Blocs annoncés et images : leur propre fond (code, tableau) reste intact, un
+   cadre les entoure à la place du filet. */
+[data-audio-current]:is([data-audio-announce], [data-audio-image]) {
+  background: none;
+  border-left: 0;
+  border-radius: 0.5rem;
+  padding-left: 0;
+  margin-left: 0;
+  outline: 2px solid var(--accent);
+  outline-offset: 0.5rem;
+}

@@ -19,3 +19,5 @@ graphify-out
 specs
 **/*.tsbuildinfo
 backend/src/generated
+# Spec 020 : modèle de voix local (77 Mo), re-téléchargé et vérifié dans l'image
+**/.voices

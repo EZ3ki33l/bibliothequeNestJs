@@ -1,7 +1,10 @@
 import { Link } from 'react-router';
+import { AUDIO_MANIFEST } from '../lib/audioManifest';
 import { PageHeader } from '../components/ui/PageHeader';
 import { SITE_LEGAL } from '../lib/site-legal';
 import { Typo } from '../components/ui/Typo';
+
+const LINK_CLASS = 'text-blueberry-light underline underline-offset-2';
 
 /**
  * Mentions légales.
@@ -38,6 +41,69 @@ export function LegalNoticePage() {
             </Typo>
             <Typo variant="small" as="p" className="text-foreground mt-1">
               {SITE_LEGAL.hostAddress}
+            </Typo>
+          </dd>
+        </div>
+
+        <div>
+          <dt className="text-sm font-medium">Écoute audio des fiches : crédits et licences</dt>
+          <dd className="space-y-2">
+            <Typo variant="small" as="p" className="text-foreground mt-1">
+              La voix est produite dans le navigateur, avec Piper et ONNX Runtime (licence MIT).
+            </Typo>
+            <Typo variant="small" as="p" className="mt-1">
+              Voix : modèle « fr_FR-upmc-medium » du projet Piper, entraîné à partir des
+              enregistrements « upmc-pierre-data » (projet MaryTTS,{' '}
+              <a
+                href="https://github.com/marytts/upmc-pierre-data"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK_CLASS}
+              >
+                github.com/marytts/upmc-pierre-data
+              </a>
+              ), sous licence{' '}
+              <a
+                href="https://creativecommons.org/licenses/by-sa/4.0/deed.fr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK_CLASS}
+              >
+                Creative Commons Attribution – Partage dans les mêmes conditions 4.0 (CC BY-SA 4.0)
+              </a>
+              . Le modèle servi par ce site est une adaptation de ces enregistrements (entraînement
+              par le projet Piper) ; il est distribué sous la même licence.
+            </Typo>
+            <Typo variant="small" as="p" className="mt-1">
+              Prononciation : phonémiseur eSpeak NG, sous licence GNU GPL version 3. Il est
+              distribué comme un programme séparé du reste du site, avec sa{' '}
+              <a
+                href={`${AUDIO_MANIFEST.base}phonemizer/LICENSE`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK_CLASS}
+              >
+                licence
+              </a>{' '}
+              et l’indication de ses{' '}
+              <a
+                href={`${AUDIO_MANIFEST.base}phonemizer/SOURCE.md`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK_CLASS}
+              >
+                sources
+              </a>
+              . Le code du site est publié sur{' '}
+              <a
+                href="https://github.com/EZ3ki33l/bibliothequeNestJs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK_CLASS}
+              >
+                GitHub
+              </a>
+              .
             </Typo>
           </dd>
         </div>

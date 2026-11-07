@@ -32,7 +32,13 @@ export function EntryImage({ image }: { image: EntryIllustrationImage }) {
   }
 
   return (
-    <span role="figure" aria-label={image.alt} className="entry-image">
+    <span
+      role="figure"
+      aria-label={image.alt}
+      className="entry-image"
+      // Écoute audio (spec 020) : lue par le texte alternatif enregistré avec l'image.
+      data-audio-image={image.alt}
+    >
       <button
         type="button"
         className="entry-image-button"
